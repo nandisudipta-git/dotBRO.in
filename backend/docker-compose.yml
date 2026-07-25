@@ -1,0 +1,88 @@
+# .Bro backend — global compose (draft v0.1)
+# Services built so far: gateway + auth + registry.
+# Only the gateway is public; auth/registry are also exposed here on localhost
+# for development only (see the `ports:` notes) and must NOT be in prod.
+#
+#   docker compose up --build
+#
+name: bro-backend
+
+services:
+  # ------------------------------------------------------------- gateway
+  # The only public service. Authenticates each request against auth, resolves
+  # the caller's node via registry, then reverse-proxies. Holds no user data.
+  gateway:
+    build: ./gateway
+    environment:
+      GATEWAY_AUTH_URL: http://auth:8000
+      GATEWAY_REGISTRY_URL: http://registry:8000
+    depends_on:
+      - auth
+      - registry
+    ports:
+      - "8000:8000"   # public edge
+    networks: [internal]
+
+
+  # ---------------------------------------------------------------- auth
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: bro
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-bro}
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bro -d auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  auth:
+    build: ./auth
+    environment:
+      AUTH_DATABASE_URL: postgresql+asyncpg://bro:${AUTH_DB_PASSWORD:-bro}@auth-db:5432/auth
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-secret-change-me}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    ports:
+      - "8001:8000"   # DEV ONLY — in prod only the gateway is public
+    networks: [internal]
+
+  # ------------------------------------------------------------ registry
+  registry-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: registry
+      POSTGRES_USER: bro
+      POSTGRES_PASSWORD: ${REGISTRY_DB_PASSWORD:-bro}
+    volumes:
+      - registry_db_data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bro -d registry"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  registry:
+    build: ./registry
+    environment:
+      REGISTRY_DATABASE_URL: postgresql+asyncpg://bro:${REGISTRY_DB_PASSWORD:-bro}@registry-db:5432/registry
+    depends_on:
+      registry-db:
+        condition: service_healthy
+    ports:
+      - "8002:8000"   # DEV ONLY — in prod only the gateway is public
+    networks: [internal]
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  auth_db_data:
+  registry_db_data:
