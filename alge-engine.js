@@ -167,20 +167,56 @@ for (const k in CATS) MATS[k] = new THREE.SpriteMaterial({
   blending: THREE.AdditiveBlending, depthWrite: false,
 });
 
-const ORBIT = 1.045;
+const ORBIT = 1.16, BOB = 0.011;   // float height + bob amplitude — 'conversations float on a shell above the surface'
 const nodeGroup = new THREE.Group(); yawG.add(nodeGroup);
+let tetherLine = null, surfDots = null;
+function rebuildTethers() {
+  if (tetherLine) { yawG.remove(tetherLine); tetherLine.geometry.dispose(); tetherLine.material.dispose(); }
+  if (surfDots) { yawG.remove(surfDots); surfDots.geometry.dispose(); surfDots.material.dispose(); }
+  const list = [...sprites.values()];
+  if (!list.length) return;
+  const lp = new Float32Array(list.length * 6), sp2 = new Float32Array(list.length * 3);
+  list.forEach((sp, i) => {
+    const d = sp.userData.dir;
+    lp.set([d.x * 1.002, d.y * 1.002, d.z * 1.002, sp.position.x, sp.position.y, sp.position.z], i * 6);
+    sp2.set([d.x * 1.003, d.y * 1.003, d.z * 1.003], i * 3);
+  });
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute('position', new THREE.BufferAttribute(lp, 3).setUsage(THREE.DynamicDrawUsage));
+  tetherLine = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.28, depthWrite: false,
+  }));
+  yawG.add(tetherLine);
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.BufferAttribute(sp2, 3));
+  surfDots = new THREE.Points(sg, new THREE.PointsMaterial({
+    color: 0xffffff, size: 0.014, transparent: true, opacity: 0.8, depthWrite: false,
+  }));
+  yawG.add(surfDots);
+}
 const sprites = new Map();                       // node → sprite
 const hash = x => { x ^= x >>> 16; x = Math.imul(x, 0x45d9f3b); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
 let nid = 0;
 function spriteFor(n) {
-  // classic latLonDir → three equirect frame: negate y (screen-down) AND z (mirror)
-  const d = n.anchor
+  // the dot must point at the question's REAL place: use its lat/lon directly.
+  // (the classic anchor blends in a category offset — that is a clustering trick
+  //  for the 2D physics, not a location, and it put dots off their cities.)
+  const q = !IS_DEMO && S.q.get(n.id);
+  let d;
+  if (q && q.lat != null && q.lon != null) d = ll2v(q.lat, q.lon);
+  else d = n.anchor
     ? new THREE.Vector3(n.anchor.x, -n.anchor.y, -n.anchor.z)
     : new THREE.Vector3(n.dx, -n.dy, -n.dz);
-  // deterministic jitter so co-located questions don't stack into one point
-  const i = nid++;
-  d.x += (hash(i * 3 + 1) - 0.5) * 0.05; d.y += (hash(i * 3 + 2) - 0.5) * 0.05; d.z += (hash(i * 3 + 3) - 0.5) * 0.05;
   d.normalize();
+  // co-located posts (whole cohorts share one rounded lat/lon) spread into a
+  // small bouquet around the spot — tangentially, so they still point at it
+  const i = nid++;
+  const up = Math.abs(d.y) < 0.94 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  const t1 = new THREE.Vector3().crossVectors(d, up).normalize();
+  const t2 = new THREE.Vector3().crossVectors(d, t1).normalize();
+  d.addScaledVector(t1, (hash(i * 3 + 1) - 0.5) * 0.07)
+   .addScaledVector(t2, (hash(i * 3 + 2) - 0.5) * 0.07)
+   .normalize();
   // own material clone per sprite — 21 live nodes, and it buys per-node dimming
   const sp = new THREE.Sprite(MATS[CATS[n.cat] ? n.cat : 'random'].clone());
   sp.position.copy(d).multiplyScalar(ORBIT);
@@ -244,7 +280,7 @@ function spawnArc(now) {
   for (let i = 0; i <= N; i++) {
     const t = i / N;
     q.setFromUnitVectors(va, vb); const qq = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), q, t);
-    tmp.copy(va).applyQuaternion(qq).multiplyScalar(ORBIT * (1 + 0.14 * Math.sin(Math.PI * t)));
+    tmp.copy(va).applyQuaternion(qq).multiplyScalar(ORBIT * (1 + 0.09 * Math.sin(Math.PI * t)));
     pts.set([tmp.x, tmp.y, tmp.z], i * 3);
   }
   const g = new THREE.BufferGeometry();
@@ -491,6 +527,7 @@ function frame() {
   if (!MASSIVE && S.arr.length !== known) {
     for (let i = known; i < S.arr.length; i++) spriteFor(S.arr[i]);
     known = S.arr.length;
+    rebuildTethers();
   } else if (MASSIVE && !massive && S.arr.length) { buildMassive(); known = S.arr.length; }
   if (shown !== S.arr.length) { shown = S.arr.length; nqEl.textContent = shown.toLocaleString('en-US'); }
 
@@ -526,14 +563,28 @@ function frame() {
   starsNear.rotation.y = yaw * 0.11; starsNear.rotation.x = pitch * 0.11;
 
   // node life: gentle float + grow-in + reply-size + filter dim + spot pulse
-  if (!MASSIVE) for (const [n, sp] of sprites) {
-    const base = nodeScale(n);
-    const grow = Math.min(1, (now - sp.userData.born) / 650);
-    const dim = S.filter && S.filter !== n.cat;
-    const pulse = (spot === sp) ? 1 + 0.22 * Math.sin(now * 0.004) : 1;
-    const breathe = 1 + 0.05 * Math.sin(now * 0.0012 + sp.userData.ph);
-    sp.scale.setScalar(base * grow * pulse * breathe * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
-    sp.material.opacity += ((dim ? 0.12 : 1) - sp.material.opacity) * 0.15;
+  if (!MASSIVE) {
+    let ti = 0;
+    const tpos = tetherLine && tetherLine.geometry.attributes.position;
+    for (const [n, sp] of sprites) {
+      const base = nodeScale(n);
+      const grow = Math.min(1, (now - sp.userData.born) / 650);
+      const dim = S.filter && S.filter !== n.cat;
+      const pulse = (spot === sp) ? 1 + 0.22 * Math.sin(now * 0.004) : 1;
+      const breathe = 1 + 0.05 * Math.sin(now * 0.0012 + sp.userData.ph);
+      sp.scale.setScalar(base * grow * pulse * breathe * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
+      sp.material.opacity += ((dim ? 0.12 : 1) - sp.material.opacity) * 0.15;
+      // the float: each conversation bobs gently on its shell
+      const r = ORBIT + BOB * Math.sin(now * 0.0009 + sp.userData.ph * 6) * grow;
+      sp.position.copy(sp.userData.dir).multiplyScalar(r);
+      if (tpos) {
+        tpos.array[ti * 6 + 3] = sp.position.x;
+        tpos.array[ti * 6 + 4] = sp.position.y;
+        tpos.array[ti * 6 + 5] = sp.position.z;
+        ti++;
+      }
+    }
+    if (tpos) tpos.needsUpdate = true;
   }
 
   // hover raycast (skip while dragging / massive)
