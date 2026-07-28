@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>.Bro — Human Needs Framework</title>
+<meta name="description" content=".Bro is a family of specialized companions that help people turn curiosity into meaningful action.">
+<meta property="og:title" content=".Bro — Human Needs Framework">
+<meta property="og:description" content="A family of specialized companions built around human needs.">
+<meta property="og:image" content="https://dotbro.in/assets/og-main.png">
+<meta property="og:url" content="https://dotbro.in/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content=".Bro — Human Needs Framework">
+<meta name="twitter:description" content=".Bro is a family of specialized companions that help people turn curiosity into meaningful action.">
+<meta name="twitter:image" content="https://dotbro.in/assets/og-main.png">
+<link rel="icon" type="image/png" href="/assets/favicon-red.png">
+<meta name="theme-color" content="#0A0A0A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black: #0A0A0A;
+  --white: #F7F6F2;
+  --red:   #D10000;
+  --whisper: #A3A29B;  /* lifted from #8A8A85 — small text needs the headroom */
+  --hairline: rgba(247,246,242,0.10);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; border-radius: 4px; }
+.how :focus-visible { outline-color: var(--black); }
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  scroll-snap-type: y proximity;      /* proximity = glides to rest, never yanks the thumb */
+  -webkit-overflow-scrolling: touch;  /* iOS inertial momentum */
+  overscroll-behavior-y: none;        /* no rubber-band chain-jank at the ends */
+}
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+  touch-action: pan-y;   /* vertical drag flows straight to the browser's momentum engine */
+}
+::selection { background: var(--red); color: var(--white); }
+
+.eyebrow {
+  font-family:'Space Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--whisper);
+}
+
+/* ══ CARD STACK — the sheet grammar every eye already trusts ══
+   Each section is a rounded card. It pins a step lower than the one
+   before, so every previous card stays visible as a sliver at the top —
+   the .BRO hero card holds the top line for the whole journey. */
+.panel {
+  --si: 0;                              /* stack index — set per card */
+  position: sticky;
+  top: calc(var(--si) * 13px);
+  scroll-snap-align: start;
+  min-height: calc(100svh - var(--si) * 13px);
+  margin-inline: 12px;
+  background: var(--black);
+  border: 1px solid var(--hairline);
+  border-bottom: none;
+  border-radius: 26px 26px 0 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  will-change: transform, opacity;
+  transform-origin: center top;
+}
+.hero       { --si: 0; }
+.why        { --si: 1; }
+.how        { --si: 2; }
+.principles { --si: 3; }
+.family     { --si: 4; }
+.ronvey     { --si: 5; }
+.connect    { --si: 6; }
+body {
+  background: #050505;                  /* the void behind the cards */
+}
+/* very short viewports: content won't fit a pinned sheet — fall back to normal flow */
+@media (max-height: 560px) {
+  .panel { position: relative; min-height: auto; top: auto; }
+}
+@media (max-width: 640px) {
+  .panel { margin-inline: 8px; top: calc(var(--si) * 11px); min-height: calc(100svh - var(--si) * 11px); border-radius: 22px 22px 0 0; }
+}
+
+/* ══ HERO — must read as a WhatsApp thumbnail ══ */
+.hero {
+  align-items: center;
+  text-align: center;
+  padding: 8vh 6vw;
+  gap: 2.6rem;
+}
+.wordmark {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(6.5rem, 26vw, 21rem);
+  line-height: 0.9;
+  letter-spacing: -0.015em;
+  display: flex;
+  align-items: baseline;
+}
+.wordmark .dot {
+  width: clamp(0.9rem, 3.6vw, 3rem);
+  height: clamp(0.9rem, 3.6vw, 3rem);
+  background: var(--red);
+  border-radius: 58% 42% 55% 45% / 52% 58% 42% 48%;
+  animation: blobMorph 9s ease-in-out infinite;
+  margin-right: clamp(0.35rem, 1.2vw, 1rem);
+  transform: translateY(-14%);
+}
+.statement {
+  max-width: 34ch;
+  font-size: clamp(1.25rem, 2.6vw, 2rem);
+  font-weight: 500;
+  line-height: 1.45;
+  text-wrap: balance;
+}
+/* ══ CTA — the one action on the page: float your question ══ */
+.cta {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--white);
+  text-decoration: none;
+  border: 1px solid var(--red);
+  border-radius: 999px;
+  padding: 0.85rem 1.8rem;
+  transition: background 0.25s ease, transform 0.15s ease;
+}
+.cta:hover { background: var(--red); }
+.cta:active { transform: scale(0.97); }
+.substatement {
+  max-width: 46ch;
+  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--whisper);
+  text-wrap: balance;
+}
+
+/* ══ WHY — three declaratives ══ */
+.why {
+  padding: 8vh 6vw;
+  align-items: center;
+  gap: 3.2rem;
+  text-align: center;
+}
+.why h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6.5vw, 5.5rem);
+  line-height: 1.08;
+  letter-spacing: 0.005em;
+}
+.why h2 em { font-style: normal; color: var(--red); }
+
+/* ══ HOW — the flow. The dot travels the line. ══ */
+.how {
+  padding: 8vh 6vw;
+  align-items: center;
+}
+.how .eyebrow { margin-bottom: 4.5rem; }
+.flow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.flow-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--hairline);
+  transform: translateX(-50%);
+}
+/* the travelling dot — the page's one moving element */
+.flow-dot {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 10px; height: 10px;
+  background: var(--red);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: travel 7s cubic-bezier(0.45,0,0.25,1) infinite;
+}
+@keyframes travel {
+  0%   { top: 0%;   opacity: 0; }
+  6%   { opacity: 1; }
+  94%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.step {
+  position: relative;
+  background: var(--black);
+  padding: 1.7rem 0;
+  text-align: center;
+  z-index: 1;
+}
+.step .label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2rem, 5.5vw, 4.2rem);
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+.step .caption {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--whisper);
+  margin-top: 0.7rem;
+}
+.step.need .label { color: var(--red); }
+
+/* ══ PRINCIPLES ══ */
+.principles { padding: 8vh 6vw; align-items: center; }
+.principles-inner { width: 100%; max-width: 760px; }
+.principles .eyebrow { text-align: center; display: block; margin-bottom: 3.5rem; }
+.principle {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 1.6rem;
+  align-items: baseline;
+  padding: 1.8rem 0;
+  border-top: 1px solid var(--hairline);
+}
+.principle:last-child { border-bottom: 1px solid var(--hairline); }
+.principle .pdot {
+  width: 10px; height: 10px;
+  background: var(--red);
+  border-radius: 50%;
+  transform: translateY(1px);
+}
+.principle h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.6rem, 3.6vw, 2.6rem);
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+.principle p {
+  grid-column: 2;
+  margin-top: 0.7rem;
+  color: var(--whisper);
+  font-size: clamp(0.95rem, 1.4vw, 1.05rem);
+  line-height: 1.65;
+  max-width: 52ch;
+}
+
+/* ══ FAMILY — the companions, each a door into its cluster on the feed ══ */
+.family { padding: 8vh 6vw; align-items: center; }
+.family-inner { width: 100%; max-width: 760px; }
+.family .eyebrow { text-align: center; display: block; margin-bottom: 3.5rem; }
+.frow {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 1.6rem;
+  align-items: baseline;
+  padding: 1.8rem 0;
+  border-top: 1px solid var(--hairline);
+  text-decoration: none;
+  color: var(--white);
+}
+.frow:last-of-type { border-bottom: 1px solid var(--hairline); }
+.frow .pdot {
+  width: 10px; height: 10px;
+  background: var(--red);
+  border-radius: 50%;
+  transform: translateY(1px);
+}
+.frow h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.6rem, 3.6vw, 2.6rem);
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+.frow p {
+  grid-column: 2;
+  margin-top: 0.7rem;
+  color: var(--whisper);
+  font-size: clamp(0.95rem, 1.4vw, 1.05rem);
+  line-height: 1.65;
+  max-width: 52ch;
+}
+.frow .farrow { color: var(--red); font-size: 1.2rem; transition: transform 0.2s ease; }
+.frow:hover .farrow, .frow:focus-visible .farrow { transform: translateX(5px); }
+.family-note {
+  margin-top: 2.4rem;
+  text-align: center;
+  color: var(--whisper);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+/* ══ RONVEY — one mind behind every companion ══ */
+.ronvey {
+  padding: 8vh 6vw;
+  align-items: center;
+  gap: 2.4rem;
+  text-align: center;
+}
+.ronvey h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6.5vw, 5.5rem);
+  line-height: 1.08;
+  letter-spacing: 0.005em;
+}
+.ronvey h2 em { font-style: normal; color: var(--red); }
+.ronvey p {
+  max-width: 52ch;
+  color: var(--whisper);
+  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  line-height: 1.7;
+  text-wrap: balance;
+}
+
+/* ══ CONNECT — the one place the framework asks something of you ══ */
+.connect {
+  padding: 8vh 6vw;
+  align-items: center;
+  gap: 2.2rem;
+  text-align: center;
+}
+.connect h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6.5vw, 5.5rem);
+  line-height: 1.08;
+  letter-spacing: 0.005em;
+}
+.connect p {
+  max-width: 52ch;
+  color: var(--whisper);
+  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  line-height: 1.7;
+  text-wrap: balance;
+}
+.connect .mailline {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  word-break: break-all;
+}
+.connect .mailline a { color: var(--whisper); text-decoration: none; border-bottom: 1px solid var(--hairline); }
+.connect .mailline a:hover { color: var(--white); border-color: var(--red); }
+footer a:hover { color: var(--red); }
+
+/* ══ FOOTER — the last card to rise. No slogan, no CTA. ══ */
+footer {
+  position: relative;   /* in-flow: slides up over the stuck last card */
+  z-index: 2;
+  background: var(--black);
+  margin-inline: 12px;
+  border: 1px solid var(--hairline);
+  border-bottom: none;
+  border-radius: 26px 26px 0 0;
+  padding: 5rem 6vw calc(4rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.2rem;
+}
+@media (max-width: 640px) { footer { margin-inline: 8px; border-radius: 22px 22px 0 0; } }
+footer span {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--whisper);
+}
+footer .fdot {
+  width: 6px; height: 6px;
+  background: var(--red);
+  border-radius: 50%;
+}
+
+/* ══ THE COMPANION — the dot narrates the page like a friend ══
+   Position is JS-driven: it glides beside whatever you're reading.
+   On small screens it docks bottom-left, like a tiny chat companion. */
+.companion {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  will-change: transform;
+}
+.companion.on { opacity: 1; }
+.companion .cdot {
+  width: 16px; height: 16px;
+  background: var(--red);
+  flex-shrink: 0;
+  /* shape-shifter: the dot is a droplet, never a rigid circle */
+  border-radius: 58% 42% 55% 45% / 52% 58% 42% 48%;
+  animation: blobMorph 6s ease-in-out infinite;
+  will-change: transform, border-radius;
+}
+/* organic surface-tension wobble */
+@keyframes blobMorph {
+  0%,100% { border-radius: 58% 42% 55% 45% / 52% 58% 42% 48%; }
+  25%     { border-radius: 45% 55% 48% 52% / 58% 44% 56% 42%; }
+  50%     { border-radius: 52% 48% 42% 58% / 45% 52% 48% 55%; }
+  75%     { border-radius: 48% 52% 58% 42% / 50% 46% 54% 50%; }
+}
+.companion .cmsg {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: #F7F6F2;
+  background: #0E0E10;              /* solid, opaque — text is never washed out */
+  border: 1px solid rgba(247,246,242,0.22);
+  border-radius: 13px;
+  border-bottom-left-radius: 3px;   /* speech-bubble tail corner, toward the dot */
+  padding: 0.6rem 0.9rem;
+  max-width: 30ch;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);   /* lifts off any background it crosses */
+  transition: opacity 0.28s ease;
+}
+.companion .cmsg.swap,
+.companion .cmsg.moving,
+.companion .cmsg.hide { opacity: 0; }
+/* NOTE: bubble colour is driven entirely by JS (contrast-safe). No panel override. */
+.companion .cmsg { max-width: min(30ch, 78vw); }
+@media (max-width: 640px) {
+  .companion { gap: 9px; }
+  .companion .cmsg { font-size: 0.68rem; max-width: 82vw; }
+}
+
+/* ══ THE COMPANION'S BAND ══
+   The dot used to stand beside whatever you were reading, which meant its
+   speech bubble sat directly on top of the writing. It now walks along a strip
+   at the bottom edge that is reserved for it: every card and the footer keep
+   their content out of that strip, so the bubble has nothing to cover.
+   Specificity is deliberate — `.hero`, `.why`, `.how` … all set `padding`
+   shorthand later in this sheet, and a bare `.panel` rule would lose to them. */
+/* --comp-band is a first-paint fallback only. Because the bubble's height
+   depends on how far its text wraps — which depends on the viewport — the real
+   value is written from JS whenever the message changes, so the reservation
+   always matches the bubble that has to fit inside it. */
+:root { --comp-band: 104px; }
+/* The hero is deliberately exempt: there the dot is docked inside the wordmark,
+   not in the band, so reserving space would only push the CTA below the fold. */
+body .panel:not(.hero) { padding-bottom: var(--comp-band); }
+body footer { padding-bottom: calc(var(--comp-band) + env(safe-area-inset-bottom, 0px)); }
+
+/* ══ PANEL 3 — the inverted card ══ */
+.how {
+  background: var(--white);
+  color: var(--black);
+  border-color: rgba(10,10,10,0.14);
+}
+.how .eyebrow { color: #66645C; }
+.how .flow-line { background: rgba(10,10,10,0.15); }
+.how .step { background: var(--white); }
+.how .step .caption { color: #66645C; }
+
+/* ══ REVEAL ══ */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.9s ease, transform 0.9s ease; }
+.reveal.in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-dot { animation: none; opacity: 1; top: 0; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .companion { transition: opacity 0.3s ease; }
+  .companion .cdot, .wordmark .dot { animation: none; border-radius: 50%; }
+  html { scroll-behavior: auto; }
+}
+@media (max-width: 480px) {
+  .why { padding: 16vh 7vw; }
+  .how .eyebrow { margin-bottom: 5rem; }
+  .step { padding: 1.9rem 0; }
+}
+</style>
+</head>
+<body data-panel="hero">
+
+<!-- ══ THE COMPANION — the dot, walking with you ══ -->
+<div class="companion" aria-hidden="true">
+  <span class="cdot"></span>
+  <span class="cmsg" id="cmsg"></span>
+</div>
+
+<!-- ══ 1 · WHAT ══ -->
+<header class="hero panel">
+  <span class="eyebrow">Human Needs Framework</span>
+  <div class="wordmark" role="img" aria-label="dot Bro">
+    <span class="dot" aria-hidden="true"></span>BRO
+  </div>
+  <h1 class="statement">.Bro is a family of specialized companions that help people turn curiosity into meaningful action.</h1>
+  <p class="substatement">A Human Needs Framework where every companion is built around a human need — sharing one intelligence and one evolving knowledge foundation.</p>
+  <a class="cta" href="/">float your question →</a>
+</header>
+
+<!-- ══ 2 · WHY ══ -->
+<section class="why panel" aria-label="Why .Bro exists">
+  <h2 class="reveal">.Bro is not an app.</h2>
+  <h2 class="reveal">.Bro is a living space<br>for <em>missed conversations</em>.</h2>
+  <h2 class="reveal">.Bro creates companions<br>around human needs.</h2>
+</section>
+
+<!-- ══ 3 · HOW ══ -->
+<section class="how panel" aria-label="How .Bro works">
+  <span class="eyebrow reveal">How it works</span>
+  <div class="flow reveal">
+    <div class="flow-line" aria-hidden="true"><div class="flow-dot"></div></div>
+    <div class="step need"><div class="label">Human Need</div><div class="caption">where it begins</div></div>
+    <div class="step"><div class="label">Companion</div><div class="caption">a .Bro, built for that need</div></div>
+    <div class="step"><div class="label">Understanding</div><div class="caption">the need, made clear</div></div>
+    <div class="step"><div class="label">Decision</div><div class="caption">a direction, chosen</div></div>
+    <div class="step"><div class="label">Action</div><div class="caption">curiosity, made real</div></div>
+  </div>
+</section>
+
+<!-- ══ 4 · PRINCIPLES ══ -->
+<section class="principles panel" aria-label="Core principles">
+  <div class="principles-inner">
+  <span class="eyebrow reveal">Core principles</span>
+  <div class="principle reveal">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>One Identity</h3>
+    <p>You are one person everywhere in .Bro — never a new account, never a new profile.</p>
+  </div>
+  <div class="principle reveal">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>One Intelligence</h3>
+    <p>Every companion draws from the same understanding of you.</p>
+  </div>
+  <div class="principle reveal">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>One Knowledge Foundation</h3>
+    <p>What one companion learns, the framework never forgets.</p>
+  </div>
+  <div class="principle reveal">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>Many Specialized Companions</h3>
+    <p>Each .Bro is built for a single human need — and nothing else.</p>
+  </div>
+  </div>
+</section>
+
+<!-- ══ 5 · THE FAMILY ══ -->
+<section class="family panel" aria-label="The .Bro family">
+  <div class="family-inner">
+  <span class="eyebrow reveal">The Family</span>
+  <a class="frow reveal" href="https://con.dotbro.in">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>con.BRO</h3>
+    <p>A place for conversations that deserve to continue.</p>
+    <span class="farrow" aria-hidden="true">→</span>
+  </a>
+  <a class="frow reveal" href="/parbro.html" style="--frow-accent:#E60000">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>par.BRO</h3>
+    <p>One last founders' night. Entry costs the year you were born.</p>
+    <span class="farrow" aria-hidden="true">→</span>
+  </a>
+  <a class="frow reveal" href="/#build-startup">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>Num.Bro</h3>
+    <p>Clearer records, shared understanding, fewer assumptions.</p>
+    <span class="farrow" aria-hidden="true">→</span>
+  </a>
+  <a class="frow reveal" href="/#life">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>Relax.Bro</h3>
+    <p>A calmer route from asking for help to finding it.</p>
+    <span class="farrow" aria-hidden="true">→</span>
+  </a>
+  <a class="frow reveal" href="https://gyan.dotbro.in">
+    <span class="pdot" aria-hidden="true"></span>
+    <h3>gyan.BRO</h3>
+    <p>The Founder's Journey — the whole venture course, told slowly.</p>
+    <span class="farrow" aria-hidden="true">→</span>
+  </a>
+  <a class="frow reveal" href="/podbro.html" style="--frow-accent:#FF7A1A">
+    <span class="pdot" aria-hidden="true" style="background:#FF7A1A"></span>
+    <h3>pod.BRO</h3>
+    <p>Curated conversations, headhunted guests — the question they never got asked.</p>
+    <span class="farrow" aria-hidden="true" style="color:#FF7A1A">→</span>
+  </a>
+  <p class="family-note reveal">Coming soon — for now, each door opens what's live today.</p>
+  </div>
+</section>
+
+<!-- ══ 6 · RONVEY ══ -->
+<section class="ronvey panel" aria-label="RonVey — the intelligence">
+  <span class="eyebrow reveal">The Intelligence</span>
+  <h2 class="reveal">One mind behind<br>every companion. <em>RonVey.</em></h2>
+  <p class="reveal">RonVey is the reasoning architecture the whole framework thinks with. It learns you once, remembers what matters, and keeps it yours — private by design. It advises. You decide.</p>
+</section>
+
+<!-- ══ 7 · CONNECT ══ -->
+<section class="connect panel" aria-label="Connect with the team">
+  <span class="eyebrow reveal">Connect</span>
+  <h2 class="reveal">Want to build this<br>with us?</h2>
+  <p class="reveal">Bring your campus or community onto the globe, work on it with us, or just tell us what you thought. A person reads every mail — not a form, not a bot.</p>
+  <a class="cta reveal" href="mailto:alokara.team@gmail.com?subject=Connect%20with%20.Bro&amp;body=Hi%20.Bro%20team%2C%0A%0A">connect now →</a>
+  <p class="mailline reveal"><a href="mailto:alokara.team@gmail.com">alokara.team@gmail.com</a></p>
+</section>
+
+<footer>
+  <span>dotbro.in</span>
+  <span class="fdot" aria-hidden="true"></span>
+  <a href="mailto:alokara.team@gmail.com" style="text-transform:none;color:inherit">alokara.team@gmail.com</a>
+  <span class="fdot" aria-hidden="true"></span>
+  <span style="text-transform:none">aLOKaRa</span>
+</footer>
+
+<script>
+// The page's only JS: reveal observer + the recede effect for the panel stack.
+const els = document.querySelectorAll('.reveal');
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.2 });
+  els.forEach(el => io.observe(el));
+} else {
+  els.forEach(el => el.classList.add('in'));
+}
+
+// ── The companion: a red dot that walks beside whatever you're reading
+//    and explains it simply — like telling an 11-year-old.
+//    Position lerps toward an anchor next to the active element.
+(function () {
+  const comp = document.querySelector('.companion');
+  const cmsg = document.getElementById('cmsg');
+  if (!comp || !cmsg) return;
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mobile = () => window.innerWidth < 641;
+
+  // Each stop: the element the dot stands next to + what it says there.
+  // Built from live queries — immune to sibling order (.flow-line is a div too).
+  const whyH2s = document.querySelectorAll('.why h2');
+  const steps = document.querySelectorAll('.step');
+  const principles = document.querySelectorAll('.principle');
+  const stops = [
+    [document.querySelector('.hero .statement'), ""],  // docked in the wordmark — no bubble yet
+    [whyH2s[0],     "hi — i'm the dot. i'll explain everything as we go."],
+    [whyH2s[1],     "it's a home for the conversations you never got to finish."],
+    [whyH2s[2],     "so we build companions — one for each thing a person needs."],
+    [steps[0],      "everything starts with a need. a question. a worry. a wish."],
+    [steps[1],      "then a .bro shows up — a companion built just for that need."],
+    [steps[2],      "it listens until it truly understands you."],
+    [steps[3],      "then you decide. it never decides for you."],
+    [steps[4],      "and then you act. curiosity becomes something real."],
+    [principles[0], "you're one person here. never a new account, never a new profile."],
+    [principles[1], "every companion shares one brain — you never repeat yourself."],
+    [principles[2], "what one companion learns is never forgotten."],
+    [principles[3], "many companions. each one does exactly one job."],
+    [document.querySelector('.family .eyebrow'), "meet the family — each door opens its corner of the feed."],
+    [document.querySelector('.ronvey h2'), "and behind us all, one brain: ronvey. it advises — you decide."],
+    [document.querySelector('.connect h2'), "if any of this is your thing — write to us. a real person reads it."],
+    [document.querySelector('footer'), "that's .bro. simple, right?"],
+  ].map(([el, msg]) => ({ el, msg }))
+   .filter(s => s.el);
+
+  let active = -1;
+  let x = 24, y = window.innerHeight - 80;   // current position (lerped)
+  let tx = x, ty = y;                        // target position
+  let stretch = 1, ang = 0;                  // droplet deformation state
+  const cdot = comp.querySelector('.cdot');
+
+  // ── SHARED ELEMENT: the wordmark's dot and the companion are ONE dot.
+  //    the static one is hidden; the live one docks in its place at the hero,
+  //    detaches and shrinks mid-flight when you scroll, re-docks on return.
+  const wordDot = document.querySelector('.wordmark .dot');
+  let sc = 1;                                // uniform scale (wordmark-size ↔ companion-size)
+  if (wordDot && !reduced) wordDot.style.visibility = 'hidden';
+
+  // ── colour transmission — palette from the founder's own picker:
+  //    white, #FFFF00, #000000, plus brand red. bubble background follows the dot.
+  const SECTION_COLOR = {
+    hero:       [209, 0, 0],      // brand red — docked in the wordmark
+    why:        [247, 246, 242],  // white — pure, listening
+    how:        [10, 10, 10],     // black dot on the white card — full inversion
+    principles: [255, 255, 0],    // #FFFF00 — the founder's yellow
+    footer:     [209, 0, 0],      // red again — the loop closes
+  };
+  function sectionOf(i) {
+    if (i === 0) return 'hero';
+    if (i <= 3) return 'why';
+    if (i <= 8) return 'how';
+    if (i <= 12) return 'principles';
+    return 'footer';
+  }
+  let cr = 209, cg = 0, cb = 0;              // current colour (lerped)
+
+  // Sixteen getBoundingClientRect calls per frame forced a layout on every frame.
+  // The answer can only change when the page scrolls or resizes, so cache it.
+  let spyIdx = 0, spyAt = null;
+  function pickActive() {
+    const y = window.scrollY;
+    if (spyAt === y) return spyIdx;
+    spyAt = y;
+    // scrollspy that survives the sticky sheet stack:
+    // the active stop is the LAST one whose center has risen past 58% of the viewport
+    const line = window.innerHeight * 0.58;
+    let idx = 0;
+    for (let i = 0; i < stops.length; i++) {
+      const r = stops[i].el.getBoundingClientRect();
+      if (r.top + r.height / 2 < line) idx = i;
+    }
+    spyIdx = idx;
+    return idx;
+  }
+  window.addEventListener('resize', () => { spyAt = null; }, { passive: true });
+
+  let swapTimer = null;
+  function setMessage(i) {
+    active = i;
+    const msg = stops[i].msg;
+    if (cmsg.textContent === msg) return;          // nothing changed — no flicker
+    document.body.dataset.panel = stops[i].el.closest('.how') ? 'how' : 'dark';
+    if (swapTimer) clearTimeout(swapTimer);        // cancel a mid-flight swap (fast scroll)
+    if (!msg) { cmsg.textContent = ''; metricsDirty = true; return; }  // docked: empty
+    cmsg.classList.add('swap');
+    swapTimer = setTimeout(() => {
+      cmsg.textContent = msg;
+      cmsg.classList.remove('swap');
+      metricsDirty = true;                         // the bubble just changed size
+      spot = null;                                 // …so re-pick a clear corner
+    }, 260);
+  }
+
+  // Reading the companion's own box forces a layout, so it is measured only when
+  // something can actually have changed it — a new message, or a resize.
+  let compW = 0, compH = 0, metricsDirty = true, band = 104;
+  function measure() {
+    if (!metricsDirty) return;
+    compW = comp.offsetWidth; compH = comp.offsetHeight;
+    metricsDirty = false;
+    // Publish the band the cards must keep clear. A short message on a wide
+    // screen needs less; a long one wrapping on a phone needs more. Deriving it
+    // from the measured bubble is what makes "never covers the text" hold at
+    // every viewport instead of only the ones that were eyeballed.
+    const want = Math.max(mobile() ? 88 : 80, compH + 24);
+    if (want !== band) {
+      band = want;
+      document.documentElement.style.setProperty('--comp-band', band + 'px');
+    }
+  }
+  window.addEventListener('resize', () => { metricsDirty = true; }, { passive: true });
+
+  // ── Staying off the writing ──────────────────────────────────────────────
+  // The reserved band solves the common case, but a card taller than the
+  // viewport puts text at the bottom edge anyway. So before settling, the
+  // companion looks at what is actually on screen and takes the first corner
+  // that is clear. It also gets out of the way entirely while you are scrolling,
+  // because during a scroll every position is crossing something.
+  const TEXTSEL = 'h1,h2,h3,p,.label,.caption,.eyebrow,.cta,.wordmark,footer span,footer a';
+  function visibleTextRects() {
+    const out = [];
+    document.querySelectorAll(TEXTSEL).forEach(el => {
+      if (!el.textContent.trim()) return;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.15) return;
+      // ignore text hidden behind a card that has risen over it
+      const hit = document.elementFromPoint(
+        Math.min(Math.max((r.left + r.right) / 2, 1), window.innerWidth - 2),
+        Math.min(Math.max((r.top + r.bottom) / 2, 1), window.innerHeight - 2));
+      if (hit && !(hit === el || el.contains(hit) || hit.contains(el))) return;
+      out.push(r);
+    });
+    return out;
+  }
+  const PAD = 10;
+  function clearOf(rects, x, y, w, h) {
+    for (const r of rects)
+      if (!(r.right < x - PAD || r.left > x + w + PAD ||
+            r.bottom < y - PAD || r.top > y + h + PAD)) return false;
+    return true;
+  }
+  // corner preference: bottom-left first — that is the companion's home
+  function pickSpot() {
+    measure();
+    const W = window.innerWidth, H = window.innerHeight;
+    const low = H - band + (band - compH) / 2;
+    const cands = mobile()
+      ? [[Math.max(10, (W - compW) / 2), low], [10, low], [Math.max(10, W - compW - 10), low],
+         [Math.max(10, (W - compW) / 2), 74]]
+      : [[34, low], [Math.max(10, W - compW - 34), low], [34, 74],
+         [Math.max(10, W - compW - 34), 74]];
+    const rects = visibleTextRects();
+    for (const [cx, cy] of cands) if (clearOf(rects, cx, cy, compW, compH)) return [cx, cy];
+    return cands[0];                       // nothing is clear — keep it home
+  }
+  let spot = null;
+  function refreshSpot() { spot = pickSpot(); }
+
+  // hide the bubble while the page is moving; re-place and show once it settles
+  let scrollTimer = null;
+  window.addEventListener('scroll', () => {
+    cmsg.classList.add('moving');
+    if (scrollTimer) clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      refreshSpot();
+      cmsg.classList.remove('moving');
+    }, 220);
+  }, { passive: true });
+  window.addEventListener('resize', () => { spot = null; }, { passive: true });
+
+  let scTarget = 1;
+  function computeTarget(i) {
+    // stop 0 = docked: the companion sits exactly where the wordmark dot lives,
+    // scaled up to its size. one element, two lives.
+    if (i === 0 && wordDot && !reduced) {
+      const wd = wordDot.getBoundingClientRect();
+      measure();
+      tx = wd.left + wd.width / 2 - 8;
+      ty = wd.top + wd.height / 2 - compH / 2;
+      scTarget = Math.max(1, wd.width / 16);
+      cmsg.classList.add('hide');
+      return;
+    }
+    scTarget = 1;
+    cmsg.classList.remove('hide');
+    if (!spot) refreshSpot();
+    tx = spot[0]; ty = spot[1];
+  }
+
+  // ── life: the dot is never perfectly still. it hovers — a slow
+  //    Lissajous wander around its anchor, damped while travelling.
+  let lt = Math.random() * 100;
+
+  function frame() {
+    const i = pickActive();
+    if (i !== active) setMessage(i);
+    computeTarget(i);
+    const px = x, py = y;
+    // adaptive glide: track faster when the anchor is racing away (a fling),
+    // stay slow and viscous when settling — the dot never lags the momentum.
+    const gap = Math.hypot(tx - x, ty - y);
+    const follow = reduced ? 1 : Math.min(0.22, 0.055 + gap * 0.0009);
+    x += (tx - x) * follow;
+    y += (ty - y) * follow;
+
+    // hover life: small wandering orbit around the anchor, like a fly at rest.
+    let wx = 0, wy = 0;
+    if (!reduced) {
+      lt += 0.011;
+      const A = mobile() ? 6 : 10;
+      const rawSpeed = Math.hypot(x - px, y - py);
+      const calm = Math.max(0, 1 - rawSpeed * 0.18);          // wander fades while travelling
+      wx = (Math.sin(lt * 1.3) * A + Math.sin(lt * 2.9) * A * 0.35) * calm;
+      wy = (Math.cos(lt * 1.05) * A * 0.8 + Math.cos(lt * 2.3) * A * 0.3) * calm;
+    }
+    comp.style.transform = `translate(${x + wx}px, ${y + wy}px)`;
+
+    // droplet physics + shared-element scale: stretch along motion,
+    // and grow/shrink between wordmark-size and companion-size.
+    sc += (scTarget - sc) * 0.06;
+    if (!reduced && cdot) {
+      const dx = (x + wx) - px, dy = (y + wy) - py;
+      const speed = Math.hypot(dx, dy);
+      const targetStretch = 1 + Math.min(speed * 0.06, 0.55);
+      stretch += (targetStretch - stretch) * 0.12;            // tension lag
+      if (speed > 0.4) ang = Math.atan2(dy, dx);              // hold last heading at rest
+      const squash = 1 / Math.sqrt(stretch);                  // conserve volume
+      cdot.style.transform = `rotate(${ang}rad) scale(${stretch * sc}, ${squash * sc})`;
+    }
+
+    // colour transmission: dot AND bubble background blend toward this card's
+    // colour — text auto-contrasts by luminance. never a snap.
+    const [trr, tgg, tbb] = SECTION_COLOR[sectionOf(i)];
+    if (reduced) { cr = trr; cg = tgg; cb = tbb; }
+    else { cr += (trr - cr) * 0.045; cg += (tgg - cg) * 0.045; cb += (tbb - cb) * 0.045; }
+    if (cdot) {
+      cdot.style.background = `rgb(${cr | 0},${cg | 0},${cb | 0})`;
+      // the DOT carries the full colour. the BUBBLE stays a fixed dark, legible
+      // surface — only its border + tail glow adopt the transmission, so the
+      // text is readable at every point of the blend, over any card.
+      cmsg.style.borderColor = `rgba(${cr | 0},${cg | 0},${cb | 0},0.85)`;
+      cmsg.style.boxShadow = `0 8px 30px rgba(0,0,0,0.5), -3px 3px 0 -1px rgba(${cr | 0},${cg | 0},${cb | 0},0.9)`;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // start docked in the wordmark — the dot's first life
+  if (wordDot) {
+    const wd = wordDot.getBoundingClientRect();
+    x = wd.left + wd.width / 2 - 8;
+    y = wd.top + wd.height / 2 - 20;
+    sc = Math.max(1, wd.width / 16);
+  }
+  cmsg.textContent = stops[0].msg;
+  comp.classList.add('on');
+  requestAnimationFrame(frame);
+})();
+
+// ── Recede: as the next sheet rises, the pinned sheet beneath
+//    scales down and dims — the page feels lifted from below.
+//    Transform + opacity only. rAF-throttled. Off under reduced motion.
+(function () {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const panels = Array.from(document.querySelectorAll('.panel'));
+  const sheets = panels.concat([document.querySelector('footer')]);
+  let ticking = false;
+
+  function update() {
+    ticking = false;
+    const vh = window.innerHeight;
+    for (let i = 0; i < panels.length; i++) {
+      const next = sheets[i + 1];
+      if (!next) break;
+      // how far the next sheet has risen over this one: 0 → 1
+      const top = next.getBoundingClientRect().top;
+      const p = Math.min(1, Math.max(0, (vh - top) / vh));
+      // viscous easing — the droplet-on-skin curve: slow start, slow settle
+      const e = 0.5 - 0.5 * Math.cos(Math.PI * p);
+      const panel = panels[i];
+      if (p > 0 && p < 1) {
+        // iOS-stack recede: the card steps back but STAYS visible —
+        // its sliver holds the top line. Mild scale, mild dim, never gone.
+        panel.style.transform = `scale(${1 - e * 0.045})`;
+        panel.style.opacity = String(1 - e * 0.22);
+        // the rising card's corners: swollen like a droplet, settling
+        // into the card's own 26px radius as it docks
+        const r = Math.round(26 + (1 - e) * 18);
+        next.style.clipPath = `inset(0 0 0 0 round ${r}px ${r}px 0 0)`;
+      } else {
+        if (panel.style.transform) { panel.style.transform = ''; panel.style.opacity = ''; }
+        if (next.style.clipPath) next.style.clipPath = '';
+      }
+    }
+  }
+  window.addEventListener('scroll', () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(update); }
+  }, { passive: true });
+  window.addEventListener('resize', update, { passive: true });
+  update();
+})();
+</script>
+</body>
+</html>
