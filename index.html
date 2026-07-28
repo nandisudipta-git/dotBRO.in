@@ -24,10 +24,12 @@
   --black: #0A0A0A;
   --white: #F7F6F2;
   --red:   #D10000;
-  --whisper: #8A8A85;
+  --whisper: #A3A29B;  /* lifted from #8A8A85 — small text needs the headroom */
   --hairline: rgba(247,246,242,0.10);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
+:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; border-radius: 4px; }
+.how :focus-visible { outline-color: var(--black); }
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
@@ -472,10 +474,10 @@ body footer { padding-bottom: calc(var(--comp-band) + env(safe-area-inset-bottom
   color: var(--black);
   border-color: rgba(10,10,10,0.14);
 }
-.how .eyebrow { color: #77756E; }
+.how .eyebrow { color: #66645C; }
 .how .flow-line { background: rgba(10,10,10,0.15); }
 .how .step { background: var(--white); }
-.how .step .caption { color: #77756E; }
+.how .step .caption { color: #66645C; }
 
 /* ══ REVEAL ══ */
 .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.9s ease, transform 0.9s ease; }

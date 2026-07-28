@@ -12,10 +12,14 @@
 <link rel="icon" type="image/png" href="/assets/favicon-red.png">
 <style>
 :root{
-  --void:#46525C; --paper:#E9F0F6; --ink:#1C2E3E; --dim:#9DAFBE; --dimink:#5C7488;
+  /* --dim lifted from #9DAFBE (≈3.5:1 on the slate bg — under WCAG for small text)
+     to #C3D2DE (≈6:1). Same temperature, actually readable. */
+  --void:#46525C; --paper:#E9F0F6; --ink:#1C2E3E; --dim:#C3D2DE; --dimink:#5C7488;
   --steel:#2D628C; --steel2:#3D7AA8;
   --red:#E60000; --hair:rgba(255,255,255,.14);
 }
+/* keyboard users get a visible ring; mouse users never see it */
+:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px;}
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;overscroll-behavior:none;}
 body{background:linear-gradient(180deg,#57646E 0%,#45525C 55%,#333E48 100%);color:var(--paper);
@@ -31,29 +35,54 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;
 .topleft{top:0;left:0;padding:18px 22px;}
 .brand{display:flex;align-items:center;gap:9px;font-family:'Bebas Neue','Arial Narrow',sans-serif;font-size:22px;letter-spacing:.5px;}
 .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 12px 2px rgba(230,0,0,.35);}
-.sub{margin-top:5px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);}
+.sub{margin-top:5px;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);}
 
 .topright{top:0;right:0;padding:18px 22px;text-align:right;pointer-events:auto;}
-.count{font-size:10px;color:var(--dim);letter-spacing:.05em;display:flex;align-items:center;gap:7px;justify-content:flex-end;}
+.count{font-size:12px;color:var(--dim);letter-spacing:.05em;display:flex;align-items:center;gap:7px;justify-content:flex-end;}
 .count b{color:var(--paper);font-weight:700;font-variant-numeric:tabular-nums;}
 .pulse{width:6px;height:6px;border-radius:50%;background:var(--red);animation:pulse 2s infinite;}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(230,0,0,.5)}70%{box-shadow:0 0 0 6px rgba(230,0,0,0)}100%{box-shadow:0 0 0 0 rgba(230,0,0,0)}}
-.demo-badge{display:none;margin-top:7px;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--red);}
+.demo-badge{display:none;margin-top:7px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--red);}
 .demo-badge.on{display:block;}
 
+/* first-visit hint: how to touch the globe. Fades itself out; never shown again
+   once the visitor has actually dragged or opened a conversation. */
+#hint{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:14;
+  font-size:12px;letter-spacing:.08em;color:var(--dim);text-align:center;
+  padding:7px 16px;border-radius:999px;background:rgba(13,22,30,.55);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  opacity:0;transition:opacity .8s ease;pointer-events:none;white-space:nowrap;}
+#hint.on{opacity:1;}
+@media(max-width:640px){#hint{bottom:150px;font-size:11px;}}
+
 .zoomui{position:fixed;right:20px;bottom:24px;z-index:15;display:flex;flex-direction:column;gap:10px;}
+/* phones pinch — the buttons just collided with the legend chips there */
+@media(max-width:640px){.zoomui{display:none;}}
 .zoomui button{width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.3);
   background:rgba(20,30,40,.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
   color:var(--paper);font-size:20px;line-height:1;cursor:pointer;font-family:inherit;
   transition:border-color .15s,background .15s;}
 .zoomui button:hover{border-color:rgba(255,255,255,.7);background:rgba(20,30,40,.6);}
 .botleft{bottom:0;left:0;padding:18px 22px;}
-.legend{display:flex;flex-direction:column;gap:4px;pointer-events:auto;}
-.lg{display:flex;align-items:center;gap:7px;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--dim);cursor:pointer;transition:color .15s ease;}
+.legend{display:flex;flex-direction:column;gap:2px;pointer-events:auto;}
+/* real buttons with real hit targets — was 8.5px text on a 12px-tall row */
+.lg{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--dim);cursor:pointer;transition:color .15s ease,background .15s ease;
+  background:none;border:none;font-family:inherit;padding:6px 10px 6px 6px;border-radius:999px;text-align:left;}
 .lg:hover,.lg.on{color:var(--paper);}
-.lg .sw{width:7px;height:7px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.25);}
-@media(max-width:640px){.botleft{display:none;}}
+.lg.on{background:rgba(255,255,255,.1);}
+.lg .sw{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.25);}
+/* mobile: filtering used to be impossible (legend was display:none).
+   Now a horizontal chip row above the FAB, scrollable if it must be. */
+@media(max-width:640px){
+  .botleft{left:0;right:0;bottom:92px;padding:0 10px;}
+  .legend{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .legend::-webkit-scrollbar{display:none;}
+  .lg{flex-shrink:0;background:rgba(13,22,30,.5);padding:8px 12px 8px 9px;
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+  .lg.on{background:rgba(255,255,255,.18);}
+}
 
 #hook{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:20px;pointer-events:none;text-align:center;padding:0 24px;}
@@ -74,16 +103,16 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 #leaderHalo{opacity:0;transition:opacity .15s ease;}
 #leaderDot{opacity:0;transition:opacity .15s ease;}
 
-#tip{position:fixed;pointer-events:none;z-index:20;max-width:250px;padding:10px 13px;
+#tip{position:fixed;pointer-events:none;z-index:20;max-width:270px;padding:11px 14px;
   background:rgba(255,255,255,.97);border:1px solid var(--hair);border-radius:9px;
   box-shadow:0 10px 28px rgba(0,0,0,.14);opacity:0;transition:opacity .15s ease;}
-#tip .ts{display:none;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:4px;}
+#tip .ts{display:none;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:4px;}
 #tip.missed .ts{display:block;}
-#tip .tc{font-size:8px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:4px;}
-#tip .tq{font-size:11.5px;line-height:1.4;color:var(--ink);}
-#tip .tm{margin-top:5px;font-size:8px;color:var(--dimink);}
+#tip .tc{font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:4px;}
+#tip .tq{font-size:13px;line-height:1.45;color:var(--ink);}
+#tip .tm{margin-top:6px;font-size:10px;color:var(--dimink);}
 
-.fab{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:15;
+.fab{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:15;white-space:nowrap;
   font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1.2px;
   background:var(--steel);color:#FFFFFF;border:none;border-radius:999px;
   padding:13px 28px;cursor:pointer;box-shadow:0 8px 30px rgba(45,98,140,.3);
@@ -115,39 +144,41 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 .nrow{display:flex;gap:8px;align-items:stretch;}
 .nrow input{flex:1;}
 .nrow input:disabled{opacity:.35;}
-.anon{font-size:.6rem;letter-spacing:1px;text-transform:uppercase;font-family:inherit;
+.anon{font-size:.68rem;letter-spacing:1px;text-transform:uppercase;font-family:inherit;
   border:1px solid rgba(0,0,0,.12);background:none;color:var(--dimink);border-radius:9px;
   padding:0 14px;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .anon.on{background:var(--ink);border-color:var(--ink);color:#FFFFFF;}
-.anonline{display:flex;align-items:center;gap:6px;font-size:.62rem;color:var(--dimink);cursor:pointer;user-select:none;}
+.anonline{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--dimink);cursor:pointer;user-select:none;}
 .anonline input{accent-color:#1D1D1F;}
 .cats{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
-.chip{font-size:.6rem;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(0,0,0,.12);background:none;
+.chip{font-size:.68rem;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(0,0,0,.12);background:none;
   color:var(--dimink);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .15s;font-family:inherit;}
 .chip.on{color:#1D1D1F;font-weight:700;border-color:transparent;}
 .crow{display:flex;align-items:center;justify-content:space-between;margin-top:14px;}
-.cnt{font-size:.6rem;color:var(--dimink);}
+.cnt{font-size:.7rem;color:var(--dimink);}
 .btn{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:1rem;background:var(--steel);
   color:#FFFFFF;border:none;border-radius:9px;padding:9px 22px;cursor:pointer;
   transition:transform .12s,background .2s;align-self:flex-end;}
 .btn:hover{background:var(--steel2);}.btn:active{transform:scale(.97);}
 .btn:disabled{opacity:.4;cursor:not-allowed;}
-.qcat{font-size:.56rem;letter-spacing:1.4px;text-transform:uppercase;}
+.honest{margin-top:12px;font-size:.68rem;line-height:1.6;color:var(--dimink);}
+.qcat{font-size:.66rem;letter-spacing:1.4px;text-transform:uppercase;}
 .qbody{font-size:1.08rem;line-height:1.5;margin:9px 0 6px;white-space:pre-wrap;word-wrap:break-word;}
-.qmeta{font-size:.58rem;color:var(--dimink);}
+.qmeta{font-size:.7rem;color:var(--dimink);}
 
 .p-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:15px;}
 @media(max-width:420px){.p-actions{grid-template-columns:repeat(2,1fr);}}
 .p-btn{background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);border-radius:12px;
   padding:11px 4px;text-align:center;cursor:pointer;user-select:none;
+  font-family:inherit;color:inherit;
   transition:all .18s cubic-bezier(.2,.8,.2,1);}
 .p-btn:hover{background:rgba(230,0,0,.06);border-color:rgba(230,0,0,.25);transform:translateY(-1px);}
 .p-btn.active{background:var(--ink);border-color:var(--ink);}
 .p-btn.active .p-icon,.p-btn.active .pb-label{color:#FFFFFF;}
 .p-btn.active .pb-count{color:rgba(255,255,255,.6);}
 .p-icon{font-size:16px;margin-bottom:4px;}
-.pb-label{font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
-.pb-count{font-size:8px;color:var(--dimink);margin-top:3px;font-variant-numeric:tabular-nums;}
+.pb-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
+.pb-count{font-size:10px;color:var(--dimink);margin-top:3px;font-variant-numeric:tabular-nums;}
 
 .p-input{display:none;flex-direction:column;gap:8px;margin-top:12px;}
 .p-input.open{display:flex;}
@@ -157,7 +188,7 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 
 .replies{margin-top:16px;border-top:1px solid rgba(0,0,0,.08);padding-top:5px;}
 .r{padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06);}
-.rmeta{font-size:.56rem;color:var(--dimink);margin-bottom:3px;letter-spacing:.03em;}
+.rmeta{font-size:.7rem;color:var(--dimink);margin-bottom:3px;letter-spacing:.03em;}
 .rmeta b{color:var(--ink);}
 .rmeta .rk{color:var(--red);font-weight:700;letter-spacing:.1em;}
 .rbody{font-size:.88rem;line-height:1.5;color:#3c3c3c;white-space:pre-wrap;word-wrap:break-word;}
@@ -169,10 +200,10 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 .mailrow:hover{border-color:rgba(230,0,0,.4);background:rgba(230,0,0,.05);transform:translateY(-1px);}
 .mail-ico{font-size:17px;color:var(--red);}
 .mailrow b{display:block;font-family:'Space Mono',ui-monospace,monospace;font-size:.86rem;word-break:break-all;}
-.mailrow em{display:block;margin-top:3px;font-style:normal;font-size:.58rem;letter-spacing:.1em;
+.mailrow em{display:block;margin-top:3px;font-style:normal;font-size:.66rem;letter-spacing:.1em;
   text-transform:uppercase;color:var(--dimink);}
 .mail-arrow{margin-left:auto;color:var(--dimink);}
-.copybtn{margin-top:9px;width:100%;font-family:inherit;font-size:.6rem;letter-spacing:.12em;
+.copybtn{margin-top:9px;width:100%;font-family:inherit;font-size:.68rem;letter-spacing:.12em;
   text-transform:uppercase;color:var(--dimink);background:none;border:1px dashed rgba(0,0,0,.18);
   border-radius:10px;padding:9px;cursor:pointer;transition:all .15s;}
 .copybtn:hover{color:var(--ink);border-color:rgba(0,0,0,.4);}
@@ -197,7 +228,7 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<canvas id="c" role="img" aria-label="A globe of live conversations. Use the arrow keys to spin it, plus and minus to zoom, and the Start a conversation button to add yours."></canvas>
 <div id="netmsg"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -207,18 +238,19 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
   </a>
   <div class="sub">dotBro · live</div>
   <div style="pointer-events:auto;margin-top:9px;display:flex;gap:12px;flex-wrap:wrap;">
-    <a href="https://con.dotbro.in" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">con.BRO</a>
-    <a href="/parbro.html" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">par.BRO</a>
-    <a href="/podbro.html" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#FF7A1A;text-decoration:none;">pod.BRO</a>
-    <a href="#connect" id="connectLink" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper);text-decoration:none;border-bottom:1px solid rgba(255,255,255,.35);">connect now</a>
+    <a href="https://con.dotbro.in" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">con.BRO</a>
+    <a href="/parbro.html" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">par.BRO</a>
+    <a href="/podbro.html" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#FF7A1A;text-decoration:none;">pod.BRO</a>
+    <a href="#connect" id="connectLink" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper);text-decoration:none;border-bottom:1px solid rgba(255,255,255,.35);">connect now</a>
   </div>
 </div>
 <div class="hud topright">
-  <div class="count"><span class="pulse"></span><b id="nq">0</b> conversations floating</div>
+  <div class="count" aria-live="off"><span class="pulse" aria-hidden="true"></span><b id="nq">0</b> conversations floating</div>
   <div class="demo-badge" id="demoBadge">demo data · read only</div>
 </div>
 <div class="hud botleft"><div class="legend" id="legend"></div></div>
-<div id="hook"><span class="hk-dot"></span><div class="hk-q">What conversation are you leaving unfinished?</div></div>
+<div id="hook"><span class="hk-dot" aria-hidden="true"></span><div class="hk-q">What conversation are you leaving unfinished?</div></div>
+<div id="hint" role="status">drag to spin &nbsp;&middot;&nbsp; tap a dot to read &nbsp;&middot;&nbsp; scroll to zoom</div>
 
 <svg id="leader"><path id="leaderHalo" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="2.6"/><path id="leaderPath" fill="none" stroke="rgba(28,46,62,0.6)" stroke-width="1"/><circle id="leaderDot" r="2.5" fill="rgba(28,46,62,0.5)"/></svg>
 <div id="tip"><div class="ts">&#10022; you might have missed</div><div class="tc"></div><div class="tq"></div><div class="tm"></div></div>
@@ -228,31 +260,33 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 <div class="scrim" id="scrim"></div>
 
 <!-- compose sheet -->
-<div class="sheet" id="compose">
-  <div class="sh-head"><span class="sh-title">Start a conversation</span><button class="x" data-close>&times;</button></div>
+<div class="sheet" id="compose" role="dialog" aria-modal="true" aria-labelledby="composeTitle">
+  <div class="sh-head"><span class="sh-title" id="composeTitle">Start a conversation</span><button class="x" data-close aria-label="Close">&times;</button></div>
   <div class="sh-body">
     <div class="nrow">
-      <input id="name" type="text" placeholder="your name" maxlength="40" autocomplete="off">
+      <input id="name" type="text" aria-label="Your name" placeholder="your name" maxlength="40" autocomplete="off">
       <button id="anonBtn" type="button" class="anon">visible</button>
     </div>
-    <textarea id="body" placeholder="What conversation are you leaving unfinished?" maxlength="500"></textarea>
+    <textarea id="body" aria-label="Your conversation" placeholder="What conversation are you leaving unfinished?" maxlength="500"></textarea>
     <div class="cats" id="cats"></div>
     <div class="crow">
       <span class="cnt" id="count">0 / 500</span>
       <button class="btn" id="post">Say it →</button>
     </div>
+    <p class="honest">Anyone can read this, and it can't be unsent. If you allow location,
+    only your rough area (~11&nbsp;km) is used — to place your dot on the globe.</p>
   </div>
 </div>
 
 <!-- question sheet -->
-<div class="sheet" id="qsheet">
-  <div class="sh-head"><span class="sh-title">Unfinished conversation</span><button class="x" data-close>&times;</button></div>
+<div class="sheet" id="qsheet" role="dialog" aria-modal="true" aria-labelledby="qsheetTitle">
+  <div class="sh-head"><span class="sh-title" id="qsheetTitle">Unfinished conversation</span><button class="x" data-close aria-label="Close">&times;</button></div>
   <div class="sh-body" id="qview"></div>
 </div>
 
 <!-- connect sheet -->
-<div class="sheet" id="connect">
-  <div class="sh-head"><span class="sh-title">Connect now</span><button class="x" data-close>&times;</button></div>
+<div class="sheet" id="connect" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
+  <div class="sh-head"><span class="sh-title" id="connectTitle">Connect now</span><button class="x" data-close aria-label="Close">&times;</button></div>
   <div class="sh-body">
     <p style="font-size:.92rem;line-height:1.55;color:var(--ink);">
       Want to build with us, bring your community onto the globe, or just talk about
@@ -420,12 +454,17 @@ const legendBox=$('#legend');
 const legendEls={};
 function setFilter(k){
   S.filter=k||null;
-  for(const key in legendEls)legendEls[key].classList.toggle('on',S.filter===key);
+  for(const key in legendEls){
+    const on=S.filter===key;
+    legendEls[key].classList.toggle('on',on);
+    legendEls[key].setAttribute('aria-pressed',on?'true':'false');
+  }
 }
 CATKEYS.forEach(k=>{
   const [r,g,b]=CATS[k].col;
-  const el=document.createElement('div'); el.className='lg';
-  el.innerHTML=`<span class="sw" style="background:rgb(${r},${g},${b})"></span>${k}`;
+  const el=document.createElement('button'); el.className='lg'; el.type='button';
+  el.setAttribute('aria-pressed','false');
+  el.innerHTML=`<span class="sw" style="background:rgb(${r},${g},${b})" aria-hidden="true"></span>${k}`;
   el.onclick=()=>setFilter(S.filter===k?null:k);
   legendEls[k]=el;
   legendBox.appendChild(el);
@@ -555,8 +594,12 @@ function endIntro(){
   rotY=HOME_ROTY;rotX=HOME_ROTX;zoom=1;zoomT=1;introAlpha=1;
   document.body.classList.add('arrived');
   spotNextAt=performance.now()+5000;
-  captureGeo();
+  // NOTE: no captureGeo() here. Asking for location seconds after landing, with
+  // no explanation, is a bounce trigger and reads as surveillance. The prompt now
+  // happens only when someone chooses to start a conversation — and the compose
+  // sheet says why, before the browser asks.
   hookEl.classList.add('gone');setTimeout(()=>hookEl.style.display='none',1000);
+  setTimeout(maybeHint,1400);
 }
 if(REDUCED){intro.done=true;document.body.classList.add('arrived');
   setTimeout(()=>{hookEl.classList.add('gone');setTimeout(()=>hookEl.style.display='none',1000);},3400);}
@@ -1195,14 +1238,64 @@ function addNode(q,incoming){
   for(const p of S.arr)p.targetR=R*ORBIT;
 }
 
-/* ─── sheets ─── */
+/* ─── sheets — proper dialogs: focus moves in on open, returns on close,
+       and Tab stays inside while one is up ─── */
 const scrim=$('#scrim');
-function openSheet(id){$(id).classList.add('open');scrim.classList.add('open')}
+let lastFocus=null;
+function openSheet(id){
+  lastFocus=document.activeElement;
+  const sh=$(id);sh.classList.add('open');scrim.classList.add('open');
+  const f=sh.querySelector('textarea,input:not([disabled]),button:not([data-close])')||sh.querySelector('[data-close]');
+  if(f)setTimeout(()=>f.focus(),60);
+}
 function closeAll(){document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
-  scrim.classList.remove('open');S.openId=null;activeKind=null;}
+  scrim.classList.remove('open');S.openId=null;activeKind=null;
+  if(lastFocus&&lastFocus.focus){lastFocus.focus();lastFocus=null;}}
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeAll);
 scrim.onclick=closeAll;
-addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeAll();return;}
+  const open=document.querySelector('.sheet.open');
+  if(open&&e.key==='Tab'){
+    const els=[...open.querySelectorAll('button,input:not([disabled]),textarea,a[href]')]
+      .filter(el=>el.offsetParent!==null);
+    if(!els.length)return;
+    const first=els[0],last=els[els.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  }
+});
+
+/* ─── keyboard drives the globe: arrows spin, +/- zoom ─── */
+addEventListener('keydown',e=>{
+  if(document.querySelector('.sheet.open'))return;                 // dialog owns the keys
+  if(/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName))return;
+  const step=0.07;let used=true;
+  switch(e.key){
+    case 'ArrowLeft': velY=-step*0.09;rotY-=step;break;
+    case 'ArrowRight':velY= step*0.09;rotY+=step;break;
+    case 'ArrowUp':   rotX=Math.max(-1.3,rotX-step);break;
+    case 'ArrowDown': rotX=Math.min( 1.3,rotX+step);break;
+    case '+': case '=': zoomT=Math.min(7,zoomT*1.2);break;
+    case '-': case '_': zoomT=Math.max(0.5,zoomT/1.2);break;
+    default:used=false;
+  }
+  if(used){e.preventDefault();lastInteract=performance.now();dismissHint();}
+});
+
+/* ─── first-visit hint: shown after the intro, gone after first real touch ─── */
+const hintEl=document.getElementById('hint');
+let hintShown=false;
+function maybeHint(){
+  if(hintShown||IS_DEMO)return;
+  if(+localStorage.getItem('dotbro_hinted')>=2)return;             // seen enough
+  hintShown=true;
+  localStorage.setItem('dotbro_hinted',(+localStorage.getItem('dotbro_hinted')||0)+1);
+  hintEl.classList.add('on');
+  setTimeout(dismissHint,7000);
+}
+function dismissHint(){hintEl.classList.remove('on');}
+canvas.addEventListener('pointerdown',dismissHint,{once:false});
 $('#fab').onclick=()=>{closeAll();captureGeo();openSheet('#compose')};
 
 /* ─── connect now: one real address, one tap, and a copy fallback for
@@ -1225,6 +1318,7 @@ $('#copyMail').onclick=async e=>{
 const anonBtn=$('#anonBtn'), nameEl=$('#name');
 function syncAnon(){
   anonBtn.classList.toggle('on',S.anon);
+  anonBtn.setAttribute('aria-pressed',S.anon?'true':'false');
   anonBtn.textContent=S.anon?'anonymous':'visible';
   nameEl.disabled=S.anon;
   localStorage.setItem('dotbro_anon',S.anon?'1':'0');
@@ -1278,19 +1372,19 @@ function renderQ(){
 
   const actionsHtml=KIND_ORDER.map(k=>{
     const m=KIND_META[k];
-    return `<div class="p-btn${activeKind===k?' active':''}" data-kind="${k}">
-      <div class="p-icon">${m.icon}</div>
+    return `<button type="button" class="p-btn${activeKind===k?' active':''}" data-kind="${k}" aria-pressed="${activeKind===k}">
+      <div class="p-icon" aria-hidden="true">${m.icon}</div>
       <div class="pb-label">${m.label}</div>
       <div class="pb-count">${counts[k]}</div>
-    </div>`;
+    </button>`;
   }).join('');
 
   const isMeet=activeKind==='meet';
   const anonHtml=`<label class="anonline"><input type="checkbox" id="pAnon"${S.anon?' checked':''}> stay anonymous</label>`;
   const composeHtml = activeKind ? (
     isMeet
-    ? `<div class="p-input open"><input id="pText" type="text" maxlength="200" placeholder="${KIND_META.meet.placeholder}">${anonHtml}<button class="btn" id="pSubmit">Reach out →</button></div>`
-    : `<div class="p-input open"><textarea id="pText" maxlength="500" placeholder="${KIND_META[activeKind].placeholder}"></textarea>${anonHtml}<button class="btn" id="pSubmit">Say it →</button></div>`
+    ? `<div class="p-input open"><input id="pText" type="text" maxlength="200" aria-label="Why you want to meet" placeholder="${KIND_META.meet.placeholder}">${anonHtml}<button class="btn" id="pSubmit">Reach out →</button></div>`
+    : `<div class="p-input open"><textarea id="pText" maxlength="500" aria-label="Your reply" placeholder="${KIND_META[activeKind].placeholder}"></textarea>${anonHtml}<button class="btn" id="pSubmit">Say it →</button></div>`
   ) : '';
 
   const repliesHtml = rs.length
