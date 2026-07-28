@@ -14,8 +14,8 @@ checkout of the same repo with the same filenames:
 python3 -m http.server 8734 --directory /Users/nandi/Ron/aLOKaRa/Ventures/dotBRO/www.dotbro.in
 ```
 
-Then drive `http://localhost:8734/index.html` (the globe app — the front page) and `/about.html`
-(the .Bro framework card-stack) with the
+The site is TWO pages now: `/` (the globe app) and `/about.html` (the .Bro card-stack).
+parbro/podbro/conbro/gyan were removed 2026-07-28 (git history has them). Drive both pages with the
 claude-in-chrome tools. Always append a cache-buster (`?v=1`, bump it each reload) — Chrome caches
 these pages aggressively and will silently serve the previous build.
 

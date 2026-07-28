@@ -1,4 +1,4 @@
-# .Bro backend — docs
+it# .Bro backend — docs
 
 Privacy-first microservices. Each user's data lives on one physical **node**;
 nothing central holds it. The control plane only decides *who* is asking and

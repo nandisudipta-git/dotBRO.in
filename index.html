@@ -29,7 +29,10 @@ a{color:inherit;text-decoration:none;}
 canvas{display:block;width:100%;height:100%;position:fixed;inset:0;cursor:grab;touch-action:none;}
 canvas:active{cursor:grabbing;}
 body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;
-  background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.24) 100%);}
+  background:radial-gradient(ellipse at center,transparent 46%,rgba(0,0,0,.4) 100%);}
+/* film grain — one static SVG noise tile, blended; the cinematic finish */
+#grain{position:fixed;inset:0;pointer-events:none;z-index:6;opacity:.055;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");}
 
 .hud{position:fixed;pointer-events:none;z-index:10;}
 .topleft{top:0;left:0;padding:18px 22px;}
@@ -95,11 +98,13 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;
   gap:20px;pointer-events:none;text-align:center;padding:0 24px;}
 #hook .hk-dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 14px 3px rgba(230,0,0,.3);
   opacity:0;animation:hookIn 1.4s ease .6s forwards;}
-#hook .hk-q{max-width:24ch;font-size:clamp(1.15rem,2.6vw,1.6rem);line-height:1.7;color:#F2F7FB;
-  background:rgba(13,22,30,.42);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  padding:20px 30px;border-radius:18px;border:1px solid rgba(255,255,255,.16);
-  box-shadow:0 14px 44px rgba(0,0,0,.3);
+#hook .hk-q{max-width:24ch;font-family:'Bebas Neue','Arial Narrow',sans-serif;
+  font-size:clamp(2.2rem,6vw,4.6rem);line-height:1.02;letter-spacing:.015em;
+  text-transform:uppercase;color:#F4F8FC;
+  text-shadow:0 2px 30px rgba(0,0,0,.55),0 0 80px rgba(120,170,220,.25);
   opacity:0;animation:hookIn 1.8s ease 1.2s forwards;}
+#hook .hk-sub{font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--dim);
+  opacity:0;animation:hookIn 1.6s ease 2.2s forwards;}
 @keyframes hookIn{to{opacity:1}}
 #hook.gone{transition:opacity .9s ease;opacity:0;}
 .hud,.fab{transition:opacity 1.2s ease;}
@@ -120,11 +125,15 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 #tip .tm{margin-top:6px;font-size:10px;color:var(--dimink);}
 
 .fab{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:15;white-space:nowrap;
-  font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1.2px;
-  background:var(--steel);color:#FFFFFF;border:none;border-radius:999px;
-  padding:13px 28px;cursor:pointer;box-shadow:0 8px 30px rgba(45,98,140,.3);
-  transition:transform .18s cubic-bezier(.2,.9,.25,1),background .2s,box-shadow .2s;}
-.fab:hover{background:var(--steel2);transform:translateX(-50%) scale(1.045);box-shadow:0 10px 34px rgba(45,98,140,.4);}
+  font-family:'Bebas Neue',sans-serif;font-size:1.12rem;letter-spacing:2.2px;
+  background:rgba(11,19,27,.55);color:#FFFFFF;border:1px solid rgba(255,255,255,.32);border-radius:999px;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  padding:14px 34px;cursor:pointer;box-shadow:0 10px 40px rgba(0,0,0,.35);
+  transition:transform .18s cubic-bezier(.2,.9,.25,1),border-color .2s,background .2s,box-shadow .2s;}
+.fab::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);
+  margin-right:12px;vertical-align:1px;box-shadow:0 0 10px 2px rgba(230,0,0,.45);}
+.fab:hover{background:rgba(11,19,27,.75);border-color:rgba(255,255,255,.7);
+  transform:translateX(-50%) scale(1.04);box-shadow:0 14px 48px rgba(0,0,0,.45);}
 .fab:active{transform:translateX(-50%) scale(.97);}
 
 .scrim{position:fixed;inset:0;z-index:50;background:rgba(12,20,28,.5);
@@ -239,6 +248,7 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 </head>
 <body>
 <canvas id="c" role="img" aria-label="A globe of live conversations. Use the arrow keys to spin it, plus and minus to zoom, and the Start a conversation button to add yours."></canvas>
+<div id="grain" aria-hidden="true"></div>
 <div id="netmsg"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -249,9 +259,6 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
   <div class="sub">dotBro · live</div>
   <div style="pointer-events:auto;margin-top:9px;display:flex;gap:12px;flex-wrap:wrap;">
     <a href="/about.html" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">what is .bro?</a>
-    <a href="https://con.dotbro.in" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">con.BRO</a>
-    <a href="/parbro.html" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">par.BRO</a>
-    <a href="/podbro.html" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#FF7A1A;text-decoration:none;">pod.BRO</a>
     <a href="#connect" id="connectLink" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper);text-decoration:none;border-bottom:1px solid rgba(255,255,255,.35);">connect now</a>
   </div>
 </div>
@@ -264,7 +271,7 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
   <button id="filterToggle" aria-expanded="false" aria-controls="legend">filter by topic <span aria-hidden="true">&#9662;</span></button>
   <div class="legend" id="legend" hidden></div>
 </div>
-<div id="hook"><span class="hk-dot" aria-hidden="true"></span><div class="hk-q">What conversation are you leaving unfinished?</div></div>
+<div id="hook"><span class="hk-dot" aria-hidden="true"></span><div class="hk-q">What conversation are you leaving unfinished?</div><div class="hk-sub">float it &mdash; it finds its people</div></div>
 <div id="hint" role="status">drag to spin &nbsp;&middot;&nbsp; tap a dot to read &nbsp;&middot;&nbsp; scroll to zoom</div>
 
 <svg id="leader"><path id="leaderHalo" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="2.6"/><path id="leaderPath" fill="none" stroke="rgba(28,46,62,0.6)" stroke-width="1"/><circle id="leaderDot" r="2.5" fill="rgba(28,46,62,0.5)"/></svg>
@@ -551,6 +558,25 @@ function buildStars(){
   STARS=mk(210,0.9,0.5);      // far band
   STARS2=mk(70,1.5,0.7);      // near band — brighter, moves faster
 }
+let METEOR=null,meteorNextAt=6000;
+function drawMeteor(now){
+  if(!METEOR&&now>meteorNextAt){
+    const x=W*(0.15+Math.random()*0.7),y=H*(0.05+Math.random()*0.3);
+    const ang=Math.PI*(0.65+Math.random()*0.25);
+    METEOR={x,y,dx:Math.cos(ang),dy:Math.sin(ang),t0:now,dur:650};
+    meteorNextAt=now+9000+Math.random()*14000;
+  }
+  if(!METEOR)return;
+  const k=(now-METEOR.t0)/METEOR.dur;
+  if(k>=1){METEOR=null;return;}
+  const len=90,sp=420;
+  const hx=METEOR.x+METEOR.dx*sp*k,hy=METEOR.y+METEOR.dy*sp*k;
+  const a=Math.sin(Math.PI*k)*0.7;
+  const g=ctx.createLinearGradient(hx-METEOR.dx*len,hy-METEOR.dy*len,hx,hy);
+  g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(1,`rgba(255,255,255,${a})`);
+  ctx.strokeStyle=g;ctx.lineWidth=1.3;
+  ctx.beginPath();ctx.moveTo(hx-METEOR.dx*len,hy-METEOR.dy*len);ctx.lineTo(hx,hy);ctx.stroke();
+}
 function drawStars(){
   if(!STARS)return;
   const off =((rotY*90 )%(W*2)+(W*2))%(W*2);
@@ -589,6 +615,67 @@ function drawMist(now){
   ctx.drawImage(MIST1,x1-W*0.08,y1-H*0.04,W*1.16,H*1.08);
   ctx.drawImage(MIST2,x2-W*0.10,y2-H*0.05,W*1.2,H*1.1);
   ctx.globalAlpha=1;
+}
+
+/* bloom sprites: one soft radial glow per category color, rendered once.
+   Per node it is a single drawImage — bloom without a shader. */
+const GLOWS={};
+function glowSprite(col){
+  const k=col.join(',');
+  if(GLOWS[k])return GLOWS[k];
+  const cv=document.createElement('canvas');cv.width=cv.height=64;
+  const c2=cv.getContext('2d');
+  const g=c2.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,`rgba(${k},0.6)`);g.addColorStop(0.35,`rgba(${k},0.22)`);g.addColorStop(1,`rgba(${k},0)`);
+  c2.fillStyle=g;c2.fillRect(0,0,64,64);
+  return GLOWS[k]=cv;
+}
+
+/* ─── conversation arcs: every few seconds a thread of light travels between
+       two conversations in the same topic — the space visibly thinking. ─── */
+const ARCS=[];
+function slerp(a,b,t){
+  const d=Math.min(1,Math.max(-1,a.x*b.x+a.y*b.y+a.z*b.z));
+  const th=Math.acos(d);if(th<1e-4)return a;
+  const s1=Math.sin((1-t)*th)/Math.sin(th),s2=Math.sin(t*th)/Math.sin(th);
+  return {x:a.x*s1+b.x*s2,y:a.y*s1+b.y*s2,z:a.z*s1+b.z*s2};
+}
+let arcNextAt=0;
+function updateArcs(now){
+  for(let i=ARCS.length-1;i>=0;i--)if(now>ARCS[i].t0+ARCS[i].dur+800)ARCS.splice(i,1);
+  if(now<arcNextAt||ARCS.length>=4||S.arr.length<2)return;
+  arcNextAt=now+2600+Math.random()*2600;
+  const a=S.arr[(Math.random()*S.arr.length)|0];
+  const peers=S.arr.filter(p=>p!==a&&p.cat===a.cat);
+  const b=peers.length?peers[(Math.random()*peers.length)|0]:S.arr[(Math.random()*S.arr.length)|0];
+  if(a===b)return;
+  ARCS.push({a:a.anchor||a,b:b.anchor||b,col:a.col,t0:now,dur:2400+Math.random()*1400});
+}
+const _aq={};
+function drawArcs(now){
+  for(const arc of ARCS){
+    const k=Math.min(1,(now-arc.t0)/arc.dur);
+    const head=k<1?(1-Math.pow(1-k,3)):1;                 // ease-out head
+    const fade=k<1?1:Math.max(0,1-(now-arc.t0-arc.dur)/800);
+    const [r,g,b]=arc.col;
+    const N=26;let started=false;
+    ctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const t=(i/N)*head;
+      const pnt=slerp(arc.a,arc.b,t);
+      const lift=1+0.13*Math.sin(Math.PI*t);              // rises above the shell mid-flight
+      projectXYZ(_aq,pnt.x*R*ORBIT*lift,pnt.y*R*ORBIT*lift,pnt.z*R*ORBIT*lift);
+      if(_aq.pz>0){started=false;continue;}
+      if(!started){ctx.moveTo(_aq.px,_aq.py);started=true;}
+      else ctx.lineTo(_aq.px,_aq.py);
+    }
+    ctx.strokeStyle=`rgba(${r},${g},${b},${0.5*fade})`;
+    ctx.lineWidth=1.2;ctx.stroke();
+    if(head<1&&_aq.pz<=0){                                // the bright head of the thread
+      ctx.fillStyle=`rgba(255,255,255,${0.9*fade})`;
+      ctx.beginPath();ctx.arc(_aq.px,_aq.py,1.8,0,7);ctx.fill();
+    }
+  }
 }
 
 const GOLDEN=Math.PI*(3-Math.sqrt(5));
@@ -1069,6 +1156,12 @@ function drawGlobeSkin(){
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(CX,CY,sil*1.07,0,7);ctx.fill();
 
   if(TEX){
+    // outer atmosphere — wide, blue, breathes with zoom
+    let ag=ctx.createRadialGradient(CX,CY,sil,CX,CY,sil*1.22);
+    ag.addColorStop(0,'rgba(120,175,230,0.20)');
+    ag.addColorStop(0.45,'rgba(95,150,210,0.07)');
+    ag.addColorStop(1,'rgba(95,150,210,0)');
+    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(CX,CY,sil*1.22,0,7);ctx.fill();
     const nowMs=performance.now();
     const rotDelta=Math.abs(rotY-lastRas.y)+Math.abs(rotX-lastRas.x);
     const silDelta=Math.abs(sil-lastRas.s)/Math.max(1,sil);
@@ -1085,7 +1178,12 @@ function drawGlobeSkin(){
     g.addColorStop(0,'rgba(255,255,255,0.28)');
     g.addColorStop(1,'rgba(255,255,255,0)');
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(CX,CY,sil,0,7);ctx.fill();
-    ctx.strokeStyle='rgba(40,70,100,0.35)';ctx.lineWidth=1;
+    // bright limb on the lit side — the thin line that sells the sphere
+    const lg=ctx.createLinearGradient(CX-sil,CY-sil,CX+sil,CY+sil);
+    lg.addColorStop(0,'rgba(190,220,250,0.85)');
+    lg.addColorStop(0.45,'rgba(150,190,235,0.25)');
+    lg.addColorStop(1,'rgba(150,190,235,0)');
+    ctx.strokeStyle=lg;ctx.lineWidth=1.6;
     ctx.beginPath();ctx.arc(CX,CY,sil,0,7);ctx.stroke();
     return;
   }
@@ -1250,8 +1348,11 @@ function drawFull(now){
       }
     }
 
-    if(!dim&&!IS_STATIC){ctx.globalAlpha=a*(nr?0.18:0.09);ctx.fillStyle=`rgb(${r},${g},${b})`;
-      ctx.beginPath();ctx.arc(p.px,p.py,rad*2.1,0,7);ctx.fill();}
+    if(!dim&&!IS_STATIC){
+      const gs=glowSprite(p.col),gr=rad*(nr?5.2:3.6);
+      ctx.globalAlpha=a*(nr?0.85:0.5);
+      ctx.drawImage(gs,p.px-gr,p.py-gr,gr*2,gr*2);
+    }
     ctx.globalAlpha=a;ctx.fillStyle='#FFFFFF';
     ctx.beginPath();ctx.arc(p.px,p.py,rad,0,7);ctx.fill();
     ctx.strokeStyle=`rgb(${r},${g},${b})`;ctx.lineWidth=Math.min(2,Math.max(1.2,rad*0.28));ctx.stroke();
@@ -1285,6 +1386,7 @@ function draw(){
   const now=performance.now();
   ctx.fillStyle=BGGRAD||'#46525C';ctx.fillRect(0,0,W,H);
   drawStars();
+  drawMeteor(now);
   drawMist(now);
   if(intro.active){
     if(!intro.t0)intro.t0=now+250;
@@ -1318,6 +1420,7 @@ function draw(){
   positionAll(now);
   applyLaunches(now);
   drawGlobeSkin();
+  if(!intro.active){updateArcs(now);drawArcs(now);}
   drawYouEdges();
   if(IS_MASSIVE)drawMassive();else drawFull(now);
   drawHome();
