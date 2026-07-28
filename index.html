@@ -184,6 +184,11 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 .linkbtn{font-family:inherit;font-size:.66rem;letter-spacing:.06em;color:var(--dimink);
   background:none;border:none;border-bottom:1px dashed rgba(0,0,0,.3);cursor:pointer;padding:0;}
 .linkbtn:hover{color:var(--ink);border-color:var(--ink);}
+.reportbox{display:none;gap:8px;margin-top:10px;}
+.reportbox.open{display:flex;}
+.reportbox input{flex:1;background:rgba(0,0,0,.03);color:var(--ink);border:1px solid rgba(0,0,0,.1);
+  border-radius:9px;padding:9px 12px;font-family:inherit;font-size:.84rem;}
+.reportbox input:focus{outline:none;border-color:rgba(230,0,0,.4);}
 
 .p-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:15px;}
 @media(max-width:420px){.p-actions{grid-template-columns:repeat(2,1fr);}}
@@ -395,6 +400,7 @@ const db=!LIVE?null:{
   listReplies:()=>sb.from('replies').select('*').order('created_at',{ascending:true}),
   addQuestion:(name,body,category,lat,lon)=>sb.from('questions').insert({name,body,category,lat,lon}).select().single(),
   addReply:(question_id,name,body,kind)=>sb.from('replies').insert({question_id,name,body,kind}).select().single(),
+  addReport:(question_id,reason)=>sb.from('reports').insert({question_id,reason}),
   onQuestion:cb=>sb.channel('q_alge').on('postgres_changes',{event:'INSERT',schema:'public',table:'questions'},p=>cb(p.new)).subscribe(),
   onReply:cb=>sb.channel('r_alge').on('postgres_changes',{event:'INSERT',schema:'public',table:'replies'},p=>cb(p.new)).subscribe(),
 };
@@ -1603,7 +1609,8 @@ function renderQ(){
     `<div class="qcat" style="color:rgb(${r},${g},${b})">${esc(q.category)}</div>`+
     `<div class="qbody">${esc(q.body)}</div>`+
     `<div class="qmeta">${esc(q.name)} · ${ago(q.created_at)}${IS_DEMO?'':' · from '+fmtLoc(q.lat,q.lon)}`+
-      (IS_DEMO?'':` · <button type="button" class="linkbtn" id="shareQ">copy link</button>`)+`</div>`+
+      (IS_DEMO?'':` · <button type="button" class="linkbtn" id="shareQ">copy link</button> · <button type="button" class="linkbtn" id="reportQ">report</button>`)+`</div>`+
+    (IS_DEMO?'':`<div class="reportbox" id="reportBox"><input id="reportWhy" type="text" maxlength="300" aria-label="Why are you reporting this?" placeholder="why? (optional)"><button class="btn" id="reportGo">Report</button></div>`)+
     `<div class="p-actions" id="pActions">${actionsHtml}</div>`+
     composeHtml+
     `<div class="replies">${repliesHtml}</div>`;
@@ -1616,6 +1623,20 @@ function renderQ(){
       if(activeKind){ setTimeout(()=>{const el=$('#pText'); if(el) el.focus();},60); }
     };
   });
+  const repBtn=$('#reportQ'),repBox=$('#reportBox');
+  if(repBtn)repBtn.onclick=()=>{repBox.classList.toggle('open');
+    if(repBox.classList.contains('open'))setTimeout(()=>$('#reportWhy').focus(),60);};
+  const repGo=$('#reportGo');
+  if(repGo)repGo.onclick=async()=>{
+    if(!db){toast("can't reach the space right now.");return;}
+    if(!rateOk('report',3,60000)){toast('already sent — a human will look.');return;}
+    repGo.disabled=true;
+    const {error}=await db.addReport(S.openId,$('#reportWhy').value.trim()||null);
+    repGo.disabled=false;
+    if(error){toast('could not send the report — try again.');return;}
+    repBox.classList.remove('open');
+    toast('reported. a human will look at it.');
+  };
   const shareBtn=$('#shareQ');
   if(shareBtn)shareBtn.onclick=async()=>{
     const url=location.origin+'/?q='+S.openId;

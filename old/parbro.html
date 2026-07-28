@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>par.BRO — Last Founder Party</title>
+<meta name="description" content="One last founders' night before the cohort scatters. Max 21. Entry costs the year you were born. No pitching.">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="par.BRO — Last Founder Party">
+<meta property="og:description" content="Entry costs the year you were born. Everything that matters after that isn't for sale.">
+<meta property="og:image" content="https://dotbro.in/assets/og-par.png">
+<meta property="og:url" content="https://par.dotbro.in/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="par.BRO — Last Founder Party">
+<meta name="twitter:description" content="Entry costs the year you were born. Everything that matters after that isn't for sale.">
+<meta name="twitter:image" content="https://dotbro.in/assets/og-par.png">
+<link rel="icon" type="image/png" href="https://dotbro.in/assets/favicon-red.png">
+<style>
+:root{
+  --void:#FFFFFF;--paper:#1D1D1F;--dim:#86868B;
+  --red:#E60000;--hair:rgba(0,0,0,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{min-height:100%;}
+body{background:var(--void);color:var(--paper);
+  font-family:'IBM Plex Mono','SF Mono',ui-monospace,monospace;
+  -webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;align-items:center;
+  padding:48px 20px calc(48px + env(safe-area-inset-bottom,0px));}
+
+.brand{display:flex;align-items:center;gap:9px;margin-bottom:6px;}
+.brand .dot{width:11px;height:11px;border-radius:50%;background:var(--red);
+  box-shadow:0 0 12px 2px rgba(230,0,0,0.35);}
+.brand .wm{font-family:'Bebas Neue','Arial Narrow',sans-serif;font-size:26px;letter-spacing:1px;}
+.sub{font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase;color:var(--dim);margin-bottom:42px;}
+
+.card{width:min(420px,92vw);}
+.lede{font-size:13px;line-height:1.7;margin-bottom:8px;}
+.lede b{font-weight:600;}
+.small{font-size:10.5px;line-height:1.7;color:var(--dim);margin-bottom:34px;}
+
+.rules{border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);
+  padding:14px 0;margin-bottom:34px;display:flex;flex-direction:column;gap:7px;}
+.rule{font-size:10.5px;letter-spacing:.04em;color:var(--paper);display:flex;gap:9px;align-items:baseline;}
+.rule .rdot{width:5px;height:5px;border-radius:50%;background:var(--red);flex-shrink:0;transform:translateY(-1px);}
+.rule .muted{color:var(--dim);}
+
+label{display:block;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:0 0 6px 2px;}
+input{width:100%;padding:12px 14px;background:rgba(0,0,0,0.03);border:1px solid rgba(0,0,0,0.12);
+  border-radius:10px;color:var(--paper);font-family:inherit;font-size:13px;outline:none;
+  caret-color:var(--red);margin-bottom:18px;}
+input:focus{border-color:rgba(230,0,0,.45);}
+input::placeholder{color:#B8B8B4;}
+button.go{width:100%;padding:14px;background:var(--paper);color:#FFF;border:none;border-radius:10px;
+  font-family:inherit;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;cursor:pointer;}
+button.go:hover{background:var(--red);}
+button.go:disabled{opacity:.5;cursor:not-allowed;}
+.err{color:var(--red);font-size:10.5px;margin-top:12px;display:none;}
+
+/* ── the House Ticket ── */
+#ticket{display:none;width:min(420px,92vw);}
+.tkt{border:1.5px solid var(--paper);border-radius:16px;padding:26px 24px;position:relative;overflow:hidden;}
+.tkt::after{content:"";position:absolute;top:0;right:0;width:88px;height:88px;
+  background:radial-gradient(circle at top right, rgba(230,0,0,0.10), transparent 70%);}
+.tkt .t-eyebrow{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:14px;}
+.tkt .t-name{font-family:'Bebas Neue','Arial Narrow',sans-serif;font-size:34px;line-height:1;letter-spacing:.5px;margin-bottom:4px;}
+.tkt .t-amt{font-size:13px;color:var(--paper);margin-bottom:20px;}
+.tkt .t-amt b{color:var(--red);font-weight:700;}
+.tkt .t-row{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px dashed rgba(0,0,0,0.18);padding-top:14px;}
+.tkt .t-code{font-size:16px;font-weight:700;letter-spacing:.1em;}
+.tkt .t-dot{width:14px;height:14px;border-radius:50%;background:var(--red);}
+.after{font-size:10.5px;line-height:1.8;color:var(--dim);margin-top:22px;}
+.after b{color:var(--paper);font-weight:600;}
+.full-msg{display:none;font-size:12px;line-height:1.8;}
+</style>
+</head>
+<body>
+
+<a href="/" style="text-decoration:none;color:inherit;display:inline-block">
+  <div class="brand"><span class="dot"></span><span class="wm">par.BRO</span></div>
+</a>
+<div class="sub">Last Founder Party · HimShikhar</div>
+<div style="margin:10px 0 0;display:flex;gap:12px;">
+  <a href="https://con.dotbro.in" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">con.BRO</a>
+  <a href="/podbro.html" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#FF7A1A;text-decoration:none;">pod.BRO</a>
+</div>
+
+<div class="card" id="form">
+  <p class="lede">HimShikhar ends on the 18th. Before everyone scatters — <b>one last founders' night.</b></p>
+  <p class="lede" style="color:var(--red)">Entry costs the year you were born. Everything that matters after that isn't for sale.</p>
+  <p class="small">No pitching. No agenda. Max 21, founders only. The room votes the night — poll closes 14 July, 8pm, in the community.</p>
+
+  <div class="rules">
+    <div class="rule"><span class="rdot"></span>Entry: the year you were born, in ₹. Leave anytime.</div>
+    <div class="rule"><span class="rdot"></span>It pre-loads your House Ticket — food, colored water, stay.</div>
+    <div class="rule"><span class="rdot"></span><span class="muted">Run past your year, the rest's on you.</span></div>
+  </div>
+
+  <label for="nm">Name</label>
+  <input id="nm" type="text" maxlength="40" placeholder="who's coming" autocomplete="off">
+  <label for="by">Birth year <span style="text-transform:none">(your entry — and your ticket balance, in ₹)</span></label>
+  <input id="by" type="number" min="1900" max="2010" placeholder="1998" autocomplete="off">
+  <label for="bl">What are you building? <span style="text-transform:none">(one line)</span></label>
+  <input id="bl" type="text" maxlength="140" placeholder="optional, but it helps" autocomplete="off">
+
+  <button class="go" id="go">Get my House Ticket</button>
+  <div class="err" id="err"></div>
+  <p class="after">Registering marks your interest — <b>the 21 are confirmed personally.</b> You'll hear back in the community.</p>
+</div>
+
+<div class="full-msg card" id="fullMsg">
+  The room is full — 30 hands went up for 21 seats. If someone can't make it, spots open up in the community. Thanks for raising yours.
+</div>
+
+<div id="ticket" class="card">
+  <div class="tkt">
+    <div class="t-eyebrow">House Ticket · par.BRO · one night only</div>
+    <div class="t-name" id="tName"></div>
+    <div class="t-amt">loaded with <b id="tAmt"></b> — food, colored water, stay</div>
+    <div class="t-row">
+      <span class="t-code" id="tCode"></span>
+      <span class="t-dot"></span>
+    </div>
+  </div>
+  <p class="after"><b>Screenshot this.</b> Your printed one waits at the door — this code is how it finds you. Night &amp; place land in the community after the poll closes (14 July, 8pm). The 21 are confirmed personally — you'll hear back.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+const sb=supabase.createClient('https://fliheqjbwmcoggajovln.supabase.co','sb_publishable_qaGLnY9bUZ3nhveVw-64xg_kDuJLfHt');
+const $=s=>document.querySelector(s);
+
+function showTicket(t){
+  $('#form').style.display='none';
+  $('#tName').textContent=t.name;
+  $('#tAmt').textContent='₹'+t.birth_year;
+  $('#tCode').textContent=t.ticket_code;
+  $('#ticket').style.display='block';
+}
+
+// returning visitor: their ticket persists
+const saved=localStorage.getItem('parbro_ticket');
+if(saved){ try{ showTicket(JSON.parse(saved)); }catch(_){} }
+
+$('#go').onclick=async()=>{
+  const name=$('#nm').value.trim();
+  const year=parseInt($('#by').value,10);
+  const building=$('#bl').value.trim();
+  const err=$('#err');
+  err.style.display='none';
+  if(name.length<1){ err.textContent='your name — that’s the whole ticket.'; err.style.display='block'; return; }
+  if(!year||year<1900||year>2010){ err.textContent='birth year between 1900 and 2010.'; err.style.display='block'; return; }
+  const btn=$('#go'); btn.disabled=true;
+  const {data,error}=await sb.rpc('parbro_register',{p_name:name,p_birth_year:year,p_building:building||null});
+  btn.disabled=false;
+  if(error||!data||data.error){ err.textContent='didn’t go through — try again.'; err.style.display='block'; return; }
+  if(data.full){ $('#form').style.display='none'; $('#fullMsg').style.display='block'; return; }
+  localStorage.setItem('parbro_ticket',JSON.stringify(data));
+  showTicket(data);
+};
+</script>
+</body>
+</html>

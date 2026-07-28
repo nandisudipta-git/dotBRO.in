@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>dotBro — Some conversations deserve another chance</title>
+<meta name="description" content="dotBro turns missed questions, lost mentors, and unfinished conversations into a living knowledge graph. Every question deserves a second chance.">
+<link rel="canonical" href="https://dotbro.in">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dotbro.in">
+<meta property="og:title" content="dotBro — Some conversations deserve another chance">
+<meta property="og:description" content="Every question deserves a second chance. Every campus. Every café. Every lecture hall. dotBro.">
+<meta property="og:image" content="https://dotbro.in/og.png">
+<meta property="og:site_name" content="dotBro">
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@dotbroin">
+<meta name="twitter:title" content="dotBro — Some conversations deserve another chance">
+<meta name="twitter:description" content="Every question deserves a second chance.">
+<meta name="twitter:image" content="https://dotbro.in/og.png">
+<!-- PWA -->
+<meta name="theme-color" content="#090909">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="dotBro">
+<!-- Structured Data -->
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"dotBro","url":"https://dotbro.in","description":"Every question deserves a second chance. dotBro turns missed conversations into a living knowledge graph.","publisher":{"@type":"Organization","name":"Alokara","url":"https://dotbro.in"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black: #090909;
+  --white: #F5F5F0;
+  --red: #D10000;
+  --red2: #FF1A1A;
+  --green: #C8D400;
+  --green2: #E2EE00;
+  --blue: #2563EB;
+  --cyan: #06B6D4;
+  --purple: #9B87FF;
+  --olive: #1A1C0F;
+  --olive2: #252A10;
+  --gray: #7A7A74;   /* raised from #666660 — now passes 4.5:1 on --black */
+  --mgray: #333330;
+  /* node state colors */
+  --node-question: #F5F5F0;
+  --node-answered: #C8D400;
+  --node-collab: #E8A33D;
+  --node-meeting: #2563EB;
+  --node-knowledge: #9B87FF;
+  --node-archived: #444440;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  overflow-x: hidden;
+  cursor: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+@media (max-width:600px) { body { cursor: auto; } }
+
+/* ── SKIP LINK ── */
+.skip-link {
+  position: fixed; top: -100%; left: 1rem; z-index: 9999;
+  background: var(--green); color: var(--olive);
+  font-family: 'Space Mono', monospace; font-size: 0.75rem;
+  padding: 0.6rem 1rem; letter-spacing: 1px;
+  transition: top 0.15s;
+}
+.skip-link:focus { top: 0.8rem; }
+
+/* ── FOCUS STATES ── */
+*:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* ── CUSTOM CURSOR — uses transform:translate() only for GPU compositing ── */
+.cursor {
+  position: fixed; top: 0; left: 0;
+  width: 12px; height: 12px;
+  background: var(--white); border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  mix-blend-mode: difference;
+  will-change: transform;
+  transition: width 0.2s, height 0.2s;
+}
+.cursor-ring {
+  position: fixed; top: 0; left: 0;
+  width: 40px; height: 40px;
+  border: 1px solid rgba(255,255,255,0.4); border-radius: 50%;
+  pointer-events: none; z-index: 9998;
+  will-change: transform;
+  transition: width 0.3s, height 0.3s, border-color 0.3s;
+}
+.cursor.hovering { width: 24px; height: 24px; }
+.cursor-ring.hovering { width: 60px; height: 60px; border-color: rgba(200,212,0,0.5); }
+@media (max-width:600px) { .cursor, .cursor-ring { display: none; } }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.2rem 3rem;
+  background: rgba(9,9,9,0.85);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem;
+  letter-spacing: 2px; color: var(--white);
+  text-decoration: none;
+}
+/* ── LIVING DOT — nav ── */
+/* NOTE: colour + glow are driven entirely by JS tickDot() — no CSS animation here to avoid conflict */
+.nav-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block; flex-shrink: 0;
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  will-change: background, box-shadow;
+}
+.nav-dot:hover { transform: scale(1.5) !important; }
+.nav-links {
+  display: flex; gap: 2rem;
+}
+.nav-links a {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--gray); text-decoration: none; letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: color 0.2s;
+  padding: 0.3rem 0;
+}
+.nav-links a:hover { color: var(--white); }
+.nav-badge {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--gray); letter-spacing: 1px;
+}
+@media (max-width:900px) { .nav-links { display: none; } }
+@media (max-width:600px) { nav { padding: 1rem 1.2rem; } .nav-badge { display: none; } }
+
+/* ── SLIDE SYSTEM ── */
+.slide {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex; align-items: center;
+  justify-content: center; position: relative; overflow: hidden;
+  /* safe area: calc() form for broader Android compat */
+  padding-top: calc(env(safe-area-inset-top, 0px) + 5.5rem);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 3.5rem);
+  padding-left: calc(env(safe-area-inset-left, 0px) + 3rem);
+  padding-right: calc(env(safe-area-inset-right, 0px) + 3rem);
+}
+@media (max-width:768px) {
+  /* iPad portrait */
+  .slide { padding-left: 2rem; padding-right: 2rem; }
+  .venture-stage { min-height: 560px; }
+}
+@media (max-width:600px) {
+  .slide {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 5rem);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2.5rem);
+    padding-left: 1.25rem; padding-right: 1.25rem;
+  }
+}
+
+/* ── CANVAS 3D BG ── */
+#bg-canvas {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+  opacity: 0.35;
+}
+
+/* ── SLIDE 1: COVER ── */
+#s1 { background: var(--black); z-index: 1; }
+.s1-inner {
+  text-align: center; position: relative; z-index: 2;
+  max-width: 1200px; margin: 0 auto;
+}
+
+/* ── GIANT .BRO — the dot is a separate living element ── */
+.bro-giant {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(7rem, 22vw, 22rem);
+  line-height: 0.85;
+  letter-spacing: -4px;
+  transform: perspective(800px) rotateX(8deg);
+  transform-origin: center bottom;
+  animation: titleRise 1.2s cubic-bezier(0.16,1,0.3,1) both;
+  display: inline-flex; align-items: baseline;
+  gap: 0.04em;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+/* NOTE: bro-dot colour, glow and breathe are driven entirely by JS tickDot() */
+.bro-dot {
+  display: inline-block;
+  width: clamp(0.8rem, 2.5vw, 2.5rem);
+  height: clamp(0.8rem, 2.5vw, 2.5rem);
+  border-radius: 50%;
+  vertical-align: baseline;
+  margin-bottom: clamp(0.3rem, 0.8vw, 0.9rem);
+  position: relative;
+  cursor: pointer;
+  will-change: background, box-shadow, transform;
+  -webkit-text-fill-color: initial;
+  background-clip: initial;
+}
+.bro-text {
+  display: inline-block;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.glitch { position: relative; }
+.glitch::before, .glitch::after {
+  content: attr(data-text); position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  pointer-events: none;
+}
+.glitch::before { animation: glitch1 4s infinite 3s; }
+.glitch::after  { animation: glitch2 4s infinite 3s; }
+@keyframes glitch1 {
+  0%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  10%{clip-path:inset(30% 0 50% 0);transform:translateX(-3px)}
+  20%{clip-path:inset(60% 0 20% 0);transform:translateX(3px)}
+  30%{clip-path:inset(0 0 100% 0);transform:none}
+}
+@keyframes glitch2 {
+  0%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  15%{clip-path:inset(50% 0 30% 0);transform:translateX(3px)}
+  25%{clip-path:inset(20% 0 60% 0);transform:translateX(-3px)}
+  35%{clip-path:inset(0 0 100% 0);transform:none}
+}
+@keyframes titleRise {
+  from { opacity:0; transform: perspective(800px) rotateX(28deg) translateY(60px); }
+  to   { opacity:1; transform: perspective(800px) rotateX(8deg) translateY(0); }
+}
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(20px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+@keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
+
+/* ── HERO CONTENT ── */
+.hero-launch-line {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2rem, 4.5vw, 5rem); line-height: 0.92;
+  margin-top: 1.4rem; letter-spacing: -1px;
+  animation: fadeUp 1s 0.3s both;
+}
+.hero-places {
+  max-width: 640px; margin: 1.2rem auto 0;
+  color: var(--gray); font-size: clamp(0.88rem, 1.5vw, 1.05rem);
+  line-height: 1.75; animation: fadeUp 1s 0.45s both;
+}
+
+/* ── REAL INTERACTIVE INPUT ── */
+.hero-input-wrap {
+  max-width: 680px; margin: 1.8rem auto 0;
+  position: relative; animation: fadeUp 1s 0.6s both;
+}
+.hero-input {
+  width: 100%; padding: 1.15rem 1.4rem 1.15rem 1.4rem;
+  padding-right: 3.5rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 0;
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(0.92rem, 1.8vw, 1.18rem);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 20px 50px rgba(0,0,0,0.3);
+  transition: border-color 0.3s, box-shadow 0.3s;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  caret-color: var(--green);
+}
+.hero-input::placeholder { color: rgba(102,102,96,0.8); }
+.hero-input:focus {
+  border-color: rgba(200,212,0,0.45);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(200,212,0,0.15), 0 20px 50px rgba(0,0,0,0.3);
+}
+.hero-input-icon {
+  position: absolute; right: 1.1rem; top: 50%; transform: translateY(-50%);
+  color: rgba(102,102,96,0.6); font-size: 1rem; pointer-events: none;
+  transition: color 0.3s;
+}
+.hero-input-wrap:focus-within .hero-input-icon { color: var(--green); }
+.hero-input-hint {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  letter-spacing: 1.2px; color: rgba(120,120,116,0.6);
+  text-align: right; margin-top: 0.45rem; text-transform: uppercase;
+}
+/* spawned node from input */
+.spawned-node {
+  position: fixed; pointer-events: none; z-index: 50;
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--green); padding: 6px 12px;
+  background: rgba(9,9,9,0.9); border: 1px solid rgba(200,212,0,0.4);
+  border-radius: 4px; white-space: nowrap;
+  animation: nodeSpawn 2.8s cubic-bezier(0.22,1,0.36,1) forwards;
+}
+@keyframes nodeSpawn {
+  0%   { opacity:0; transform: translateY(0) scale(0.7); }
+  15%  { opacity:1; transform: translateY(-20px) scale(1); }
+  70%  { opacity:1; transform: translateY(-80px) scale(1); }
+  100% { opacity:0; transform: translateY(-140px) scale(0.8); }
+}
+
+.launch-actions { display: flex; justify-content: center; gap: 0.8rem; flex-wrap: wrap; margin-top: 1.4rem; animation: fadeUp 1s 0.75s both; }
+.launch-cta {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0.85rem 1.6rem; text-decoration: none;
+  font-family: 'Space Mono', monospace; font-size: 0.66rem;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s, box-shadow 0.2s;
+  border-radius: 2px;
+  touch-action: manipulation;
+}
+.launch-cta.primary {
+  background: var(--white); color: var(--black);
+  box-shadow: 0 4px 24px rgba(245,245,240,0.18);
+}
+.launch-cta.secondary {
+  border: 1px solid #343434; color: var(--white);
+  background: rgba(255,255,255,0.03);
+}
+.launch-cta:hover { transform: translateY(-3px); }
+.launch-cta.primary:hover { background: var(--green); color: var(--olive); box-shadow: 0 8px 32px rgba(200,212,0,0.25); }
+.launch-cta.secondary:hover { border-color: var(--green); background: rgba(200,212,0,0.05); }
+.launch-cta:active { transform: scale(0.97); }
+.launch-note { margin-top: 1rem; color: #44443E; font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 1.5px; animation: fadeUp 1s 0.9s both; }
+
+.scroll-hint {
+  position: absolute; bottom: max(2rem, env(safe-area-inset-bottom) + 1rem);
+  left: 50%; transform: translateX(-50%);
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  color: var(--gray); letter-spacing: 3px; text-align: center;
+  animation: bounce 2s infinite 1.5s;
+}
+.scroll-hint::after {
+  content: ''; display: block; width: 1px; height: 40px;
+  background: linear-gradient(to bottom, var(--gray), transparent);
+  margin: 8px auto 0;
+}
+
+/* ── SECTION LABELS ── */
+.section-label {
+  font-family: 'Space Mono', monospace; font-size: 0.68rem;
+  color: var(--red); letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.section-label.green { color: var(--green); }
+
+/* ── SLIDE 2: PROBLEM ── */
+#s2 { background: #0D0D0D; }
+.s2-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.s2-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 7vw, 7rem);
+  line-height: 0.9; margin-bottom: 1.5rem;
+  transform: perspective(600px) rotateY(-3deg);
+}
+.s2-sub { font-size: 1.05rem; color: var(--gray); max-width: 600px; margin-bottom: 3rem; line-height: 1.7; }
+
+/* ── EMOTIONAL MISS CARDS ── */
+.miss-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px; }
+.miss-card {
+  background: var(--mgray); padding: 2rem 1.5rem; min-height: 160px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  position: relative; overflow: hidden;
+  transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1), background 0.3s;
+}
+.miss-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--red);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.2,0.8,0.2,1);
+}
+.miss-card:hover::before { transform: scaleX(1); }
+.miss-card:hover { transform: translateY(-5px); background: #1C1C1C; }
+.miss-num { font-family: 'Space Mono', monospace; font-size: 0.55rem; color: var(--red); letter-spacing: 2px; text-transform: uppercase; }
+.miss-head {
+  font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.1rem,2vw,1.5rem);
+  letter-spacing: 1px; color: var(--white); line-height: 1.1; margin: 0.6rem 0 0.5rem;
+}
+.miss-story { font-size: 0.82rem; color: var(--gray); line-height: 1.55; font-style: italic; }
+.problem-close {
+  margin-top: 1.5rem; padding: 1.4rem 1.8rem; background: var(--red);
+  font-size: clamp(1rem, 2.2vw, 1.7rem); line-height: 1.35;
+}
+
+/* ── SLIDE 3: CURIOSITY LOOP ── */
+#s3 { background: #0A0A0A; }
+.s4-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.steps-row {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 1px; margin-top: 2rem;
+}
+.step-card {
+  background: #141414; padding: 2rem 1.2rem;
+  text-align: center; position: relative;
+  transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1), background 0.3s;
+  cursor: default;
+}
+.step-card:hover { background: #1E1E1E; transform: translateY(-8px) scale(1.02); }
+.step-num-circle {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--red); display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: #fff;
+  margin: 0 auto 1rem;
+  box-shadow: 0 0 24px rgba(209,0,0,0.4);
+  transition: box-shadow 0.3s;
+}
+.step-card:hover .step-num-circle { box-shadow: 0 0 40px rgba(209,0,0,0.65); }
+.step-icon { font-size: 1.8rem; margin-bottom: 0.8rem; }
+.step-head { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
+.step-body { font-size: 0.8rem; color: var(--gray); line-height: 1.55; }
+.step-arrow {
+  position: absolute; right: -14px; top: 50%; transform: translateY(-50%);
+  color: var(--red); font-size: 1.1rem; z-index: 2; opacity: 0.7;
+}
+.connector-bar {
+  background: var(--red); padding: 1rem 1.5rem; margin-top: 1px;
+  text-align: center; font-size: 0.85rem; font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* ── SLIDE 4: 3D GRAPH ── */
+#s4 { background: #080808; }
+.graph3d-wrap {
+  position: relative; width: 100%; height: 72vh; min-height: 480px;
+  margin-top: 2rem; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: radial-gradient(ellipse at 50% 50%, rgba(200,212,0,0.03), rgba(9,9,9,0) 65%),
+              radial-gradient(ellipse at 20% 80%, rgba(209,0,0,0.025), transparent 45%), #070707;
+  cursor: grab;
+}
+.graph3d-wrap:active { cursor: grabbing; }
+#obsidian-graph { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.graph3d-hint {
+  position: absolute; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
+  font-family: 'Space Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 2px; color: rgba(255,255,255,0.18);
+  pointer-events: none; text-transform: uppercase; white-space: nowrap;
+}
+.graph3d-pulse {
+  position: absolute; top: 1.2rem; right: 1.4rem;
+  font-family: 'Space Mono', monospace; font-size: 0.5rem;
+  letter-spacing: 1.5px; color: var(--green);
+  display: flex; align-items: center; gap: 6px; pointer-events: none;
+}
+.graph3d-pulse::before {
+  content:''; width:6px; height:6px; border-radius:50%; background:var(--green);
+  animation: livePulse 1.8s ease-in-out infinite;
+}
+@keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.25;transform:scale(0.65)} }
+/* node legend */
+.graph3d-legend {
+  position: absolute; top: 1.2rem; left: 1.4rem;
+  display: flex; flex-direction: column; gap: 6px; pointer-events: none;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 7px;
+  font-family: 'Space Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5);
+}
+.legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+@media (max-width:600px) {
+  .graph3d-wrap { height: 55vh; min-height: 360px; }
+  .graph3d-legend { display: none; }
+}
+
+/* ── SLIDE 5: AUDIENCE ── */
+#s5 { background: #080808; }
+.s7-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.vision-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3.5rem, 9vw, 9rem);
+  line-height: 0.85; margin-bottom: 1rem;
+  background: linear-gradient(135deg, #fff 0%, var(--red) 50%, var(--green) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: gradShift 4s ease infinite;
+}
+@keyframes gradShift {
+  0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+}
+.vision-sub { font-size: 1rem; color: var(--gray); max-width: 600px; margin-bottom: 3rem; line-height: 1.7; }
+.audience-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5px; margin-top: 2.5rem; }
+.scenario {
+  background: #111; padding: 1.8rem 1.4rem; min-height: 180px;
+  position: relative; transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1), background 0.3s;
+  overflow: hidden;
+}
+.scenario:hover { transform: translateY(-6px); background: #1A1A1A; }
+.scenario-top { height: 3px; margin-bottom: 1.2rem; }
+.scenario-prob { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; color: var(--white); margin-bottom: 0.8rem; }
+.audience-question { color: var(--gray); font-size: 0.82rem; line-height: 1.55; margin-top: 0.6rem; }
+
+/* ── SLIDE 6: COMING SOON ── */
+#s6 { background: radial-gradient(circle at 78% 32%, rgba(200,212,0,0.07), transparent 34%), #0B0B0B; }
+.coming-wrap { width: 100%; max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 0.78fr 1.22fr; gap: 5rem; align-items: center; }
+.s6-headline { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.5rem,5.5vw,6rem); line-height: 0.9; margin-bottom: 0.5rem; }
+.coming-label { color: var(--accent, #F5F5F0); font-family: 'Space Mono', monospace; font-size: 0.68rem; letter-spacing: 1.5px; text-transform: uppercase; }
+.venture-stage { position: relative; min-height: 680px; perspective: 1200px; }
+.venture-glass {
+  --x: calc(var(--i) * 22px);
+  --y: calc(var(--i) * 110px);
+  --r: calc((var(--i) - 1.5) * 0.45deg);
+  position: absolute; inset: 0 auto auto 0;
+  width: calc(100% - 66px); min-height: 210px;
+  padding: 1.5rem 1.6rem; border-radius: 22px;
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: start; gap: 1.25rem;
+  transform: translate3d(var(--x), var(--y), 0) rotate(var(--r));
+  z-index: calc(10 - var(--i)); overflow: hidden;
+  color: var(--white); text-decoration: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 28px 70px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12);
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+  transition: transform 0.45s cubic-bezier(.2,.8,.2,1), border-color 0.3s, background 0.3s;
+}
+.venture-glass::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 12% 0%, var(--accent-soft), transparent 45%);
+}
+.venture-glass:hover {
+  transform: translate3d(calc(var(--x) - 14px), calc(var(--y) - 10px), 44px) rotate(0);
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05));
+}
+.venture-no, .venture-state, .venture-meta { font-family: 'Space Mono', monospace; text-transform: uppercase; }
+.venture-no { color: var(--accent); font-size: 0.65rem; padding-top: 0.3rem; }
+.venture-body { position: relative; z-index: 1; }
+.venture-state { color: var(--accent); font-size: 0.62rem; letter-spacing: 1.5px; }
+.venture-name { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2rem, 3.5vw, 3.2rem); line-height: 0.95; margin-top: 0.55rem; }
+.venture-desc { color: #B0AFA8; font-size: 0.82rem; line-height: 1.55; margin-top: 0.65rem; max-width: 380px; }
+.venture-arrow { color: var(--accent); font-size: 1.25rem; position: relative; z-index: 1; }
+.venture-meta { grid-column: 2/4; color: #7A7A74; font-size: 0.62rem; letter-spacing: 1px; }
+
+/* ── SLIDE 7: CONTRIBUTORS ── */
+#s7 { background: #080808; }
+.contributor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.5px; margin-top: 2.2rem; }
+.contributor-card {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  padding: 1.35rem 1.15rem; min-height: 140px; display: flex; flex-direction: column;
+  transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1), background 0.3s, border-color 0.3s;
+  touch-action: manipulation;
+}
+.contributor-card:hover { transform: translateY(-5px); background: rgba(255,255,255,0.07); border-color: rgba(200,212,0,0.3); }
+.contributor-role { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 1px; }
+.contributor-state { margin-top: auto; color: var(--green); font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── SLIDE 8: MANIFESTO ── */
+#s8 { background: var(--black); color: var(--white); text-align: center; }
+.manifesto { max-width: 900px; margin: 0 auto; }
+.manifesto-line {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.9rem, 4.8vw, 4.4rem);
+  line-height: 1.25; color: #2E2E2C;
+  transition: color 0.4s, transform 0.4s cubic-bezier(0.2,0.8,0.2,1);
+  cursor: default;
+}
+.manifesto-line b { color: var(--white); font-weight: 400; }
+.manifesto-line:hover { color: var(--gray); transform: translateX(8px); }
+.manifesto-line:hover b { color: var(--red); }
+
+/* ── SLIDE 9: FINAL CTA ── */
+#s9 { background: var(--black); text-align: center; }
+.float-el {
+  position: absolute; pointer-events: none;
+  animation: floatEl var(--dur, 6s) ease-in-out infinite var(--delay, 0s);
+  opacity: 0.05; font-family: 'Bebas Neue', sans-serif; color: var(--white);
+  user-select: none;
+}
+@keyframes floatEl { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-20px) rotate(4deg)} }
+.final-launch { max-width: 900px; margin: 0 auto; text-align: center; position: relative; z-index: 2; }
+.close-big {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 10vw, 10rem);
+  line-height: 0.85; margin-bottom: 1.5rem;
+  transform: perspective(800px) rotateX(5deg);
+}
+
+/* ── PROGRESS BAR ── */
+.progress {
+  position: fixed; top: 0; left: 0; height: 2px;
+  background: linear-gradient(to right, var(--red), var(--green));
+  transition: width 0.15s; z-index: 200; width: 0%;
+  will-change: width;
+}
+
+/* ── SLIDE NAV DOTS ── */
+.slide-nav {
+  position: fixed; right: 2rem; top: 50%;
+  transform: translateY(-50%); z-index: 100;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.snav-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #2A2A28; cursor: pointer;
+  transition: background 0.3s, transform 0.3s;
+}
+.snav-dot.active { background: var(--white); transform: scale(1.6); }
+.snav-dot:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+@media (max-width:900px) { .slide-nav { display: none; } }
+
+/* ── REVEAL ANIMATION ── */
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: 0.12s; }
+.reveal-delay-2 { transition-delay: 0.22s; }
+.reveal-delay-3 { transition-delay: 0.32s; }
+.reveal-delay-4 { transition-delay: 0.44s; }
+
+/* ── RESPONSIVE ── */
+@media (max-width:1100px) {
+  .steps-row { grid-template-columns: repeat(3, 1fr); }
+  .step-card:last-child .step-arrow { display: none; }
+}
+@media (max-width:900px) {
+  .miss-grid { grid-template-columns: repeat(2, 1fr); }
+  .audience-grid { grid-template-columns: repeat(2, 1fr); }
+  .coming-wrap { grid-template-columns: 1fr; gap: 2.5rem; }
+  .contributor-grid { grid-template-columns: repeat(3, 1fr); }
+  .venture-stage { min-height: 580px; }
+}
+@media (max-width:600px) {
+  .miss-grid, .audience-grid, .contributor-grid { grid-template-columns: 1fr; }
+  .steps-row { grid-template-columns: repeat(2, 1fr); }
+  .venture-stage { min-height: auto; display: flex; flex-direction: column; gap: 0.8rem; }
+  .venture-glass { position: relative; width: 100%; min-height: 185px; transform: none; border-radius: 18px; }
+  .venture-glass:hover { transform: translateY(-4px); }
+  .coming-wrap { grid-template-columns: 1fr; gap: 2rem; }
+  .contributor-grid { grid-template-columns: repeat(2, 1fr); }
+  .bro-giant { font-size: clamp(5.5rem, 36vw, 10rem); }
+  .manifesto-line:hover { transform: none; }
+}
+
+/* ── PERFORMANCE / REDUCED MOTION ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .bro-dot, .nav-dot { animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+<div class="cursor" id="cursor" aria-hidden="true"></div>
+<div class="cursor-ring" id="cursorRing" aria-hidden="true"></div>
+<div class="progress" id="progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+
+<nav role="navigation" aria-label="Main navigation">
+  <a class="nav-logo" href="#s1" aria-label="dotBro home">
+    <span class="nav-dot" id="navDot" aria-hidden="true"></span>BRO
+  </a>
+  <div class="nav-links">
+    <a href="#s2">Why</a>
+    <a href="#s3">Vision</a>
+    <a href="#s4">Graph</a>
+    <a href="#s6">Universe</a>
+    <a href="#s7">Contribute</a>
+  </div>
+  <div class="nav-badge" aria-label="Alokara 2026">ALOKARA · 2026</div>
+</nav>
+
+<div class="slide-nav" id="slideNav" role="navigation" aria-label="Page sections"></div>
+
+<!-- ══ SLIDE 1: HERO ══ -->
+<section class="slide" id="s1" aria-label="Hero">
+  <div class="float-el" style="font-size:20rem;top:8%;right:-4%;--dur:8s" aria-hidden="true">?</div>
+  <div class="float-el" style="font-size:7rem;bottom:12%;left:4%;--dur:6s;--delay:1s" aria-hidden="true">●</div>
+  <div class="s1-inner" id="main-content">
+    <!-- The dot is the logo. BRO is the name. aria-label holds both. -->
+    <div class="bro-giant glitch" data-text=".BRO" aria-label="dotBro" aria-hidden="true">
+      <span class="bro-dot" id="heroDot"></span><span class="bro-text">BRO</span>
+    </div>
+    <!-- h1 = primary page heading, not the logo -->
+    <h1 class="hero-launch-line">Some conversations deserve another chance.</h1>
+    <div class="hero-input-wrap">
+      <input
+        class="hero-input"
+        id="heroInput"
+        type="text"
+        placeholder="What conversation do you wish had continued?"
+        maxlength="120"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Type a question or conversation you wish had continued — press Enter to add it to the graph"
+        aria-describedby="inputHint"
+      >
+      <span class="hero-input-icon" aria-hidden="true">↵</span>
+      <div class="hero-input-hint" id="inputHint">Press Enter — it becomes a node in the graph</div>
+    </div>
+    <div class="launch-actions" role="group" aria-label="Get started">
+      <a class="launch-cta primary" href="#s8" aria-label="I'm In — join dotBro">I'm In</a>
+      <a class="launch-cta secondary" href="mailto:alokara.teams@gmail.com?subject=Founding%20Contributor%20%E2%80%94%20dotBro">Become a Founding Contributor</a>
+    </div>
+    <p class="launch-note">Launching with curious people.</p>
+  </div>
+  <div class="scroll-hint" aria-hidden="true">SCROLL</div>
+</section>
+
+<!-- ══ SLIDE 2: THE PROBLEM ══ -->
+<section class="slide" id="s2" aria-label="The problem">
+  <div class="s2-inner">
+    <div class="section-label reveal">What gets missed</div>
+    <div class="s2-headline reveal reveal-delay-1">The people and ideas<br>were already there.</div>
+    <div class="s2-sub reveal reveal-delay-2">Not because they didn't exist. Because conversations end.</div>
+    <div class="miss-grid reveal reveal-delay-3" role="list">
+      <div class="miss-card" role="listitem">
+        <div class="miss-num">01</div>
+        <div class="miss-head">That professor<br>after class</div>
+        <p class="miss-story">"I wanted to ask — but the room had emptied and the moment was gone."</p>
+      </div>
+      <div class="miss-card" role="listitem">
+        <div class="miss-num">02</div>
+        <div class="miss-head">The brilliant<br>overheard idea</div>
+        <p class="miss-story">"Someone said something that changed how I think. I never caught their name."</p>
+      </div>
+      <div class="miss-card" role="listitem">
+        <div class="miss-num">03</div>
+        <div class="miss-head">The co-founder<br>I almost met</div>
+        <p class="miss-story">"We talked once. Both working on the same problem. I lost the chance to continue."</p>
+      </div>
+      <div class="miss-card" role="listitem">
+        <div class="miss-num">04</div>
+        <div class="miss-head">The mentor<br>I never found</div>
+        <p class="miss-story">"Someone with the exact experience I needed was three seats away. I wish I knew."</p>
+      </div>
+      <div class="miss-card" role="listitem">
+        <div class="miss-num">05</div>
+        <div class="miss-head">The question<br>I was afraid to ask</div>
+        <p class="miss-story">"I should have asked. The room looked too certain and I stayed quiet."</p>
+      </div>
+      <div class="miss-card" role="listitem">
+        <div class="miss-num">06</div>
+        <div class="miss-head">The idea that<br>needed an answer</div>
+        <p class="miss-story">"It kept returning. I had nowhere to put it that could connect it to someone who cared."</p>
+      </div>
+    </div>
+    <div class="problem-close reveal reveal-delay-4">Not because they don't exist.<br>Because conversations end.</div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 3: CURIOSITY LOOP ══ -->
+<section class="slide" id="s3" aria-label="The curiosity loop">
+  <div class="s4-inner">
+    <div class="section-label reveal">The Curiosity Loop</div>
+    <div class="s2-headline reveal reveal-delay-1">A question should<br>be able to travel.</div>
+    <div class="steps-row reveal reveal-delay-2" role="list">
+      <div class="step-card" role="listitem" aria-label="Step 1: Question"><div class="step-num-circle" aria-hidden="true">1</div><div class="step-icon" aria-hidden="true">?</div><div class="step-head">Question</div><div class="step-body">Curiosity creates the first opening.</div><div class="step-arrow" aria-hidden="true">→</div></div>
+      <div class="step-card" role="listitem" aria-label="Step 2: Answer"><div class="step-num-circle" aria-hidden="true">2</div><div class="step-icon" aria-hidden="true">✦</div><div class="step-head">Answer</div><div class="step-body">Someone adds context, direction, experience.</div><div class="step-arrow" aria-hidden="true">→</div></div>
+      <div class="step-card" role="listitem" aria-label="Step 3: Meeting"><div class="step-num-circle" aria-hidden="true">3</div><div class="step-icon" aria-hidden="true">○</div><div class="step-head">Meeting</div><div class="step-body">The right people continue the conversation.</div><div class="step-arrow" aria-hidden="true">→</div></div>
+      <div class="step-card" role="listitem" aria-label="Step 4: Project"><div class="step-num-circle" aria-hidden="true">4</div><div class="step-icon" aria-hidden="true">↗</div><div class="step-head">Project</div><div class="step-body">Conversation becomes something real.</div><div class="step-arrow" aria-hidden="true">→</div></div>
+      <div class="step-card" role="listitem" aria-label="Step 5: Knowledge"><div class="step-num-circle" aria-hidden="true">5</div><div class="step-icon" aria-hidden="true">∞</div><div class="step-head">Knowledge</div><div class="step-body">Every outcome creates a new question.</div></div>
+    </div>
+    <div class="connector-bar reveal reveal-delay-3" aria-label="The loop">Question → Answer → Meeting → Project → Knowledge → New Question</div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 4: LIVING 3D GRAPH ══ -->
+<section class="slide" id="s4" aria-label="Living knowledge graph">
+  <div class="s4-inner">
+    <div class="section-label green reveal">Living Knowledge Graph</div>
+    <div class="s2-headline reveal reveal-delay-1">Every question is a node.<br>Every node connects.</div>
+    <div class="vision-sub reveal" style="margin-bottom:0;max-width:680px;">Drag to rotate. Hover a node. Watch how curiosity compounds — not a feed. A graph.</div>
+    <div class="graph3d-wrap reveal reveal-delay-2" aria-label="Interactive 3D knowledge graph — drag to rotate, hover nodes to see questions">
+      <canvas id="obsidian-graph"></canvas>
+      <div class="graph3d-legend" aria-hidden="true">
+        <div class="legend-item"><div class="legend-dot" style="background:#F5F5F0"></div>Question</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#C8D400"></div>Answered</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#E8A33D"></div>Needs Collaborator</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2563EB"></div>Meeting Created</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#9B87FF"></div>Knowledge</div>
+      </div>
+      <div class="graph3d-hint" aria-hidden="true">drag to rotate · scroll to zoom · hover a node</div>
+      <div class="graph3d-pulse" aria-live="off" aria-hidden="true">LIVE GRAPH</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 5: AUDIENCE ══ -->
+<section class="slide" id="s5" aria-label="Who is dotBro for">
+  <div class="s7-inner">
+    <div class="section-label reveal">Who is dotBro for?</div>
+    <div class="vision-headline reveal reveal-delay-1">Curious people.</div>
+    <div class="vision-sub reveal reveal-delay-2">Different perspectives. The same instinct to ask, learn, and build.</div>
+    <div class="audience-grid reveal reveal-delay-3" role="list">
+      <div class="scenario" role="listitem"><div class="scenario-top" style="background:var(--red)"></div><div class="scenario-prob">Student</div><p class="audience-question">"I asked too late. Class was over. The professor was gone. That question never got answered."</p></div>
+      <div class="scenario" role="listitem"><div class="scenario-top" style="background:var(--green)"></div><div class="scenario-prob">Professor</div><p class="audience-question">"The best question came after the bell. I answered it once. A hundred students needed to hear it."</p></div>
+      <div class="scenario" role="listitem"><div class="scenario-top" style="background:var(--blue)"></div><div class="scenario-prob">Researcher</div><p class="audience-question">"Someone else published it six months later. We were thinking the same thing. We just never met."</p></div>
+      <div class="scenario" role="listitem"><div class="scenario-top" style="background:var(--purple)"></div><div class="scenario-prob">Founder</div><p class="audience-question">"My co-founder was in that conference room. We both left without knowing the other existed."</p></div>
+      <div class="scenario" role="listitem"><div class="scenario-top" style="background:var(--cyan)"></div><div class="scenario-prob">Engineer</div><p class="audience-question">"I solved a hard problem. Nobody outside my team knew. It's sitting in a Slack thread, dead."</p></div>
+      <div class="scenario" role="listitem"><div class="scenario-top" style="background:var(--red)"></div><div class="scenario-prob">Designer</div><p class="audience-question">"I overheard someone in a café describe the exact thing I was designing. I didn't say a word."</p></div>
+      <div class="scenario" role="listitem"><div class="scenario-top" style="background:var(--green)"></div><div class="scenario-prob">Builder</div><p class="audience-question">"The idea was good. The timing was right. I just didn't know who else believed in it."</p></div>
+      <div class="scenario" role="listitem"><div class="scenario-top" style="background:var(--purple)"></div><div class="scenario-prob">Dreamer</div><p class="audience-question">"I've had the same question for three years. I've never found the right place to ask it."</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 6: FUTURE UNIVERSE ══ -->
+<section class="slide" id="s6" aria-label="The dotBro universe">
+  <div class="coming-wrap">
+    <div>
+      <div class="section-label green reveal">The Universe</div>
+      <div class="s6-headline reveal reveal-delay-1">The first paths<br>through dotBro.</div>
+      <p class="vision-sub reveal reveal-delay-2">Placeholders for what the community may build together.</p>
+    </div>
+    <div class="venture-stage reveal reveal-delay-2" aria-label="Coming soon products">
+      <article class="venture-glass" style="--i:0;--accent:#F5F5F0;--accent-soft:rgba(245,245,240,0.12)" tabindex="0"><span class="venture-no">01</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Gyaan.Bro</div><p class="venture-desc">Questions, context, and knowledge that keep moving.</p></div><span class="venture-arrow" aria-hidden="true">→</span><div class="venture-meta">Placeholder</div></article>
+      <article class="venture-glass" style="--i:1;--accent:#FF1A1A;--accent-soft:rgba(209,0,0,0.2)" tabindex="0"><span class="venture-no">02</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Relax.Bro</div><p class="venture-desc">A calmer route from asking for help to finding it.</p></div><span class="venture-arrow" aria-hidden="true">→</span><div class="venture-meta">Placeholder</div></article>
+      <article class="venture-glass" style="--i:2;--accent:#E2EE00;--accent-soft:rgba(200,212,0,0.18)" tabindex="0"><span class="venture-no">03</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Num.Bro</div><p class="venture-desc">Clearer records, shared understanding, fewer assumptions.</p></div><span class="venture-arrow" aria-hidden="true">→</span><div class="venture-meta">Placeholder</div></article>
+      <article class="venture-glass" style="--i:3;--accent:#9B87FF;--accent-soft:rgba(155,135,255,0.18)" tabindex="0"><span class="venture-no">04</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Varta</div><p class="venture-desc">A place for conversations that deserve to continue.</p></div><span class="venture-arrow" aria-hidden="true">→</span><div class="venture-meta">Placeholder</div></article>
+      <article class="venture-glass" style="--i:4;--accent:#06B6D4;--accent-soft:rgba(6,182,212,0.16)" tabindex="0"><span class="venture-no">05</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Memory Book</div><p class="venture-desc">A local-first memory layer that remembers what matters.</p></div><span class="venture-arrow" aria-hidden="true">→</span><div class="venture-meta">Placeholder</div></article>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 7: MANIFESTO — earn the ask before making it ══ -->
+<section class="slide" id="s7" aria-label="Manifesto">
+  <div class="manifesto" role="list">
+    <div class="section-label reveal" style="display:flex;justify-content:center">Manifesto</div>
+    <div class="manifesto-line reveal reveal-delay-1" role="listitem"><b>Curiosity</b> over popularity.</div>
+    <div class="manifesto-line reveal reveal-delay-1" role="listitem"><b>Questions</b> over algorithms.</div>
+    <div class="manifesto-line reveal reveal-delay-2" role="listitem"><b>Knowledge</b> over feeds.</div>
+    <div class="manifesto-line reveal reveal-delay-2" role="listitem"><b>Communities</b> over followers.</div>
+    <div class="manifesto-line reveal reveal-delay-3" role="listitem"><b>Builders</b> over spectators.</div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 8: FOUNDING CONTRIBUTORS ══ -->
+<section class="slide" id="s8" aria-label="Founding contributors">
+  <div class="s7-inner">
+    <div class="section-label reveal">Founding Contributors</div>
+    <div class="vision-headline reveal reveal-delay-1">We're not hiring.<br>We're building.</div>
+    <div class="contributor-grid reveal reveal-delay-2" role="list">
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">Frontend</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">Backend</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">AI</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">ML</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">Design</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">Motion</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">Research</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">Professor</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">Student</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card" role="listitem" tabindex="0"><div class="contributor-role">Community</div><div class="contributor-state">Founding Contributor</div></div>
+    </div>
+    <div class="launch-actions reveal reveal-delay-3"><a class="launch-cta secondary" href="mailto:alokara.teams@gmail.com?subject=Founding%20Contributor%20%E2%80%94%20dotBro">Become a Founding Contributor</a></div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 9: FINAL CTA ══ -->
+<section class="slide" id="s9" aria-label="Join dotBro">
+  <div class="float-el" style="font-size:22rem;left:-5%;top:8%;--dur:9s" aria-hidden="true">●</div>
+  <div class="final-launch">
+    <h2 class="close-big reveal">Are you in?</h2>
+    <div class="launch-actions reveal reveal-delay-1">
+      <a class="launch-cta primary" href="mailto:alokara.teams@gmail.com?subject=Let%27s%20Build%20dotBro">Let's Build dotBro</a>
+    </div>
+    <p class="launch-note reveal reveal-delay-2">Launching with curious people.</p>
+  </div>
+</section>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════
+// CURSOR — GPU-composited via transform only
+// ═══════════════════════════════════════
+const cursor = document.getElementById('cursor');
+const ring   = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+// Half-dimensions so transform(-50%,-50%) equivalent is baked in
+const curHalf = 6, ringHalf = 20;
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.transform = `translate(${mx - curHalf}px,${my - curHalf}px)`;
+}, { passive: true });
+(function animRing() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) * 0.12;
+  ring.style.transform = `translate(${rx - ringHalf}px,${ry - ringHalf}px)`;
+  requestAnimationFrame(animRing);
+})();
+document.querySelectorAll('a,button,.miss-card,.scenario,.step-card,.venture-glass,.contributor-card,.graph3d-wrap,input').forEach(el => {
+  el.addEventListener('mouseenter', () => { cursor.classList.add('hovering'); ring.classList.add('hovering'); });
+  el.addEventListener('mouseleave', () => { cursor.classList.remove('hovering'); ring.classList.remove('hovering'); });
+});
+
+// ═══════════════════════════════════════
+// LIVING DOT — JS owns colour, glow, breathe, parallax
+// No conflicting CSS animations on same properties
+// ═══════════════════════════════════════
+const DOT_PALETTE = [
+  [245,245,240],  // white
+  [255,38,38],    // red
+  [200,212,0],    // green
+  [155,135,255],  // purple
+  [37,99,235],    // blue
+  [6,182,212],    // cyan
+];
+const heroDot = document.getElementById('heroDot');
+const navDot  = document.getElementById('navDot');
+const DOT_CYCLE = 3200; // ms per colour
+
+function tickDot() {
+  const now = Date.now();
+  const phase = (now % (DOT_PALETTE.length * DOT_CYCLE)) / DOT_CYCLE;
+  const idx = Math.floor(phase) % DOT_PALETTE.length;
+  const raw = phase - Math.floor(phase);
+  // ease-in-out for smooth colour transition
+  const t = raw < 0.5 ? 2*raw*raw : 1 - Math.pow(-2*raw+2,2)/2;
+  const [r1,g1,b1] = DOT_PALETTE[idx];
+  const [r2,g2,b2] = DOT_PALETTE[(idx+1) % DOT_PALETTE.length];
+  const r = Math.round(r1+(r2-r1)*t);
+  const g = Math.round(g1+(g2-g1)*t);
+  const b = Math.round(b1+(b2-b1)*t);
+  // breathe: gentle 3s sine pulse, JS-driven
+  const breathe = 1 + Math.sin(now / 1500) * 0.1;
+  const glowSz  = (10 + Math.sin(now/900)*5) * breathe;
+  const glowA   = 0.5 + Math.sin(now/1100)*0.12;
+  const col  = `rgb(${r},${g},${b})`;
+  const glow = `0 0 ${glowSz}px ${glowSz*0.35}px rgba(${r},${g},${b},${glowA})`;
+  if (heroDot) {
+    heroDot.style.background  = col;
+    heroDot.style.boxShadow   = glow;
+    // mouse parallax: subtle only when hero dot is in viewport
+    const rect = heroDot.getBoundingClientRect();
+    if (rect.top > -100 && rect.bottom < window.innerHeight + 100) {
+      const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+      const dx = (mx - cx) * 0.01, dy = (my - cy) * 0.01;
+      heroDot.style.transform = `translate(${dx}px,${dy}px) scale(${breathe})`;
+    }
+  }
+  if (navDot)  { navDot.style.background = col; navDot.style.boxShadow = glow; }
+  requestAnimationFrame(tickDot);
+}
+tickDot();
+
+// ═══════════════════════════════════════
+// HERO INPUT — spawn node into graph
+// ═══════════════════════════════════════
+const heroInput = document.getElementById('heroInput');
+if (heroInput) {
+  heroInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && heroInput.value.trim().length > 2) {
+      const text = heroInput.value.trim();
+      spawnInputNode(text);
+      heroInput.value = '';
+      // also inject into the 3D graph as a new user node
+      if (window._graph3dAddNode) window._graph3dAddNode(text);
+    }
+  });
+}
+function spawnInputNode(text) {
+  const rect = heroInput.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'spawned-node';
+  el.textContent = '"' + text.substring(0, 48) + (text.length > 48 ? '…' : '') + '"';
+  el.style.left = (rect.left + rect.width/2) + 'px';
+  el.style.top  = rect.top + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ═══════════════════════════════════════
+// BG CANVAS — existing particles + rings
+// ═══════════════════════════════════════
+const bgCanvas = document.getElementById('bg-canvas');
+const ctx = bgCanvas.getContext('2d');
+let W, H, particles = [], bgTime = 0;
+
+function resize() {
+  W = bgCanvas.width = window.innerWidth;
+  H = bgCanvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize, { passive: true });
+
+function makeParticles() {
+  particles = [];
+  const count = Math.min(Math.floor(W * H / 18000), 80);
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random()*W, y: Math.random()*H,
+      z: Math.random()*3+0.5,
+      vx: (Math.random()-0.5)*0.25,
+      vy: (Math.random()-0.5)*0.25,
+      r: Math.random()*2+0.5,
+      hue: Math.random()>0.7?'red':Math.random()>0.5?'green':'white'
+    });
+  }
+}
+makeParticles();
+window.addEventListener('resize', makeParticles, { passive: true });
+
+let bgRaf = null;
+function drawBg() {
+  ctx.clearRect(0,0,W,H);
+  bgTime += 0.004;
+  for (let i=0; i<particles.length; i++) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    if (p.x<0||p.x>W) p.vx*=-1;
+    if (p.y<0||p.y>H) p.vy*=-1;
+    const alpha = 0.35*(p.z/3.5);
+    ctx.fillStyle = p.hue==='red'?`rgba(209,0,0,${alpha})`:p.hue==='green'?`rgba(200,212,0,${alpha})`:`rgba(255,255,255,${alpha*0.5})`;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r*p.z*0.6,0,Math.PI*2); ctx.fill();
+    for (let j=i+1; j<particles.length; j++) {
+      const q=particles[j], dx=p.x-q.x, dy=p.y-q.y, dist=Math.sqrt(dx*dx+dy*dy);
+      if (dist<110) { ctx.strokeStyle=`rgba(255,255,255,${(1-dist/110)*0.06})`; ctx.lineWidth=0.5; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); }
+    }
+  }
+  for (let i=0; i<3; i++) {
+    const cx=W*(0.2+i*0.3), cy=H*0.5+Math.sin(bgTime+i*2)*75;
+    const rad=55+i*38+Math.sin(bgTime*0.7+i)*12;
+    const rot=bgTime*0.28+i*Math.PI/3;
+    ctx.save(); ctx.translate(cx,cy); ctx.scale(1,Math.abs(Math.cos(rot))*0.45+0.12); ctx.rotate(Math.sin(rot)*0.3);
+    ctx.strokeStyle=i===0?`rgba(209,0,0,0.07)`:i===1?`rgba(200,212,0,0.05)`:`rgba(255,255,255,0.04)`;
+    ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(0,0,rad,0,Math.PI*2); ctx.stroke(); ctx.restore();
+  }
+  // schedule next frame at end to avoid double-scheduling
+  bgRaf = requestAnimationFrame(drawBg);
+}
+drawBg();
+// pause when tab hidden — cancel the pending RAF, restart cleanly on restore
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { cancelAnimationFrame(bgRaf); bgRaf = null; }
+  else if (!bgRaf) { drawBg(); }
+});
+
+// ═══════════════════════════════════════
+// SLIDE NAV
+// ═══════════════════════════════════════
+const slides = document.querySelectorAll('.slide');
+const navEl  = document.getElementById('slideNav');
+slides.forEach((sl, i) => {
+  const d = document.createElement('div');
+  d.className = 'snav-dot' + (i===0?' active':'');
+  d.setAttribute('tabindex','0');
+  d.setAttribute('role','button');
+  d.setAttribute('aria-label', `Go to section ${i+1}`);
+  d.addEventListener('click', () => sl.scrollIntoView({ behavior:'smooth' }));
+  d.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); sl.scrollIntoView({behavior:'smooth'}); } });
+  navEl.appendChild(d);
+});
+
+// ═══════════════════════════════════════
+// SCROLL — progress + active dot
+// ═══════════════════════════════════════
+const prog = document.getElementById('progress');
+const dots = document.querySelectorAll('.snav-dot');
+let ticking = false;
+window.addEventListener('scroll', () => {
+  if (!ticking) { requestAnimationFrame(() => { updateScroll(); ticking=false; }); ticking=true; }
+}, { passive: true });
+function updateScroll() {
+  const st = window.scrollY;
+  const docH = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docH > 0 ? (st/docH*100) : 0;
+  prog.style.width = pct+'%';
+  prog.setAttribute('aria-valuenow', Math.round(pct));
+  slides.forEach((sl,i) => {
+    const r = sl.getBoundingClientRect();
+    if (r.top <= window.innerHeight/2 && r.bottom >= window.innerHeight/2) {
+      dots.forEach(d=>d.classList.remove('active'));
+      if(dots[i]) dots[i].classList.add('active');
+    }
+  });
+}
+
+// ═══════════════════════════════════════
+// REVEAL ON SCROLL
+// ═══════════════════════════════════════
+const revEls = document.querySelectorAll('.reveal');
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revObs.unobserve(e.target); } });
+}, { threshold: 0.12 });
+revEls.forEach(el => revObs.observe(el));
+
+// ═══════════════════════════════════════
+// KEYBOARD NAV
+// ═══════════════════════════════════════
+document.addEventListener('keydown', e => {
+  const cur = Array.from(slides).findIndex(s=>{ const r=s.getBoundingClientRect(); return r.top<=window.innerHeight/2&&r.bottom>=window.innerHeight/2; });
+  if (e.key==='ArrowDown'||e.key==='PageDown') { e.preventDefault(); slides[Math.min(cur+1,slides.length-1)]?.scrollIntoView({behavior:'smooth'}); }
+  if (e.key==='ArrowUp'||e.key==='PageUp')     { e.preventDefault(); slides[Math.max(cur-1,0)]?.scrollIntoView({behavior:'smooth'}); }
+});
+
+// ═══════════════════════════════════════════════════════
+// 3D OBSIDIAN KNOWLEDGE GRAPH — UPGRADED
+// Node states, breathing, energy-flow edges, drift, hover
+// ═══════════════════════════════════════════════════════
+(function() {
+  const el = document.getElementById('obsidian-graph');
+  if (!el) return;
+  const g = el.getContext('2d');
+  let GW, GH, GDPR;
+
+  const NODE_COLORS = {
+    question:  [245,245,240],
+    answered:  [200,212,0],
+    collab:    [232,163,61],
+    meeting:   [37,99,235],
+    knowledge: [155,135,255],
+    archived:  [60,60,64],
+  };
+  // Pre-allocated reusable arrays — avoid per-frame allocation
+  let projArr = [];   // reused projection array
+  let siArr   = [];   // reused sorted-index array
+  let seArr   = [];   // reused sorted-edge array
+
+  function gResize() {
+    const wrap = el.parentElement;
+    GDPR = Math.min(window.devicePixelRatio||1,2);
+    GW = wrap.clientWidth; GH = wrap.clientHeight;
+    el.width = GW*GDPR; el.height = GH*GDPR;
+    el.style.width = GW+'px'; el.style.height = GH+'px';
+    g.setTransform(GDPR,0,0,GDPR,0,0);
+  }
+  window.addEventListener('resize', gResize, { passive:true });
+  gResize();
+
+  const QUESTIONS = [
+    { text:'What is consciousness?',        type:'knowledge' },
+    { text:'How do ideas connect?',         type:'knowledge' },
+    { text:'Who else is thinking this?',    type:'collab' },
+    { text:'What did I almost ask?',        type:'question' },
+    { text:'Can AI be curious?',            type:'answered' },
+    { text:'Why do conversations end?',     type:'question' },
+    { text:'What got lost at graduation?',  type:'question' },
+    { text:'Where do collaborators hide?',  type:'collab' },
+    { text:'What should I have said?',      type:'question' },
+    { text:'Which professor knows this?',   type:'meeting' },
+    { text:'How does learning happen?',     type:'answered' },
+    { text:"What's worth building next?",   type:'collab' },
+    { text:'Is this idea already done?',    type:'question' },
+    { text:'What if we built this together?',type:'meeting'},
+    { text:'Where does curiosity lead?',    type:'knowledge' },
+    { text:'What question changed your life?',type:'answered' },
+    { text:'How do communities form?',      type:'knowledge' },
+    { text:'What did that lecture miss?',   type:'question' },
+    { text:'Who has the answer?',           type:'meeting' },
+    { text:'What gets lost in feeds?',      type:'question' },
+    { text:'How do ideas compound?',        type:'knowledge' },
+    { text:'What if knowledge was a graph?',type:'answered' },
+    { text:'I overheard something brilliant.',type:'collab' },
+    { text:'The conversation that continued.',type:'meeting' },
+  ];
+
+  const R3 = 195;
+  const golden = Math.PI*(3-Math.sqrt(5));
+  let nodes = QUESTIONS.map((q,i) => {
+    const y = 1-(i/(QUESTIONS.length-1))*2;
+    const r = Math.sqrt(Math.max(0,1-y*y));
+    const theta = golden*i;
+    const bx = Math.cos(theta)*r*R3, by = y*R3, bz = Math.sin(theta)*r*R3;
+    return {
+      ox: bx, oy: by, oz: bz, x: bx, y: by, z: bz,
+      text: q.text, type: q.type,
+      hub: q.type==='knowledge'||q.type==='answered',
+      alpha: 0, born: Date.now()+i*90,
+      breathPhase: Math.random()*Math.PI*2,
+      breathSpd: 0.8+Math.random()*0.6,
+      pulsePhase: Math.random()*Math.PI*2,
+      pulseSpd: 0.5+Math.random()*0.4,
+    };
+  });
+
+  let edges = [];
+  const knIdx = nodes.map((n,i)=>n.hub?i:-1).filter(i=>i>=0);
+  nodes.forEach((n,i)=>{
+    if (n.hub) {
+      nodes.forEach((_,j)=>{ if(j!==i&&j%3===0) edges.push({a:i,b:j}); });
+    } else {
+      const nh = knIdx[i%knIdx.length];
+      edges.push({a:i,b:nh});
+      const nb=(i+7)%nodes.length; if(nb!==i) edges.push({a:i,b:nb});
+    }
+  });
+
+  // expose for hero input — user's typed question becomes a real node
+  window._graph3dAddNode = function(text) {
+    const phi=Math.random()*Math.PI*2, ct=Math.random()*2-1, st=Math.sqrt(Math.max(0,1-ct*ct));
+    const bx=st*Math.cos(phi)*R3*0.8, by=ct*R3*0.8, bz=st*Math.sin(phi)*R3*0.8;
+    const nn = { ox:bx,oy:by,oz:bz, x:bx,y:by,z:bz,
+      text, type:'question', hub:false, alpha:0, born:Date.now(),
+      breathPhase:0,breathSpd:1,pulsePhase:0,pulseSpd:0.8 };
+    edges.push({a:nodes.length, b:knIdx[Math.floor(Math.random()*knIdx.length)]});
+    nodes.push(nn);
+  };
+
+  let gRotY=0.3, gRotX=-0.12, gDrag=false, gLX=0,gLY=0, gVX=0,gVY=0, gZoom=1;
+  let gMX=-9999, gMY=-9999;
+  let autoSpin=true;
+
+  el.addEventListener('mousedown', e=>{ gDrag=true; autoSpin=false; gLX=e.clientX; gLY=e.clientY; });
+  window.addEventListener('mouseup', ()=>{ gDrag=false; });
+  window.addEventListener('mousemove', e=>{
+    if(!gDrag) return;
+    const dx=e.clientX-gLX, dy=e.clientY-gLY;
+    gRotY+=dx*0.006; gRotX+=dy*0.006;
+    gVX=dx*0.0007; gVY=dy*0.0007;
+    gLX=e.clientX; gLY=e.clientY;
+  });
+  el.addEventListener('wheel', e=>{ e.preventDefault(); gZoom=Math.max(0.45,Math.min(2.4,gZoom-e.deltaY*0.001)); },{passive:false});
+  el.addEventListener('mousemove', e=>{ const r=el.getBoundingClientRect(); gMX=e.clientX-r.left; gMY=e.clientY-r.top; });
+  el.addEventListener('mouseleave', ()=>{ gMX=-9999; gMY=-9999; });
+  el.addEventListener('touchstart', e=>{ gDrag=true; autoSpin=false; gLX=e.touches[0].clientX; gLY=e.touches[0].clientY; },{passive:true});
+  el.addEventListener('touchmove', e=>{
+    if(!gDrag) return;
+    const dx=e.touches[0].clientX-gLX, dy=e.touches[0].clientY-gLY;
+    gRotY+=dx*0.006; gRotX+=dy*0.006; gLX=e.touches[0].clientX; gLY=e.touches[0].clientY;
+  },{passive:true});
+  el.addEventListener('touchend', ()=>{ gDrag=false; });
+
+  // proj3 writes into pre-allocated `out` object — no heap allocation per call
+  function proj3(p, out) {
+    const cosY=Math.cos(gRotY), sinY=Math.sin(gRotY);
+    const cosX=Math.cos(gRotX), sinX=Math.sin(gRotX);
+    let x=p.x*cosY - p.z*sinY;
+    let z=p.x*sinY + p.z*cosY;
+    let y=p.y*cosX - z*sinX;
+    z=p.y*sinX + z*cosX;
+    const fov=500*gZoom;
+    const s=fov/(fov+z+R3*0.55);
+    out.sx=GW/2+x*s; out.sy=GH/2+y*s*0.9; out.scale=s; out.z=z;
+  }
+
+  let lastSpawn=Date.now();
+  const EXTRA_Q=['What are you building for?','Who needs to hear this?','What question scares you?','What did you unlearn today?','Which idea keeps returning?','What would you build with me?','Who is already working on this?'];
+  let extraIdx=0;
+  function maybeSpawn() {
+    if (Date.now()-lastSpawn < 5500 || nodes.length>34) return;
+    lastSpawn=Date.now();
+    const phi=Math.random()*Math.PI*2, ct=Math.random()*2-1, st=Math.sqrt(Math.max(0,1-ct*ct));
+    const bx=st*Math.cos(phi)*R3*0.82, by=ct*R3*0.82, bz=st*Math.sin(phi)*R3*0.82;
+    const nn={ ox:bx,oy:by,oz:bz, x:bx,y:by,z:bz,
+      text:EXTRA_Q[extraIdx%EXTRA_Q.length],type:'question',hub:false,alpha:0,born:Date.now(),
+      breathPhase:Math.random()*Math.PI*2,breathSpd:0.9,pulsePhase:Math.random()*Math.PI*2,pulseSpd:0.7 };
+    extraIdx++;
+    edges.push({a:nodes.length, b:knIdx[Math.floor(Math.random()*knIdx.length)]});
+    nodes.push(nn);
+  }
+
+  // energy flow dots along edges
+  const ENERGY_DOTS = Array.from({length:12},(_,i)=>({ edgeIdx: i%edges.length, t:i/12, spd:0.003+Math.random()*0.003 }));
+
+  // Cached vignette gradient — built once, rebuilt only on resize
+  let vigGrad = null;
+  function buildVig() {
+    vigGrad = g.createRadialGradient(GW/2,GH/2,0,GW/2,GH/2,Math.max(GW,GH)*0.58);
+    vigGrad.addColorStop(0,'rgba(7,7,7,0)');
+    vigGrad.addColorStop(0.6,'rgba(7,7,7,0.15)');
+    vigGrad.addColorStop(1,'rgba(7,7,7,0.85)');
+  }
+  buildVig();
+  window.addEventListener('resize', ()=>{ gResize(); buildVig(); }, { passive:true });
+
+  // Respect prefers-reduced-motion — stop the RAF loop entirely
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function gDraw() {
+    if (prefersReduced) return;
+    if (!gDrag) { if(autoSpin)gRotY+=0.0007; gRotY+=gVX; gRotX+=gVY; gVX*=0.93; gVY*=0.93; }
+    const now = Date.now();
+    maybeSpawn();
+    g.clearRect(0,0,GW,GH);
+
+    const t3 = now * 0.0003;
+    // Grow reuse arrays if nodes were added
+    while (projArr.length < nodes.length) projArr.push({sx:0,sy:0,scale:0,z:0});
+
+    // Single pass: update node positions + project
+    for (let i=0; i<nodes.length; i++) {
+      const n = nodes[i];
+      if (now > n.born && n.alpha < 1) n.alpha = Math.min(1, n.alpha + 0.012);
+      if (n.alpha > 0) {
+        n.x = n.ox + Math.sin(t3*n.breathSpd + n.breathPhase)*6;
+        n.y = n.oy + Math.cos(t3*n.breathSpd*0.7 + n.breathPhase+1)*5;
+        n.z = n.oz + Math.sin(t3*n.breathSpd*0.5 + n.breathPhase+2)*6;
+      }
+      proj3(n, projArr[i]);
+    }
+
+    const pj = projArr;
+
+    // Edges: sort + draw
+    seArr.length = edges.length;
+    for(let i=0;i<edges.length;i++) seArr[i]=i;
+    seArr.sort((a,b)=>{
+      const ea=edges[a], eb=edges[b];
+      if(ea.a>=pj.length||ea.b>=pj.length||eb.a>=pj.length||eb.b>=pj.length) return 0;
+      return ((pj[eb.a].z+pj[eb.b].z)*0.5) - ((pj[ea.a].z+pj[ea.b].z)*0.5);
+    });
+    for(let ei=0;ei<seArr.length;ei++){
+      const e=edges[seArr[ei]];
+      if(e.a>=pj.length||e.b>=pj.length) continue;
+      const pa=pj[e.a], pb=pj[e.b];
+      const na=nodes[e.a], nb=nodes[e.b];
+      const aa=Math.min(na.alpha,nb.alpha)*Math.max(0.03,Math.min(0.45,(pa.scale+pb.scale)*0.5-0.28));
+      const isHub=na.hub||nb.hub;
+      g.strokeStyle=isHub?`rgba(200,212,0,${aa*0.5})`:`rgba(255,255,255,${aa*0.18})`;
+      g.lineWidth=(isHub?1.1:0.6)*pa.scale;
+      g.setLineDash(isHub?[]:[2,9]);
+      g.beginPath(); g.moveTo(pa.sx,pa.sy); g.lineTo(pb.sx,pb.sy); g.stroke();
+    }
+    g.setLineDash([]);
+
+    // Energy dots flowing along edges
+    ENERGY_DOTS.forEach(ed=>{
+      if(ed.edgeIdx>=edges.length){ ed.edgeIdx=0; return; }
+      ed.t=(ed.t+ed.spd)%1;
+      const e=edges[ed.edgeIdx];
+      if(e.a>=pj.length||e.b>=pj.length) return;
+      const pa=pj[e.a], pb=pj[e.b];
+      if(nodes[e.a].alpha<0.5||nodes[e.b].alpha<0.5) return;
+      const x=pa.sx+(pb.sx-pa.sx)*ed.t, y=pa.sy+(pb.sy-pa.sy)*ed.t;
+      const fade=Math.sin(ed.t*Math.PI);
+      g.beginPath(); g.arc(x,y,1.8*pa.scale,0,Math.PI*2);
+      g.fillStyle=(nodes[e.a].hub||nodes[e.b].hub)?`rgba(200,212,0,${fade*0.8})`:`rgba(255,255,255,${fade*0.4})`;
+      g.fill();
+    });
+
+    // Nodes: sort back→front, draw glow via globalAlpha (zero gradient allocs)
+    siArr.length = nodes.length;
+    for(let i=0;i<nodes.length;i++) siArr[i]=i;
+    siArr.sort((a,b)=>pj[b].z-pj[a].z);
+
+    let hovN=null, hovDist=99;
+    for(let ii=0;ii<siArr.length;ii++){
+      const i=siArr[ii], n=nodes[i], p=pj[i];
+      if(n.alpha<0.01) continue;
+      const [r,gr,b]=NODE_COLORS[n.type]||NODE_COLORS.question;
+      const breathB=1+Math.sin(now*0.001*n.breathSpd+n.breathPhase)*0.12;
+      const pulseB =1+Math.sin(now*0.0012*n.pulseSpd+n.pulsePhase)*0.25;
+      const rad=Math.max(0.8,(n.hub?5.8:2.6)*p.scale*gZoom*breathB);
+      const da=Math.max(0.08,Math.min(1,(p.scale-0.28)*1.4))*n.alpha;
+
+      // Halo via globalAlpha compositing — no createRadialGradient
+      if(n.hub){
+        const pr=rad*3.2*pulseB;
+        g.save();
+        g.fillStyle=`rgb(${r},${gr},${b})`;
+        g.globalAlpha=da*0.18; g.beginPath(); g.arc(p.sx,p.sy,pr,0,Math.PI*2); g.fill();
+        g.globalAlpha=da*0.07; g.beginPath(); g.arc(p.sx,p.sy,pr*1.7,0,Math.PI*2); g.fill();
+        g.restore();
+      }
+      // Inner glow
+      g.save();
+      g.fillStyle=`rgb(${r},${gr},${b})`;
+      g.globalAlpha=da*(n.hub?0.26:0.12);
+      g.beginPath(); g.arc(p.sx,p.sy,rad*(n.hub?3.0:2.0),0,Math.PI*2); g.fill();
+      g.restore();
+      // Core
+      g.beginPath(); g.arc(p.sx,p.sy,rad,0,Math.PI*2);
+      g.fillStyle=`rgba(${r},${gr},${b},${Math.min(1,da*1.2)})`; g.fill();
+
+      const ddx=gMX-p.sx, ddy=gMY-p.sy, dist=ddx*ddx+ddy*ddy;
+      if(dist<hovDist&&dist<32*32){ hovDist=dist; hovN={n,p}; }
+    }
+
+    // Hover tooltip — raised font size to 12px for legibility
+    if(hovN){
+      const {n,p}=hovN;
+      const [r,gr,b]=NODE_COLORS[n.type]||NODE_COLORS.question;
+      g.font='500 12px Space Mono,monospace';
+      const tw=g.measureText(n.text).width;
+      const pad=12;
+      const lx=Math.min(GW-tw/2-pad-4, Math.max(tw/2+pad+4,p.sx));
+      const ly=p.sy-38<30 ? p.sy+50 : p.sy-38;
+      g.fillStyle='rgba(7,7,7,0.94)';
+      rrect(g,lx-tw/2-pad,ly-20,tw+pad*2,34,6); g.fill();
+      g.strokeStyle=`rgba(${r},${gr},${b},0.6)`; g.lineWidth=1;
+      rrect(g,lx-tw/2-pad,ly-20,tw+pad*2,34,6); g.stroke();
+      g.fillStyle=`rgba(${r},${gr},${b},1)`;
+      g.textAlign='center'; g.textBaseline='middle';
+      g.fillText(n.text,lx,ly-6);
+      g.font='400 10px Space Mono,monospace';
+      g.fillStyle=`rgba(${r},${gr},${b},0.6)`;
+      g.fillText(n.type.toUpperCase(),lx,ly+8);
+    }
+
+    // Vignette — cached gradient, zero allocation
+    g.fillStyle=vigGrad; g.fillRect(0,0,GW,GH);
+    requestAnimationFrame(gDraw);
+  }
+
+  function rrect(ctx,x,y,w,h,r){
+    ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+  }
+  gDraw();
+})();
+</script>
+</body>
+</html>

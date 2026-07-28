@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dotBro — Some conversations deserve another chance</title>
+<meta name="description" content="dotBro gives missed conversations, questions, and collaborations another chance.">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black: #090909;
+  --white: #F5F5F0;
+  --red: #D10000;
+  --red2: #FF1A1A;
+  --green: #C8D400;
+  --green2: #E2EE00;
+  --olive: #1A1C0F;
+  --olive2: #252A10;
+  --gray: #666660;
+  --mgray: #333330;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* ── CUSTOM CURSOR ── */
+.cursor {
+  position: fixed; width: 12px; height: 12px;
+  background: var(--white); border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+  transition: transform 0.1s, width 0.2s, height 0.2s, background 0.2s;
+  mix-blend-mode: difference;
+}
+.cursor-ring {
+  position: fixed; width: 40px; height: 40px;
+  border: 1px solid rgba(255,255,255,0.4); border-radius: 50%;
+  pointer-events: none; z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: transform 0.15s ease-out, width 0.3s, height 0.3s;
+}
+body:hover .cursor { opacity: 1; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.2rem 3rem;
+  background: rgba(9,9,9,0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 8px;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem;
+  letter-spacing: 2px; color: var(--white);
+  text-decoration: none;
+}
+.nav-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--white); display: inline-block;
+}
+.nav-links {
+  display: flex; gap: 2rem;
+}
+.nav-links a {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--gray); text-decoration: none; letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--white); }
+.nav-badge {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--gray); letter-spacing: 1px;
+}
+
+/* ── SLIDE SYSTEM ── */
+.slide {
+  min-height: 100vh; display: flex; align-items: center;
+  justify-content: center; position: relative; overflow: hidden;
+  padding: 6rem 3rem 4rem;
+}
+
+/* ── CANVAS 3D BG ── */
+#bg-canvas {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+  opacity: 0.35;
+}
+
+/* ── SLIDE 1: COVER ── */
+#s1 { background: var(--black); z-index: 1; }
+.s1-inner {
+  text-align: center; position: relative; z-index: 2;
+  max-width: 1200px; margin: 0 auto;
+}
+.bro-giant {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(8rem, 22vw, 22rem);
+  line-height: 0.85;
+  letter-spacing: -4px;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transform: perspective(800px) rotateX(8deg);
+  transform-origin: center bottom;
+  animation: titleRise 1.2s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes titleRise {
+  from { opacity:0; transform: perspective(800px) rotateX(28deg) translateY(60px); }
+  to   { opacity:1; transform: perspective(800px) rotateX(8deg) translateY(0); }
+}
+.tagline {
+  font-family: 'Space Mono', monospace; font-size: 1rem;
+  color: var(--gray); letter-spacing: 4px; text-transform: uppercase;
+  margin: 1.5rem 0 2.5rem;
+  animation: fadeUp 1s 0.4s both;
+}
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(20px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.product-pills {
+  display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+  animation: fadeUp 1s 0.6s both;
+}
+.pill-rb {
+  background: var(--red); color: var(--white);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  letter-spacing: 3px; padding: 0.7rem 2.2rem;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  transition: transform 0.2s, background 0.2s;
+}
+.pill-nb {
+  background: var(--green); color: var(--olive);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  letter-spacing: 3px; padding: 0.7rem 2.2rem;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  transition: transform 0.2s;
+}
+.pill-rb:hover { transform: scale(1.05) translateY(-2px); background: var(--red2); }
+.pill-nb:hover { transform: scale(1.05) translateY(-2px); }
+.founder-tag {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--mgray); letter-spacing: 2px; margin-top: 3rem;
+  animation: fadeUp 1s 0.8s both;
+}
+.scroll-hint {
+  position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  color: var(--gray); letter-spacing: 3px; text-align: center;
+  animation: bounce 2s infinite 1.5s;
+}
+.scroll-hint::after {
+  content: ''; display: block; width: 1px; height: 40px;
+  background: linear-gradient(to bottom, var(--gray), transparent);
+  margin: 8px auto 0;
+}
+@keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
+
+/* ── SECTION LABELS ── */
+.section-label {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--red); letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.section-label.green { color: var(--green); }
+
+/* ── SLIDE 2: CONTEXT ── */
+#s2 { background: #0D0D0D; }
+.s2-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.s2-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3.5rem, 7vw, 7rem);
+  line-height: 0.9; margin-bottom: 1.5rem;
+  transform: perspective(600px) rotateY(-3deg);
+}
+.s2-sub { font-size: 1.1rem; color: var(--gray); max-width: 600px; margin-bottom: 3rem; line-height: 1.7; }
+.crisis-cards {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px;
+}
+.crisis-card {
+  background: var(--mgray); padding: 2rem 1.5rem;
+  position: relative; overflow: hidden;
+  transition: transform 0.3s, background 0.3s;
+}
+.crisis-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--red);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s;
+}
+.crisis-card:hover::before { transform: scaleX(1); }
+.crisis-card:hover { transform: translateY(-4px); background: #1A1A1A; }
+.crisis-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.crisis-head {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem;
+  letter-spacing: 1px; margin-bottom: 0.8rem; color: var(--white);
+}
+.crisis-body { font-size: 0.88rem; color: var(--gray); line-height: 1.6; }
+.red-bar {
+  background: var(--red); padding: 1rem 2rem; margin-top: 1.5px;
+  font-size: 0.9rem; font-weight: 500; grid-column: 1/-1;
+  text-align: center;
+}
+
+/* ── S3 now = Vision (step cards) — inherits s4-inner from below ── */
+
+/* ── SLIDE 4: HOW IT WORKS ── */
+#s4 { background: #111; }
+.s4-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.steps-row {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 1px; margin-top: 2rem;
+}
+.step-card {
+  background: #1A1A1A; padding: 2rem 1.2rem;
+  text-align: center; position: relative;
+  transition: transform 0.3s, background 0.3s;
+}
+.step-card:hover { background: #222; transform: translateY(-8px) scale(1.02); }
+.step-num-circle {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--red); display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: #fff;
+  margin: 0 auto 1rem;
+  box-shadow: 0 0 20px rgba(209,0,0,0.4);
+}
+.step-icon { font-size: 2rem; margin-bottom: 0.8rem; }
+.step-head { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
+.step-body { font-size: 0.8rem; color: var(--gray); line-height: 1.5; }
+.step-arrow {
+  position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+  color: var(--red); font-size: 1.2rem; z-index: 2;
+}
+.connector-bar {
+  background: var(--red); padding: 1rem; margin-top: 1px;
+  text-align: center; font-size: 0.85rem; font-weight: 500;
+}
+
+/* ── S5 now = Audience — inherits scenario/s7-inner from below ── */
+
+/* ── S6 now = Coming Soon — uses .coming-wrap / .venture-glass below ── */
+
+/* ── SLIDE 7: VISION ── */
+#s7 { background: #080808; }
+.s7-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.vision-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 9vw, 9rem);
+  line-height: 0.85; margin-bottom: 1rem;
+  background: linear-gradient(135deg, #fff 0%, var(--red) 50%, var(--green) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: gradShift 4s ease infinite;
+}
+@keyframes gradShift {
+  0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+}
+.vision-sub { font-size: 1rem; color: var(--gray); max-width: 600px; margin-bottom: 3rem; line-height: 1.7; }
+.scenario-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5px;
+}
+.scenario {
+  background: #111; padding: 1.8rem 1.4rem;
+  position: relative; transition: transform 0.3s, background 0.3s;
+  overflow: hidden;
+}
+.scenario:hover { transform: translateY(-6px); background: #1A1A1A; }
+.scenario-top { height: 3px; margin-bottom: 1.2rem; }
+.scenario-loc {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  letter-spacing: 2px; margin-bottom: 0.5rem;
+}
+.scenario-prob { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--white); margin-bottom: 0.8rem; }
+.scenario-sep { height: 1px; background: #222; margin-bottom: 0.8rem; }
+.scenario-sol { font-size: 0.82rem; color: var(--gray); line-height: 1.5; }
+
+/* ── S8 now = Manifesto, S9 = Final CTA ── */
+.close-big {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 10vw, 10rem);
+  line-height: 0.85; margin-bottom: 1.5rem;
+  transform: perspective(800px) rotateX(5deg);
+}
+
+/* ── 3D OBSIDIAN GRAPH ── */
+.graph3d-wrap {
+  position: relative; width: 100%; height: 72vh; min-height: 520px;
+  margin-top: 2rem; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: radial-gradient(ellipse at 50% 50%, rgba(200,212,0,0.04), rgba(9,9,9,0) 68%), #0A0A0A;
+  cursor: grab;
+}
+.graph3d-wrap:active { cursor: grabbing; }
+#obsidian-graph { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.graph3d-hint {
+  position: absolute; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
+  font-family: 'Space Mono', monospace; font-size: 0.55rem;
+  letter-spacing: 2px; color: rgba(255,255,255,0.2);
+  pointer-events: none; text-transform: uppercase;
+}
+.graph3d-pulse {
+  position: absolute; top: 1.2rem; right: 1.4rem;
+  font-family: 'Space Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 1.5px; color: var(--green); display:flex; align-items:center; gap:6px;
+  pointer-events: none;
+}
+.graph3d-pulse::before {
+  content:''; width:6px; height:6px; border-radius:50%; background:var(--green);
+  animation: livePulse 1.8s ease-in-out infinite;
+}
+@keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.7)} }
+
+/* ── PROGRESS BAR ── */
+.progress {
+  position: fixed; top: 0; left: 0; height: 2px;
+  background: linear-gradient(to right, var(--red), var(--green));
+  transition: width 0.3s; z-index: 200; width: 0%;
+}
+
+/* ── SLIDE NAV DOTS ── */
+.slide-nav {
+  position: fixed; right: 2rem; top: 50%;
+  transform: translateY(-50%); z-index: 100;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.snav-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #333; cursor: pointer;
+  transition: background 0.3s, transform 0.3s;
+}
+.snav-dot.active { background: var(--white); transform: scale(1.6); }
+
+/* ── 3D FLOATING ELEMENTS ── */
+.float-el {
+  position: absolute; pointer-events: none;
+  animation: floatEl var(--dur, 6s) ease-in-out infinite var(--delay, 0s);
+  opacity: 0.07;
+}
+@keyframes floatEl {
+  0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-20px) rotate(5deg)}
+}
+
+/* ── REVEAL ANIMATION ── */
+.reveal {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ── GLITCH TEXT ── */
+.glitch {
+  position: relative;
+}
+.glitch::before, .glitch::after {
+  content: attr(data-text); position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.glitch::before { animation: glitch1 3s infinite 2s; color: var(--red); }
+.glitch::after  { animation: glitch2 3s infinite 2s; }
+@keyframes glitch1 {
+  0%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  10%{clip-path:inset(30% 0 50% 0);transform:translateX(-3px)}
+  20%{clip-path:inset(60% 0 20% 0);transform:translateX(3px)}
+  30%{clip-path:inset(0 0 100% 0);transform:none}
+}
+@keyframes glitch2 {
+  0%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  15%{clip-path:inset(50% 0 30% 0);transform:translateX(3px)}
+  25%{clip-path:inset(20% 0 60% 0);transform:translateX(-3px)}
+  35%{clip-path:inset(0 0 100% 0);transform:none}
+}
+
+/* ── 3D CARD ── */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.4s;
+}
+
+/* ── ALL VENTURES: GLASS STACK ── */
+#sventures {
+  background:
+    radial-gradient(circle at 78% 32%, rgba(200,212,0,0.09), transparent 34%),
+    radial-gradient(circle at 20% 70%, rgba(209,0,0,0.08), transparent 38%),
+    #0B0B0B;
+}
+.ventures-inner {
+  width: 100%; max-width: 1120px; margin: 0 auto;
+  display: grid; grid-template-columns: 0.78fr 1.22fr;
+  gap: 5rem; align-items: center;
+}
+.ventures-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3.5rem, 7vw, 7rem); line-height: 0.88;
+  margin-bottom: 1.4rem;
+}
+.ventures-copy {
+  color: var(--gray); font-size: 0.95rem; line-height: 1.7;
+  max-width: 430px;
+}
+.ventures-contact {
+  display: inline-flex; margin-top: 2rem; padding: 0.85rem 1.2rem;
+  border: 1px solid rgba(255,255,255,0.16); color: var(--white);
+  text-decoration: none; font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase;
+  background: rgba(255,255,255,0.05); backdrop-filter: blur(16px);
+  transition: transform 0.25s, border-color 0.25s, background 0.25s;
+}
+.ventures-contact:hover { transform: translateY(-3px); border-color: var(--green); background: rgba(200,212,0,0.08); }
+.venture-stage { position: relative; min-height: 565px; perspective: 1200px; }
+.venture-glass {
+  --x: calc(var(--i) * 24px);
+  --y: calc(var(--i) * 104px);
+  --r: calc((var(--i) - 1.5) * 0.5deg);
+  position: absolute; inset: 0 auto auto 0;
+  width: calc(100% - 72px); min-height: 205px;
+  padding: 1.5rem 1.6rem; border-radius: 22px;
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: start; gap: 1.25rem;
+  transform: translate3d(var(--x), var(--y), 0) rotate(var(--r));
+  z-index: calc(10 - var(--i)); overflow: hidden;
+  color: var(--white); text-decoration: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.035));
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 28px 70px rgba(0,0,0,0.46), inset 0 1px 0 rgba(255,255,255,0.14);
+  backdrop-filter: blur(28px) saturate(145%);
+  transition: transform 0.45s cubic-bezier(.2,.8,.2,1), border-color 0.3s, background 0.3s;
+}
+.venture-glass::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 12% 0%, var(--accent-soft), transparent 45%);
+}
+.venture-glass:hover {
+  transform: translate3d(calc(var(--x) - 12px), calc(var(--y) - 8px), 44px) rotate(0);
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(255,255,255,0.17), rgba(255,255,255,0.055));
+}
+.venture-no, .venture-state, .venture-meta {
+  font-family: 'Space Mono', monospace; text-transform: uppercase;
+}
+.venture-no { color: var(--accent); font-size: 0.58rem; padding-top: 0.3rem; }
+.venture-body { position: relative; z-index: 1; }
+.venture-state { color: var(--accent); font-size: 0.54rem; letter-spacing: 1.5px; }
+.venture-name { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.2rem, 4vw, 3.5rem); line-height: 0.95; margin-top: 0.55rem; }
+.venture-desc { color: #AAA9A2; font-size: 0.8rem; line-height: 1.55; margin-top: 0.65rem; max-width: 380px; }
+.venture-arrow { color: var(--accent); font-size: 1.25rem; position: relative; z-index: 1; }
+.venture-meta { grid-column: 2/4; color: #76766F; font-size: 0.5rem; letter-spacing: 1px; }
+
+@media (max-width: 900px) {
+  .ventures-inner { grid-template-columns: 1fr; gap: 2.5rem; }
+  .venture-stage { min-height: 540px; }
+}
+@media (max-width: 600px) {
+  nav { padding: 1rem 1.2rem; }
+  .nav-links { display: none; }
+  .slide { padding: 6rem 1.25rem 4rem; }
+  .venture-stage { min-height: auto; display: grid; gap: 0.8rem; }
+  .venture-glass { position: relative; width: 100%; min-height: 185px; transform: none; border-radius: 18px; }
+  .venture-glass:hover { transform: translateY(-4px); }
+}
+
+/* ── PUBLIC LAUNCH CONTENT ── */
+.hero-launch-line {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.4rem, 5vw, 5.2rem); line-height: 0.92;
+  margin-top: 1.4rem; letter-spacing: -1px;
+}
+.hero-places {
+  max-width: 720px; margin: 1.2rem auto 0;
+  color: var(--gray); font-size: clamp(0.9rem, 1.6vw, 1.05rem);
+  line-height: 1.75;
+}
+.conversation-prompt {
+  max-width: 720px; margin: 1.5rem auto 0; padding: 1.25rem 1.4rem;
+  border: 1px solid rgba(255,255,255,0.16); color: #8C8C86;
+  background: rgba(255,255,255,0.055); backdrop-filter: blur(18px);
+  text-align: left; font-size: clamp(1rem, 2vw, 1.25rem);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 45px rgba(0,0,0,0.28);
+}
+.launch-actions { display: flex; justify-content: center; gap: 0.8rem; flex-wrap: wrap; margin-top: 1.2rem; }
+.launch-cta {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0.8rem 1.35rem; text-decoration: none;
+  font-family: 'Space Mono', monospace; font-size: 0.66rem;
+  letter-spacing: 1.2px; text-transform: uppercase; transition: all 0.25s;
+}
+.launch-cta.primary { background: var(--white); color: var(--black); }
+.launch-cta.secondary { border: 1px solid #343434; color: var(--white); background: rgba(255,255,255,0.03); }
+.launch-cta:hover { transform: translateY(-3px); }
+.launch-cta.primary:hover { background: var(--red); color: var(--white); }
+.launch-cta.secondary:hover { border-color: var(--green); }
+.launch-note { margin-top: 1.2rem; color: #55554F; font-family: 'Space Mono', monospace; font-size: 0.62rem; letter-spacing: 1.5px; }
+
+.miss-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px; }
+.miss-card { min-height: 140px; display: flex; flex-direction: column; justify-content: space-between; }
+.miss-card .crisis-icon { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--red); }
+.problem-close { margin-top: 1.5rem; padding: 1.4rem; background: var(--red); font-size: clamp(1.15rem, 2.5vw, 1.8rem); line-height: 1.35; }
+
+.knowledge-graph {
+  position: relative; min-height: 560px; margin-top: 2rem;
+  border: 1px solid rgba(255,255,255,0.08); overflow: hidden;
+  background: radial-gradient(circle at 50% 50%, rgba(200,212,0,0.06), transparent 45%), rgba(255,255,255,0.018);
+}
+.graph-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.graph-lines line { stroke: rgba(255,255,255,0.18); stroke-width: 1; stroke-dasharray: 8 10; animation: graphFlow 8s linear infinite; }
+.graph-lines line.accent { stroke: rgba(200,212,0,0.45); }
+@keyframes graphFlow { to { stroke-dashoffset: -180; } }
+.graph-node {
+  position: absolute; width: 156px; min-height: 96px; padding: 1rem;
+  transform: translate(-50%,-50%); border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(18,18,18,0.76); backdrop-filter: blur(18px);
+  box-shadow: 0 18px 55px rgba(0,0,0,0.42); transition: transform 0.3s, border-color 0.3s;
+}
+.graph-node:hover { transform: translate(-50%,-50%) scale(1.05); border-color: var(--green); }
+.graph-node span { display: block; color: var(--green); font-family: 'Space Mono', monospace; font-size: 0.55rem; letter-spacing: 1px; margin-bottom: 0.55rem; }
+.graph-node strong { font-family: 'Bebas Neue', sans-serif; font-size: 1.25rem; letter-spacing: 1px; }
+
+.audience-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5px; margin-top: 2.5rem; }
+.audience-grid .scenario { min-height: 180px; }
+.audience-question { color: var(--gray); font-size: 0.8rem; line-height: 1.5; margin-top: 1rem; }
+
+#s6 { background: radial-gradient(circle at 78% 32%, rgba(200,212,0,0.09), transparent 34%), #0B0B0B; }
+.coming-wrap { width: 100%; max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 0.78fr 1.22fr; gap: 5rem; align-items: center; }
+.coming-label { color: var(--accent); font-family: 'Space Mono', monospace; font-size: 0.55rem; letter-spacing: 1.5px; text-transform: uppercase; }
+
+.contributor-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.5px; margin-top: 2.2rem; }
+.contributor-card {
+  background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.06);
+  padding: 1.35rem 1.15rem; min-height: 140px; display: flex; flex-direction: column;
+  transition: transform 0.3s, background 0.3s, border-color 0.3s;
+}
+.contributor-card:hover { transform: translateY(-5px); background: rgba(255,255,255,0.075); border-color: rgba(200,212,0,0.35); }
+.contributor-role { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 1px; }
+.contributor-state { margin-top: auto; color: var(--green); font-family: 'Space Mono', monospace; font-size: 0.5rem; letter-spacing: 1px; text-transform: uppercase; }
+
+#s8 { background: var(--black); color: var(--white); text-align: center; }
+.manifesto { max-width: 900px; margin: 0 auto; }
+.manifesto-line { font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.9rem, 4.8vw, 4.4rem); line-height: 1.25; color: #3C3C38; transition: color 0.3s; }
+.manifesto-line b { color: var(--white); font-weight: 400; }
+.manifesto-line:hover { color: var(--gray); }
+.manifesto-line:hover b { color: var(--red); }
+
+.final-launch { max-width: 900px; margin: 0 auto; text-align: center; position: relative; z-index: 2; }
+
+@media (max-width: 900px) {
+  .crisis-cards, .miss-grid { grid-template-columns: repeat(2, 1fr); }
+  .steps-row { grid-template-columns: repeat(2, 1fr); }
+  .audience-grid { grid-template-columns: repeat(2, 1fr); }
+  .coming-wrap { grid-template-columns: 1fr; gap: 2.2rem; }
+  .contributor-grid { grid-template-columns: repeat(2, 1fr); }
+  .scenario-grid { grid-template-columns: repeat(2, 1fr); }
+  .slide-nav { display: none; }
+}
+@media (max-width: 600px) {
+  body { cursor: auto; }
+  .cursor, .cursor-ring { display: none; }
+  .bro-giant { font-size: clamp(7rem, 38vw, 11rem); }
+  .miss-grid, .crisis-cards, .audience-grid, .contributor-grid, .scenario-grid { grid-template-columns: 1fr; }
+  .steps-row { grid-template-columns: 1fr; }
+  .knowledge-graph { min-height: 680px; }
+  .graph-node { width: 132px; }
+  .graph-node:nth-of-type(1) { left: 50% !important; top: 12% !important; }
+  .graph-node:nth-of-type(2) { left: 24% !important; top: 34% !important; }
+  .graph-node:nth-of-type(3) { left: 74% !important; top: 49% !important; }
+  .graph-node:nth-of-type(4) { left: 28% !important; top: 69% !important; }
+  .graph-node:nth-of-type(5) { left: 68% !important; top: 88% !important; }
+}
+
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+<div class="progress" id="progress"></div>
+
+<nav>
+  <a class="nav-logo" href="#s1">
+    <span class="nav-dot"></span>BRO
+  </a>
+  <div class="nav-links">
+    <a href="#s2">Why</a>
+    <a href="#s3">Vision</a>
+    <a href="#s6">Coming Soon</a>
+    <a href="#s7">Contribute</a>
+  </div>
+  <div class="nav-badge">ALOKARA · 2026</div>
+</nav>
+
+<div class="slide-nav" id="slideNav"></div>
+
+<!-- ══ SLIDE 1: COVER ══ -->
+<section class="slide" id="s1">
+  <div class="float-el" style="font-size:20rem;top:10%;right:-5%;--dur:8s">?</div>
+  <div class="float-el" style="font-size:8rem;bottom:15%;left:5%;--dur:6s;--delay:1s">●</div>
+  <div class="s1-inner">
+    <div class="bro-giant glitch" data-text=".BRO">.BRO</div>
+    <h1 class="hero-launch-line">Some conversations deserve another chance.</h1>
+    <p class="hero-places">Every lecture. Every hallway. Every café. Every campus.<br>Every question deserves a second chance.</p>
+    <div class="conversation-prompt" aria-label="Conversation prompt">“What conversation do you wish you had?”</div>
+    <div class="launch-actions">
+      <a class="launch-cta primary" href="#s7">I’m In</a>
+      <a class="launch-cta secondary" href="#s7">Become a Founding Contributor</a>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══ ALL VENTURES: GLASS STACK ══ -->
+<!-- ══ SLIDE 2: THE PROBLEM ══ -->
+<section class="slide" id="s2">
+  <div class="s2-inner">
+    <div class="section-label reveal">What gets missed</div>
+    <div class="s2-headline reveal reveal-delay-1">The people and ideas<br>were already there.</div>
+    <div class="s2-sub reveal reveal-delay-2">People miss what could have changed everything.</div>
+    <div class="miss-grid reveal reveal-delay-3">
+      <div class="crisis-card miss-card"><div class="crisis-icon">01</div><div class="crisis-head">Questions</div></div>
+      <div class="crisis-card miss-card"><div class="crisis-icon">02</div><div class="crisis-head">Mentors</div></div>
+      <div class="crisis-card miss-card"><div class="crisis-icon">03</div><div class="crisis-head">Collaborators</div></div>
+      <div class="crisis-card miss-card"><div class="crisis-icon">04</div><div class="crisis-head">Professors</div></div>
+      <div class="crisis-card miss-card"><div class="crisis-icon">05</div><div class="crisis-head">Opportunities</div></div>
+      <div class="crisis-card miss-card"><div class="crisis-icon">06</div><div class="crisis-head">Ideas</div></div>
+    </div>
+    <div class="problem-close reveal reveal-delay-4">Not because they don’t exist.<br>Because conversations end.</div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 3: THE VISION ══ -->
+<section class="slide" id="s3">
+  <div class="s4-inner">
+    <div class="section-label reveal">The Vision</div>
+    <div class="s2-headline reveal reveal-delay-1">A question should<br>be able to travel.</div>
+    <div class="steps-row reveal reveal-delay-2">
+      <div class="step-card"><div class="step-num-circle">1</div><div class="step-icon">?</div><div class="step-head">Question</div><div class="step-body">Curiosity creates the first opening.</div><div class="step-arrow">↓</div></div>
+      <div class="step-card"><div class="step-num-circle">2</div><div class="step-icon">✦</div><div class="step-head">Answer</div><div class="step-body">Someone adds context, experience, or direction.</div><div class="step-arrow">↓</div></div>
+      <div class="step-card"><div class="step-num-circle">3</div><div class="step-icon">○</div><div class="step-head">Meeting</div><div class="step-body">The right people continue the conversation.</div><div class="step-arrow">↓</div></div>
+      <div class="step-card"><div class="step-num-circle">4</div><div class="step-icon">↗</div><div class="step-head">Project</div><div class="step-body">Conversation becomes something real.</div><div class="step-arrow">↓</div></div>
+      <div class="step-card"><div class="step-num-circle">5</div><div class="step-icon">∞</div><div class="step-head">Knowledge</div><div class="step-body">Every outcome creates a new question.</div></div>
+    </div>
+    <div class="connector-bar reveal reveal-delay-3">Question → Answer → Meeting → Project → Knowledge → New Question</div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 4: IMAGINE THE GRAPH ══ -->
+<section class="slide" id="s4">
+  <div class="s4-inner">
+    <div class="section-label green reveal">Imagine</div>
+    <div class="s2-headline reveal reveal-delay-1">Every question is a node.<br>Every node connects.</div>
+    <div class="vision-sub reveal" style="margin-bottom:0;max-width:680px;">Drag the graph. Hover a question. Watch how curiosity compounds. This is dotBro — not a feed. A graph.</div>
+    <div class="graph3d-wrap reveal reveal-delay-2">
+      <canvas id="obsidian-graph"></canvas>
+      <div class="graph3d-hint">drag to rotate · scroll to zoom · hover a node</div>
+      <div class="graph3d-pulse">LIVE GRAPH</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 5: AUDIENCE ══ -->
+<section class="slide" id="s5">
+  <div class="s7-inner">
+    <div class="section-label reveal">Who is dotBro for?</div>
+    <div class="vision-headline reveal reveal-delay-1">Curious people.</div>
+    <div class="vision-sub reveal reveal-delay-2">Different perspectives. The same instinct to ask, learn, and build.</div>
+    <div class="audience-grid reveal reveal-delay-3">
+      <div class="scenario"><div class="scenario-top" style="background:var(--red)"></div><div class="scenario-prob">Student</div><p class="audience-question">What could dotBro become for their next unanswered question?</p></div>
+      <div class="scenario"><div class="scenario-top" style="background:var(--green)"></div><div class="scenario-prob">Professor</div><p class="audience-question">What could dotBro become beyond the lecture hall?</p></div>
+      <div class="scenario"><div class="scenario-top" style="background:var(--red)"></div><div class="scenario-prob">Researcher</div><p class="audience-question">What could dotBro become for an idea seeking evidence?</p></div>
+      <div class="scenario"><div class="scenario-top" style="background:var(--green)"></div><div class="scenario-prob">Founder</div><p class="audience-question">What could dotBro become for a problem seeking a co-founder?</p></div>
+      <div class="scenario"><div class="scenario-top" style="background:var(--red)"></div><div class="scenario-prob">Engineer</div><p class="audience-question">What could dotBro become for something worth building?</p></div>
+      <div class="scenario"><div class="scenario-top" style="background:var(--green)"></div><div class="scenario-prob">Designer</div><p class="audience-question">What could dotBro become for a better way to connect?</p></div>
+      <div class="scenario"><div class="scenario-top" style="background:#9B87FF"></div><div class="scenario-prob">Builder</div><p class="audience-question">What could dotBro become when curiosity turns into action?</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 6: COMING SOON ══ -->
+<section class="slide" id="s6">
+  <div class="coming-wrap">
+    <div>
+      <div class="section-label green reveal">Coming Soon</div>
+      <div class="s6-headline reveal reveal-delay-1">The first paths<br>through dotBro.</div>
+      <p class="vision-sub reveal reveal-delay-2">Placeholders for what the community may build together.</p>
+    </div>
+    <div class="venture-stage reveal reveal-delay-2" aria-label="Coming soon ventures">
+      <article class="venture-glass" style="--i:0;--accent:#F5F5F0;--accent-soft:rgba(245,245,240,0.14)"><span class="venture-no">01</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Gyaan.Bro</div><p class="venture-desc">Questions, context, and knowledge that keep moving.</p></div><span class="venture-arrow">→</span><div class="venture-meta">Placeholder</div></article>
+      <article class="venture-glass" style="--i:1;--accent:#FF1A1A;--accent-soft:rgba(209,0,0,0.23)"><span class="venture-no">02</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Relax.Bro</div><p class="venture-desc">A calmer route from asking for help to finding it.</p></div><span class="venture-arrow">→</span><div class="venture-meta">Placeholder</div></article>
+      <article class="venture-glass" style="--i:2;--accent:#E2EE00;--accent-soft:rgba(200,212,0,0.2)"><span class="venture-no">03</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Num.Bro</div><p class="venture-desc">Clearer records, shared understanding, fewer assumptions.</p></div><span class="venture-arrow">→</span><div class="venture-meta">Placeholder</div></article>
+      <article class="venture-glass" style="--i:3;--accent:#9B87FF;--accent-soft:rgba(155,135,255,0.2)"><span class="venture-no">04</span><div class="venture-body"><div class="coming-label">Coming Soon</div><div class="venture-name">Varta</div><p class="venture-desc">A place for conversations that deserve to continue.</p></div><span class="venture-arrow">→</span><div class="venture-meta">Placeholder</div></article>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 7: FOUNDING CONTRIBUTORS ══ -->
+<section class="slide" id="s7">
+  <div class="s7-inner">
+    <div class="section-label reveal">Founding Contributors</div>
+    <div class="vision-headline reveal reveal-delay-1">We’re not hiring.<br>We’re building.</div>
+    <div class="contributor-grid reveal reveal-delay-2">
+      <div class="contributor-card"><div class="contributor-role">Frontend</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">Backend</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">AI</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">ML</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">Design</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">Motion</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">Research</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">Professor</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">Student</div><div class="contributor-state">Founding Contributor</div></div>
+      <div class="contributor-card"><div class="contributor-role">Community</div><div class="contributor-state">Founding Contributor</div></div>
+    </div>
+    <div class="launch-actions reveal reveal-delay-3"><a class="launch-cta secondary" href="mailto:alokara.teams@gmail.com?subject=Founding%20Contributor%20%E2%80%94%20dotBro">Become a Founding Contributor</a></div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 8: MANIFESTO ══ -->
+<section class="slide" id="s8">
+  <div class="manifesto">
+    <div class="section-label reveal" style="display:flex;justify-content:center">Manifesto</div>
+    <div class="manifesto-line reveal reveal-delay-1"><b>Curiosity</b> over popularity.</div>
+    <div class="manifesto-line reveal reveal-delay-1"><b>Questions</b> over algorithms.</div>
+    <div class="manifesto-line reveal reveal-delay-2"><b>Knowledge</b> over feeds.</div>
+    <div class="manifesto-line reveal reveal-delay-2"><b>Communities</b> over followers.</div>
+    <div class="manifesto-line reveal reveal-delay-3"><b>Builders</b> over spectators.</div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 9: FINAL CTA ══ -->
+<section class="slide" id="s9">
+  <div class="float-el" style="font-size:25rem;left:-5%;top:10%;--dur:9s">●</div>
+  <div class="final-launch">
+    <div class="close-big reveal">Are you in?</div>
+    <div class="launch-actions reveal reveal-delay-1"><a class="launch-cta primary" href="mailto:alokara.teams@gmail.com?subject=Let%27s%20Build%20dotBro">Let’s Build dotBro</a></div>
+    <div class="launch-note reveal reveal-delay-2">Launching with curious people.</div>
+  </div>
+</section>
+
+<script>
+// ── CURSOR ──
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+});
+function animRing() {
+  rx += (mx - rx) * 0.12; ry += (my - ry) *.12;
+  ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+  requestAnimationFrame(animRing);
+}
+animRing();
+document.querySelectorAll('a,button,.crisis-card,.scenario,.step-card,.venture-glass,.contributor-card,.graph3d-wrap').forEach(el => {
+  el.addEventListener('mouseenter', () => { cursor.style.width = '24px'; cursor.style.height = '24px'; ring.style.width = '60px'; ring.style.height = '60px'; });
+  el.addEventListener('mouseleave', () => { cursor.style.width = '12px'; cursor.style.height = '12px'; ring.style.width = '40px'; ring.style.height = '40px'; });
+});
+
+// ── 3D CANVAS ──
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [], time = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function makeParticles() {
+  particles = [];
+  const count = Math.floor(W * H / 15000);
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * W, y: Math.random() * H,
+      z: Math.random() * 3 + 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 2 + 0.5,
+      hue: Math.random() > 0.7 ? 'red' : Math.random() > 0.5 ? 'green' : 'white'
+    });
+  }
+}
+makeParticles();
+window.addEventListener('resize', makeParticles);
+
+// Lines between nearby particles
+function drawParticles() {
+  ctx.clearRect(0, 0, W, H);
+  time += 0.005;
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0 || p.x > W) p.vx *= -1;
+    if (p.y < 0 || p.y > H) p.vy *= -1;
+
+    const alpha = 0.4 * (p.z / 3.5);
+    if (p.hue === 'red')   ctx.fillStyle = `rgba(209,0,0,${alpha})`;
+    else if (p.hue === 'green') ctx.fillStyle = `rgba(200,212,0,${alpha})`;
+    else ctx.fillStyle = `rgba(255,255,255,${alpha * 0.5})`;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.z * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (let j = i + 1; j < particles.length; j++) {
+      const q = particles[j];
+      const dx = p.x - q.x, dy = p.y - q.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 120) {
+        const lineAlpha = (1 - dist / 120) * 0.08;
+        ctx.strokeStyle = `rgba(255,255,255,${lineAlpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(q.x, q.y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Floating 3D rings
+  for (let i = 0; i < 3; i++) {
+    const cx = W * (0.2 + i * 0.3);
+    const cy = H * 0.5 + Math.sin(time + i * 2) * 80;
+    const rad = 60 + i * 40 + Math.sin(time * 0.7 + i) * 15;
+    const rot = time * 0.3 + i * Math.PI / 3;
+    const a = Math.sin(rot) * 0.3;
+    const b = Math.cos(rot);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(1, Math.abs(b) * 0.5 + 0.1);
+    ctx.rotate(a);
+    if (i === 0) ctx.strokeStyle = `rgba(209,0,0,0.08)`;
+    else if (i === 1) ctx.strokeStyle = `rgba(200,212,0,0.06)`;
+    else ctx.strokeStyle = `rgba(255,255,255,0.05)`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, rad, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// ── SLIDE NAV DOTS ──
+const slides = document.querySelectorAll('.slide');
+const navEl = document.getElementById('slideNav');
+slides.forEach((sl, i) => {
+  const d = document.createElement('div');
+  d.className = 'snav-dot' + (i === 0 ? ' active' : '');
+  d.addEventListener('click', () => sl.scrollIntoView({ behavior: 'smooth' }));
+  navEl.appendChild(d);
+});
+
+// ── PROGRESS + ACTIVE DOT ──
+window.addEventListener('scroll', () => {
+  const prog = document.getElementById('progress');
+  const scrollTop = window.scrollY;
+  const docH = document.documentElement.scrollHeight - window.innerHeight;
+  prog.style.width = (scrollTop / docH * 100) + '%';
+
+  const dots = document.querySelectorAll('.snav-dot');
+  slides.forEach((sl, i) => {
+    const rect = sl.getBoundingClientRect();
+    if (rect.top <= window.innerHeight / 2 && rect.bottom >= window.innerHeight / 2) {
+      dots.forEach(d => d.classList.remove('active'));
+      dots[i].classList.add('active');
+    }
+  });
+});
+
+// ── REVEAL ON SCROLL ──
+const revealEls = document.querySelectorAll('.reveal');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+revealEls.forEach(el => obs.observe(el));
+
+// ── 3D CARD TILT ──
+document.querySelectorAll('.card-3d').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / rect.width * 20;
+    const dy = (e.clientY - cy) / rect.height * 20;
+    card.style.transform = `perspective(600px) rotateY(${dx}deg) rotateX(${-dy}deg) scale(1.03)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = '';
+  });
+});
+
+// ══════════════════════════════════════════════════
+// 3D OBSIDIAN KNOWLEDGE GRAPH
+// Questions are nodes. Edges are curiosity.
+// Pure JS — no library. Manual perspective projection.
+// ══════════════════════════════════════════════════
+(function () {
+  const el = document.getElementById('obsidian-graph');
+  if (!el) return;
+  const ctx2 = el.getContext('2d');
+  let GW, GH, GDPR;
+
+  function gResize() {
+    const wrap = el.parentElement;
+    GDPR = Math.min(window.devicePixelRatio || 1, 2);
+    GW = wrap.clientWidth;
+    GH = wrap.clientHeight;
+    el.width = GW * GDPR;
+    el.height = GH * GDPR;
+    el.style.width = GW + 'px';
+    el.style.height = GH + 'px';
+    ctx2.setTransform(GDPR, 0, 0, GDPR, 0, 0);
+  }
+  window.addEventListener('resize', gResize);
+  gResize();
+
+  // ── questions are the nodes ──
+  const QUESTIONS = [
+    { text: 'What is consciousness?',          type: 'hub' },
+    { text: 'How do ideas connect?',           type: 'hub' },
+    { text: 'Who else is thinking this?',      type: 'hub' },
+    { text: 'What did I almost ask?',          type: 'hub' },
+    { text: 'Can AI be curious?',              type: 'node' },
+    { text: 'Why do conversations end?',       type: 'node' },
+    { text: 'What got lost at graduation?',    type: 'node' },
+    { text: 'Where do collaborators hide?',    type: 'node' },
+    { text: 'What should I have said?',        type: 'node' },
+    { text: 'Which professor knows this?',     type: 'node' },
+    { text: 'How does learning happen?',       type: 'node' },
+    { text: "What's worth building next?",     type: 'node' },
+    { text: 'Is this idea already done?',      type: 'node' },
+    { text: 'What if we build this together?', type: 'node' },
+    { text: 'Where does curiosity lead?',      type: 'node' },
+    { text: 'What question changed your life?',type: 'node' },
+    { text: 'How do communities form?',        type: 'node' },
+    { text: 'What did that lecture miss?',     type: 'node' },
+    { text: 'Who has the answer?',             type: 'node' },
+    { text: 'What gets lost in feeds?',        type: 'node' },
+    { text: 'How do ideas compound?',          type: 'node' },
+    { text: 'What if knowledge was a graph?',  type: 'node' },
+    { text: 'When did you stop asking why?',   type: 'node' },
+    { text: 'What would you build with me?',   type: 'node' },
+  ];
+
+  // place nodes on a 3D sphere
+  const R3 = 200;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  let nodes3d = QUESTIONS.map((q, i) => {
+    const y = 1 - (i / (QUESTIONS.length - 1)) * 2;
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const theta = golden * i;
+    return {
+      x: Math.cos(theta) * r * R3,
+      y: y * R3,
+      z: Math.sin(theta) * r * R3,
+      text: q.text,
+      hub: q.type === 'hub',
+      alpha: 0,         // fade in
+      born: Date.now() + i * 120,
+    };
+  });
+
+  // build edges: hubs connect to everything; nodes connect to nearest 2–3
+  let edges3d = [];
+  const hubIdx = nodes3d.map((n, i) => n.hub ? i : -1).filter(i => i >= 0);
+  nodes3d.forEach((n, i) => {
+    if (n.hub) {
+      // hub → all other nodes (sparse: every 3rd)
+      nodes3d.forEach((m, j) => {
+        if (j !== i && j % 3 === 0) edges3d.push({ a: i, b: j, accent: true });
+      });
+    } else {
+      // node → nearest hub
+      const nearHub = hubIdx[i % hubIdx.length];
+      edges3d.push({ a: i, b: nearHub, accent: false });
+      // node → one neighbour
+      const nb = (i + 7) % nodes3d.length;
+      if (nb !== i) edges3d.push({ a: i, b: nb, accent: false });
+    }
+  });
+
+  // ── rotation state ──
+  let gRotY = 0.3, gRotX = -0.15;
+  let gDrag = false, gLX = 0, gLY = 0, gVX = 0, gVY = 0;
+  let gZoom = 1;
+  let gHoverNode = null;
+
+  el.addEventListener('mousedown', e => {
+    gDrag = true; gLX = e.clientX; gLY = e.clientY;
+  });
+  window.addEventListener('mouseup', () => { gDrag = false; });
+  window.addEventListener('mousemove', e => {
+    if (!gDrag) return;
+    const dx = e.clientX - gLX, dy = e.clientY - gLY;
+    gRotY += dx * 0.006; gRotX += dy * 0.006;
+    gVX = dx * 0.0007; gVY = dy * 0.0007;
+    gLX = e.clientX; gLY = e.clientY;
+  });
+  el.addEventListener('wheel', e => {
+    e.preventDefault();
+    gZoom = Math.max(0.5, Math.min(2.2, gZoom - e.deltaY * 0.001));
+  }, { passive: false });
+
+  // hover detection via mouse position relative to canvas
+  let gMX = -9999, gMY = -9999;
+  el.addEventListener('mousemove', e => {
+    const rect = el.getBoundingClientRect();
+    gMX = e.clientX - rect.left;
+    gMY = e.clientY - rect.top;
+  });
+  el.addEventListener('mouseleave', () => { gMX = -9999; gMY = -9999; gHoverNode = null; });
+
+  el.addEventListener('touchstart', e => {
+    gDrag = true;
+    gLX = e.touches[0].clientX; gLY = e.touches[0].clientY;
+  }, { passive: true });
+  el.addEventListener('touchmove', e => {
+    if (!gDrag) return;
+    const dx = e.touches[0].clientX - gLX, dy = e.touches[0].clientY - gLY;
+    gRotY += dx * 0.006; gRotX += dy * 0.006;
+    gLX = e.touches[0].clientX; gLY = e.touches[0].clientY;
+  }, { passive: true });
+  el.addEventListener('touchend', () => { gDrag = false; });
+
+  function project3(p) {
+    // rotate Y
+    let x = p.x * Math.cos(gRotY) - p.z * Math.sin(gRotY);
+    let z = p.x * Math.sin(gRotY) + p.z * Math.cos(gRotY);
+    // rotate X
+    let y = p.y * Math.cos(gRotX) - z * Math.sin(gRotX);
+    z = p.y * Math.sin(gRotX) + z * Math.cos(gRotX);
+    const fov = 520 * gZoom;
+    const scale = fov / (fov + z + R3 * 0.6);
+    return { sx: GW / 2 + x * scale, sy: GH / 2 + y * scale * 0.9, scale, z };
+  }
+
+  // introspective: add a new question node periodically
+  let lastSpawn = Date.now();
+  const EXTRA = [
+    'What are you building for?',
+    'Who needs to hear this?',
+    'What question scares you?',
+    'What did you unlearn today?',
+    'Which idea keeps returning?',
+    'What would a 10x answer look like?',
+    'Who is already working on this?',
+  ];
+  let extraIdx = 0;
+
+  function maybeSpawn() {
+    if (Date.now() - lastSpawn < 6000) return;
+    if (nodes3d.length > 32) return;
+    lastSpawn = Date.now();
+    const phi = Math.random() * Math.PI * 2;
+    const cosTheta = Math.random() * 2 - 1;
+    const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
+    const newNode = {
+      x: sinTheta * Math.cos(phi) * R3 * 0.85,
+      y: cosTheta * R3 * 0.85,
+      z: sinTheta * Math.sin(phi) * R3 * 0.85,
+      text: EXTRA[extraIdx % EXTRA.length],
+      hub: false, alpha: 0, born: Date.now()
+    };
+    extraIdx++;
+    const nearHub = hubIdx[Math.floor(Math.random() * hubIdx.length)];
+    edges3d.push({ a: nodes3d.length, b: nearHub, accent: false });
+    nodes3d.push(newNode);
+  }
+
+  function gDraw() {
+    if (!gDrag) {
+      gRotY += 0.0008 + gVX; gRotX += gVY;
+      gVX *= 0.93; gVY *= 0.93;
+    }
+
+    ctx2.clearRect(0, 0, GW, GH);
+    const now = Date.now();
+    maybeSpawn();
+
+    // fade in new nodes
+    nodes3d.forEach(n => {
+      if (now > n.born) {
+        n.alpha = Math.min(1, n.alpha + 0.012);
+      }
+    });
+
+    const proj = nodes3d.map(project3);
+
+    // draw edges back→front
+    const sortedEdges = edges3d
+      .filter(e => e.a < proj.length && e.b < proj.length)
+      .sort((a, b) => {
+        const za = (proj[a.a].z + proj[a.b].z) / 2;
+        const zb = (proj[b.a].z + proj[b.b].z) / 2;
+        return zb - za;
+      });
+
+    sortedEdges.forEach(e => {
+      const pa = proj[e.a], pb = proj[e.b];
+      const na = nodes3d[e.a], nb = nodes3d[e.b];
+      const alpha = Math.min(na.alpha, nb.alpha) * Math.max(0.04, Math.min(0.55, (pa.scale + pb.scale) / 2 - 0.3));
+      if (e.accent) {
+        ctx2.strokeStyle = `rgba(200,212,0,${alpha * 0.65})`;
+        ctx2.lineWidth = 1.1 * pa.scale;
+      } else {
+        ctx2.strokeStyle = `rgba(255,255,255,${alpha * 0.22})`;
+        ctx2.lineWidth = 0.6 * pa.scale;
+      }
+      ctx2.setLineDash(e.accent ? [] : [3, 8]);
+      ctx2.beginPath();
+      ctx2.moveTo(pa.sx, pa.sy);
+      ctx2.lineTo(pb.sx, pb.sy);
+      ctx2.stroke();
+      ctx2.setLineDash([]);
+    });
+
+    // draw nodes back→front
+    let closestDist = 999, closestNode = null;
+    const sortedIdx = nodes3d.map((_, i) => i).sort((a, b) => proj[b].z - proj[a].z);
+
+    sortedIdx.forEach(i => {
+      const n = nodes3d[i];
+      const p = proj[i];
+      if (n.alpha === 0) return;
+
+      const baseR = n.hub ? 5.5 : 2.8;
+      const rad = Math.max(1, baseR * p.scale * gZoom);
+      const depthAlpha = Math.max(0.1, Math.min(1, (p.scale - 0.3) * 1.4));
+      const nodeAlpha = n.alpha * depthAlpha;
+
+      // glow ring for hubs
+      if (n.hub) {
+        const grd = ctx2.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, rad * 4);
+        grd.addColorStop(0, `rgba(200,212,0,${nodeAlpha * 0.25})`);
+        grd.addColorStop(1, `rgba(200,212,0,0)`);
+        ctx2.beginPath();
+        ctx2.arc(p.sx, p.sy, rad * 4, 0, Math.PI * 2);
+        ctx2.fillStyle = grd;
+        ctx2.fill();
+        ctx2.beginPath();
+        ctx2.arc(p.sx, p.sy, rad, 0, Math.PI * 2);
+        ctx2.fillStyle = `rgba(200,212,0,${nodeAlpha})`;
+        ctx2.fill();
+      } else {
+        ctx2.beginPath();
+        ctx2.arc(p.sx, p.sy, rad, 0, Math.PI * 2);
+        ctx2.fillStyle = `rgba(245,245,240,${nodeAlpha * 0.75})`;
+        ctx2.fill();
+      }
+
+      // hover detection
+      const dx = gMX - p.sx, dy = gMY - p.sy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < closestDist && dist < 28) {
+        closestDist = dist; closestNode = { n, p };
+      }
+    });
+
+    // draw hovered label
+    gHoverNode = closestNode;
+    if (gHoverNode) {
+      const { n, p } = gHoverNode;
+      const text = n.text;
+      ctx2.font = `500 11.5px 'Space Mono', monospace`;
+      const tw = ctx2.measureText(text).width;
+      const px = Math.min(GW - tw / 2 - 14, Math.max(tw / 2 + 14, p.sx));
+      const py = p.sy - 20 < 30 ? p.sy + 40 : p.sy - 20;
+
+      // pill bg
+      ctx2.fillStyle = 'rgba(9,9,9,0.88)';
+      const pad = 10;
+      roundRect(ctx2, px - tw / 2 - pad, py - 18, tw + pad * 2, 28, 6);
+      ctx2.fill();
+
+      ctx2.strokeStyle = n.hub ? 'rgba(200,212,0,0.5)' : 'rgba(255,255,255,0.14)';
+      ctx2.lineWidth = 1;
+      roundRect(ctx2, px - tw / 2 - pad, py - 18, tw + pad * 2, 28, 6);
+      ctx2.stroke();
+
+      ctx2.fillStyle = n.hub ? 'rgba(200,212,0,1)' : 'rgba(245,245,240,0.95)';
+      ctx2.textAlign = 'center';
+      ctx2.textBaseline = 'middle';
+      ctx2.fillText(text, px, py - 4);
+    }
+
+    // vignette
+    const vgrd = ctx2.createRadialGradient(GW / 2, GH / 2, 0, GW / 2, GH / 2, Math.max(GW, GH) * 0.6);
+    vgrd.addColorStop(0, 'rgba(9,9,9,0)');
+    vgrd.addColorStop(0.65, 'rgba(9,9,9,0.15)');
+    vgrd.addColorStop(1, 'rgba(9,9,9,0.82)');
+    ctx2.fillStyle = vgrd;
+    ctx2.fillRect(0, 0, GW, GH);
+
+    requestAnimationFrame(gDraw);
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  gDraw();
+})();
+
+// ── KEYBOARD NAV ──
+document.addEventListener('keydown', e => {
+  const cur = Array.from(slides).findIndex(s => {
+    const r = s.getBoundingClientRect();
+    return r.top <= window.innerHeight / 2 && r.bottom >= window.innerHeight / 2;
+  });
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+    slides[Math.min(cur + 1, slides.length - 1)]?.scrollIntoView({ behavior: 'smooth' });
+  }
+  if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    slides[Math.max(cur - 1, 0)]?.scrollIntoView({ behavior: 'smooth' });
+  }
+});
+</script>
+</body>
+</html>

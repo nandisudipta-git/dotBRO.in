@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mod · dotBro</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/png" href="/assets/favicon-red.png">
+<style>
+/* Obscurity is not the security here — every destructive call re-checks the
+   passphrase server-side, bcrypt-hashed, 5-fails/15-min lockout. This page is
+   only a convenient pair of hands. */
+:root{--bg:#2C3843;--card:#37444F;--paper:#E9F0F6;--dim:#C3D2DE;--dimink:#8CA0B0;
+  --red:#E60000;--hair:rgba(255,255,255,.14);}
+*{margin:0;padding:0;box-sizing:border-box;}
+:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px;}
+body{background:var(--bg);color:var(--paper);font-family:'Space Mono',ui-monospace,monospace;
+  padding:28px 18px 80px;max-width:760px;margin:0 auto;-webkit-font-smoothing:antialiased;}
+h1{font-size:19px;letter-spacing:.04em;display:flex;align-items:center;gap:10px;}
+h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--red);}
+.sub{margin-top:6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimink);}
+a{color:var(--dim);}
+
+.gate{margin-top:34px;display:flex;gap:8px;max-width:420px;}
+.gate input{flex:1;background:rgba(0,0,0,.25);border:1px solid var(--hair);border-radius:9px;
+  color:var(--paper);padding:11px 13px;font-family:inherit;font-size:13px;}
+.gate input:focus{outline:none;border-color:rgba(230,0,0,.6);}
+button{font-family:inherit;cursor:pointer;}
+.btn{background:var(--red);color:#fff;border:none;border-radius:9px;padding:11px 18px;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.err{margin-top:10px;font-size:12px;color:#FF8A80;display:none;}
+
+.bar{margin-top:30px;display:none;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.bar .stat{font-size:12px;color:var(--dim);}
+.bar .stat b{color:var(--paper);}
+.ghost{background:none;border:1px solid var(--hair);color:var(--dim);border-radius:999px;
+  padding:8px 16px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
+.ghost:hover{color:var(--paper);border-color:rgba(255,255,255,.4);}
+
+.list{margin-top:18px;display:none;flex-direction:column;gap:10px;}
+.q{background:var(--card);border:1px solid var(--hair);border-radius:12px;padding:14px 16px;}
+.q.flagged{border-color:rgba(230,0,0,.55);}
+.qtop{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:11px;color:var(--dimink);}
+.qtop .cat{text-transform:uppercase;letter-spacing:.1em;}
+.qtop .flag{color:#FF8A80;font-weight:700;}
+.qbody{margin-top:8px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word;}
+.qact{margin-top:11px;display:flex;gap:8px;flex-wrap:wrap;}
+.mini{background:none;border:1px solid var(--hair);color:var(--dim);border-radius:8px;
+  padding:6px 12px;font-size:11px;}
+.mini:hover{color:var(--paper);border-color:rgba(255,255,255,.45);}
+.mini.danger:hover{color:#fff;border-color:var(--red);background:rgba(230,0,0,.25);}
+.replies{margin-top:10px;border-top:1px solid var(--hair);padding-top:4px;display:none;}
+.replies.open{display:block;}
+.r{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;
+  padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:12.5px;}
+.r .rb{flex:1;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;}
+.r .rm{color:var(--dimink);font-size:10.5px;margin-bottom:3px;}
+.reasons{margin-top:9px;font-size:11px;color:#FFB4AD;line-height:1.6;}
+.empty{margin-top:40px;text-align:center;color:var(--dimink);font-size:13px;display:none;}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:9;
+  background:rgba(13,22,30,.95);color:var(--paper);padding:10px 18px;border-radius:10px;
+  font-size:12.5px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:88vw;text-align:center;}
+#toast.on{opacity:1;}
+</style>
+</head>
+<body>
+<h1><span class="dot"></span>dotBro moderation</h1>
+<p class="sub"><a href="/">back to the globe</a> · every action re-checks the passphrase on the server</p>
+
+<div class="gate" id="gate">
+  <input id="pass" type="password" placeholder="passphrase" autocomplete="off" aria-label="Admin passphrase">
+  <button class="btn" id="unlock">Unlock</button>
+</div>
+<p class="err" id="err">wrong passphrase — 5 wrong tries locks this for 15 minutes.</p>
+
+<div class="bar" id="bar">
+  <span class="stat"><b id="nq">0</b> questions · <b id="nr">0</b> replies · <b id="nrep">0</b> reported</span>
+  <button class="ghost" id="refresh">refresh</button>
+</div>
+<div class="list" id="list"></div>
+<p class="empty" id="empty">nothing here — the space is clean.</p>
+<div id="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+const SB_URL='https://fliheqjbwmcoggajovln.supabase.co';
+const SB_KEY='sb_publishable_qaGLnY9bUZ3nhveVw-64xg_kDuJLfHt';
+const $=s=>document.querySelector(s);
+const esc=s=>{const d=document.createElement('div');d.textContent=s??'';return d.innerHTML};
+const ago=ts=>{const s=Math.floor((Date.now()-new Date(ts))/1e3);if(s<60)return'just now';
+  const m=s/60|0;if(m<60)return m+'m ago';const h=m/60|0;return h<24?h+'h ago':(h/24|0)+'d ago'};
+let toastT=null;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');
+  if(toastT)clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),3000);}
+
+if(typeof supabase==='undefined'){document.body.innerHTML='<p style="padding:40px;font-family:monospace">could not load the client library — check the network and reload.</p>';throw new Error('no supabase');}
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const KEY='dotbro_admin_pass';
+let PASS=sessionStorage.getItem(KEY)||null;
+
+async function unlock(){
+  const p=$('#pass').value;if(!p)return;
+  const b=$('#unlock');b.disabled=true;
+  const {data,error}=await sb.rpc('admin_verify',{passphrase:p});
+  b.disabled=false;
+  if(error){toast('network error — try again');return;}
+  if(!data){$('#err').style.display='block';return;}
+  PASS=p;sessionStorage.setItem(KEY,p);
+  $('#err').style.display='none';$('#gate').style.display='none';
+  load();
+}
+$('#unlock').onclick=unlock;
+$('#pass').addEventListener('keydown',e=>{if(e.key==='Enter')unlock();});
+$('#refresh').onclick=()=>load();
+
+let QS=[],RS=new Map(),REPORTS=new Map();
+async function load(){
+  const [q,r,rep]=await Promise.all([
+    sb.from('questions').select('*').order('created_at',{ascending:false}).limit(500),
+    sb.from('replies').select('*').order('created_at',{ascending:true}),
+    sb.rpc('admin_reports',{passphrase:PASS}),
+  ]);
+  if(q.error||r.error){toast('load failed — reload the page');return;}
+  QS=q.data||[];
+  RS=new Map();(r.data||[]).forEach(x=>{const a=RS.get(x.question_id)||[];a.push(x);RS.set(x.question_id,a);});
+  REPORTS=new Map();(rep.data||[]).forEach(x=>REPORTS.set(x.question_id,x));
+  render();
+}
+
+function render(){
+  $('#bar').style.display='flex';
+  $('#nq').textContent=QS.length;
+  $('#nr').textContent=[...RS.values()].reduce((a,b)=>a+b.length,0);
+  $('#nrep').textContent=[...REPORTS.values()].reduce((a,b)=>a+Number(b.n),0);
+  const list=$('#list');list.style.display='flex';list.innerHTML='';
+  $('#empty').style.display=QS.length?'none':'block';
+  // reported first, then newest
+  const order=QS.slice().sort((a,b)=>{
+    const fa=REPORTS.has(a.id)?1:0,fb=REPORTS.has(b.id)?1:0;
+    if(fa!==fb)return fb-fa;
+    return new Date(b.created_at)-new Date(a.created_at);
+  });
+  for(const q of order){
+    const rs=RS.get(q.id)||[], rep=REPORTS.get(q.id);
+    const el=document.createElement('div');
+    el.className='q'+(rep?' flagged':'');
+    el.innerHTML=
+      `<div class="qtop">`+
+        (rep?`<span class="flag">&#9873; reported &times;${rep.n}</span>`:'')+
+        `<span class="cat">${esc(q.category)}</span><span>${esc(q.name)}</span>`+
+        `<span>${ago(q.created_at)}</span><span>${rs.length} repl${rs.length===1?'y':'ies'}</span>`+
+      `</div>`+
+      `<div class="qbody">${esc(q.body)}</div>`+
+      (rep?`<div class="reasons">${rep.reasons.slice(0,5).map(esc).join('<br>')}</div>`:'')+
+      `<div class="qact">`+
+        (rs.length?`<button class="mini" data-open>show replies</button>`:'')+
+        `<button class="mini danger" data-del>delete question</button>`+
+      `</div>`+
+      `<div class="replies">${rs.map(x=>
+        `<div class="r"><div class="rb"><div class="rm">${esc(x.kind)} · ${esc(x.name)} · ${ago(x.created_at)}</div>${esc(x.body)}</div>`+
+        `<button class="mini danger" data-delr="${x.id}">delete</button></div>`).join('')}</div>`;
+    const rbox=el.querySelector('.replies');
+    const ob=el.querySelector('[data-open]');
+    if(ob)ob.onclick=()=>{rbox.classList.toggle('open');
+      ob.textContent=rbox.classList.contains('open')?'hide replies':'show replies';};
+    el.querySelector('[data-del]').onclick=async ev=>{
+      const b=ev.currentTarget;
+      if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='sure? delete forever';
+        setTimeout(()=>{b.dataset.armed='0';b.textContent='delete question';},3500);return;}
+      b.disabled=true;
+      const {data,error}=await sb.rpc('admin_delete_question',{qid:q.id,passphrase:PASS});
+      if(error||!data){b.disabled=false;toast('delete failed — unlock again?');return;}
+      toast('question and its replies deleted');load();
+    };
+    el.querySelectorAll('[data-delr]').forEach(b=>{
+      b.onclick=async()=>{
+        if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='sure?';
+          setTimeout(()=>{b.dataset.armed='0';b.textContent='delete';},3500);return;}
+        b.disabled=true;
+        const {data,error}=await sb.rpc('admin_delete_reply',{rid:b.dataset.delr,passphrase:PASS});
+        if(error||!data){b.disabled=false;toast('delete failed — unlock again?');return;}
+        toast('reply deleted');load();
+      };
+    });
+    list.appendChild(el);
+  }
+}
+
+// returning session: re-verify the stored passphrase quietly
+(async()=>{
+  if(!PASS)return;
+  const {data}=await sb.rpc('admin_verify',{passphrase:PASS});
+  if(data){$('#gate').style.display='none';load();}
+  else{sessionStorage.removeItem(KEY);PASS=null;}
+})();
+</script>
+</body>
+</html>

@@ -34,4 +34,5 @@ these pages aggressively and will silently serve the previous build.
   intersects no visible text rect at rest.
 - Perf: the globe raster is the hot path. `rasterEarth(sil, moving)` should cost <10ms at sil=400;
   if a change pushes it past ~16ms the spin visibly stutters.
+- `/mod.html` = passphrase-gated moderation (noindex, robots-blocked). Unlock → list with reported-first, delete question/reply. Every destructive call re-checks the passphrase server-side (bcrypt + lockout in `private` schema).
 - **Deploy:** live site is Vercel (confirmed via `curl -sI https://dotbro.in` → `server: Vercel`), deployed via Vercel file-upload API — NOT git push, NOT GitHub Pages (old DEPLOY.md in ../www.dotbro.in is stale). See ../dotbro-in-PROJECT.md build log.

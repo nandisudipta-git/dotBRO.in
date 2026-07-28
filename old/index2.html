@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dotBro — Some conversations deserve another chance</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black: #090909;
+  --white: #F5F5F0;
+  --red: #D10000;
+  --red2: #FF1A1A;
+  --green: #C8D400;
+  --green2: #E2EE00;
+  --olive: #1A1C0F;
+  --olive2: #252A10;
+  --gray: #666660;
+  --mgray: #333330;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* ── CUSTOM CURSOR ── */
+.cursor {
+  position: fixed; width: 12px; height: 12px;
+  background: var(--white); border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+  transition: transform 0.1s, width 0.2s, height 0.2s, background 0.2s;
+  mix-blend-mode: difference;
+}
+.cursor-ring {
+  position: fixed; width: 40px; height: 40px;
+  border: 1px solid rgba(255,255,255,0.4); border-radius: 50%;
+  pointer-events: none; z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: transform 0.15s ease-out, width 0.3s, height 0.3s;
+}
+body:hover .cursor { opacity: 1; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.2rem 3rem;
+  background: rgba(9,9,9,0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 8px;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem;
+  letter-spacing: 2px; color: var(--white);
+  text-decoration: none;
+}
+.nav-logo img { width: 92px; height: auto; display: block; }
+.nav-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--white); display: inline-block;
+}
+.nav-links {
+  display: flex; gap: 2rem;
+}
+.nav-links a {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--gray); text-decoration: none; letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--white); }
+.nav-badge {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--gray); letter-spacing: 1px;
+}
+
+/* ── SLIDE SYSTEM ── */
+.slide {
+  min-height: 100vh; display: flex; align-items: center;
+  justify-content: center; position: relative; overflow: hidden;
+  padding: 6rem 3rem 4rem;
+}
+
+/* ── CANVAS 3D BG ── */
+#bg-canvas {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+  opacity: 0.35;
+}
+
+/* ── SLIDE 1: COVER ── */
+#s1 { background: var(--black); z-index: 1; }
+.s1-inner {
+  text-align: center; position: relative; z-index: 2;
+  max-width: 1200px; margin: 0 auto;
+}
+.bro-giant {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(8rem, 22vw, 22rem);
+  line-height: 0.85;
+  letter-spacing: -4px;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transform: perspective(800px) rotateX(8deg);
+  transform-origin: center bottom;
+  animation: titleRise 1.2s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes titleRise {
+  from { opacity:0; transform: perspective(800px) rotateX(28deg) translateY(60px); }
+  to   { opacity:1; transform: perspective(800px) rotateX(8deg) translateY(0); }
+}
+.tagline {
+  font-family: 'Space Mono', monospace; font-size: 1rem;
+  color: var(--gray); letter-spacing: 4px; text-transform: uppercase;
+  margin: 1.5rem 0 2.5rem;
+  animation: fadeUp 1s 0.4s both;
+}
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(20px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.product-pills {
+  display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+  animation: fadeUp 1s 0.6s both;
+}
+.pill-rb {
+  background: var(--red); color: var(--white);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  letter-spacing: 3px; padding: 0.7rem 2.2rem;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  transition: transform 0.2s, background 0.2s;
+}
+.pill-nb {
+  background: var(--green); color: var(--olive);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  letter-spacing: 3px; padding: 0.7rem 2.2rem;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  transition: transform 0.2s;
+}
+.pill-rb:hover { transform: scale(1.05) translateY(-2px); background: var(--red2); }
+.pill-nb:hover { transform: scale(1.05) translateY(-2px); }
+.founder-tag {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--mgray); letter-spacing: 2px; margin-top: 3rem;
+  animation: fadeUp 1s 0.8s both;
+}
+.scroll-hint {
+  position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  color: var(--gray); letter-spacing: 3px; text-align: center;
+  animation: bounce 2s infinite 1.5s;
+}
+.scroll-hint::after {
+  content: ''; display: block; width: 1px; height: 40px;
+  background: linear-gradient(to bottom, var(--gray), transparent);
+  margin: 8px auto 0;
+}
+@keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
+
+/* ── SECTION LABELS ── */
+.section-label {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--red); letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.section-label.green { color: var(--green); }
+
+/* ── SLIDE 2: CONTEXT ── */
+#s2 { background: #0D0D0D; }
+.s2-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.s2-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3.5rem, 7vw, 7rem);
+  line-height: 0.9; margin-bottom: 1.5rem;
+  transform: perspective(600px) rotateY(-3deg);
+}
+.s2-sub { font-size: 1.1rem; color: var(--gray); max-width: 600px; margin-bottom: 3rem; line-height: 1.7; }
+.crisis-cards {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px;
+}
+.crisis-card {
+  background: var(--mgray); padding: 2rem 1.5rem;
+  position: relative; overflow: hidden;
+  transition: transform 0.3s, background 0.3s;
+}
+.crisis-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--red);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s;
+}
+.crisis-card:hover::before { transform: scaleX(1); }
+.crisis-card:hover { transform: translateY(-4px); background: #1A1A1A; }
+.crisis-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.crisis-head {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem;
+  letter-spacing: 1px; margin-bottom: 0.8rem; color: var(--white);
+}
+.crisis-body { font-size: 0.88rem; color: var(--gray); line-height: 1.6; }
+.red-bar {
+  background: var(--red); padding: 1rem 2rem; margin-top: 1.5px;
+  font-size: 0.9rem; font-weight: 500; grid-column: 1/-1;
+  text-align: center;
+}
+
+/* ── SLIDE 3: RELAX BRO ── */
+#s3 {
+  background: var(--white);
+  color: var(--black);
+}
+.s3-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4rem; max-width: 1100px; margin: 0 auto; width: 100%;
+  align-items: center;
+}
+.s3-left .big-rb {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(5rem, 11vw, 11rem);
+  line-height: 0.82; letter-spacing: -2px;
+  transform: perspective(600px) rotateY(5deg);
+  display: inline-block;
+}
+.s3-left .rb-white { color: var(--black); }
+.s3-left .rb-red   { color: var(--red); }
+.s3-tagline { font-family: 'Space Mono', monospace; font-size: 0.8rem; color: #888; margin-top: 1rem; letter-spacing: 2px; }
+.s3-services { display: flex; flex-direction: column; gap: 1px; }
+.service-row {
+  display: flex; align-items: center; gap: 1.2rem;
+  padding: 1.2rem 1.5rem; background: #F0F0EC;
+  border-left: 3px solid transparent;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+  position: relative;
+}
+.service-row:hover { border-left-color: var(--red); background: #E8E8E4; transform: translateX(6px); }
+.srv-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: var(--red); min-width: 2rem; }
+.srv-icon { font-size: 1.5rem; }
+.srv-text h4 { font-size: 0.95rem; font-weight: 700; color: var(--black); margin-bottom: 2px; }
+.srv-text p { font-size: 0.8rem; color: #888; }
+.srv-tag {
+  margin-left: auto; font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 1px;
+  padding: 2px 8px; background: var(--red); color: #fff;
+}
+
+/* ── SLIDE 4: HOW IT WORKS ── */
+#s4 { background: #111; }
+.s4-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.steps-row {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 1px; margin-top: 2rem;
+}
+.step-card {
+  background: #1A1A1A; padding: 2rem 1.2rem;
+  text-align: center; position: relative;
+  transition: transform 0.3s, background 0.3s;
+}
+.step-card:hover { background: #222; transform: translateY(-8px) scale(1.02); }
+.step-num-circle {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--red); display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: #fff;
+  margin: 0 auto 1rem;
+  box-shadow: 0 0 20px rgba(209,0,0,0.4);
+}
+.step-icon { font-size: 2rem; margin-bottom: 0.8rem; }
+.step-head { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
+.step-body { font-size: 0.8rem; color: var(--gray); line-height: 1.5; }
+.step-arrow {
+  position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+  color: var(--red); font-size: 1.2rem; z-index: 2;
+}
+.connector-bar {
+  background: var(--red); padding: 1rem; margin-top: 1px;
+  text-align: center; font-size: 0.85rem; font-weight: 500;
+}
+
+/* ── SLIDE 5: NUMBRO ── */
+#s5 { background: var(--olive); }
+.s5-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.nb-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(5rem, 12vw, 12rem);
+  line-height: 0.82; color: var(--green);
+  transform: perspective(600px) rotateX(-4deg);
+  display: inline-block; margin-bottom: 0.5rem;
+}
+.nb-sub {
+  font-family: 'Space Mono', monospace; font-size: 0.8rem;
+  color: #666; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 2rem;
+}
+.nb-tagline { font-size: 1.15rem; color: #ccc; max-width: 500px; margin-bottom: 3rem; line-height: 1.7; }
+.nb-features {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px;
+}
+.nb-feat {
+  background: var(--olive2); padding: 1.8rem 1.5rem;
+  position: relative; overflow: hidden;
+  transition: transform 0.3s, background 0.3s;
+}
+.nb-feat::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px; background: var(--green);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s;
+}
+.nb-feat:hover::after { transform: scaleX(1); }
+.nb-feat:hover { background: #2C2F18; transform: translateY(-4px); }
+.nb-feat-icon { font-size: 2rem; margin-bottom: 0.8rem; }
+.nb-feat-head {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  color: var(--white); letter-spacing: 1px; margin-bottom: 0.5rem;
+}
+.nb-feat-body { font-size: 0.82rem; color: #888; line-height: 1.6; }
+.nb-cta {
+  display: inline-block; margin-top: 2.5rem;
+  background: var(--green); color: var(--olive);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem;
+  letter-spacing: 3px; padding: 0.8rem 2.5rem;
+  clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+  text-decoration: none;
+  transition: transform 0.2s, background 0.2s;
+}
+.nb-cta:hover { transform: scale(1.04); background: var(--green2); }
+
+/* ── SLIDE 6: ECOSYSTEM ── */
+#s6 { background: var(--black); }
+.s6-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.s6-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.9; margin-bottom: 0.5rem;
+}
+.eco-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1.5px; margin-top: 2.5rem;
+}
+.eco-card {
+  padding: 2.5rem; position: relative; overflow: hidden;
+  transition: transform 0.3s;
+}
+.eco-card:hover { transform: scale(1.01); }
+.eco-rb { background: #111; }
+.eco-nb { background: var(--olive2); }
+.eco-header {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem;
+  letter-spacing: 3px; margin-bottom: 1.5rem; padding-bottom: 0.8rem;
+  border-bottom: 2px solid;
+}
+.eco-rb .eco-header { color: var(--white); border-color: var(--red); }
+.eco-nb .eco-header { color: var(--green); border-color: var(--green); }
+.eco-point {
+  display: flex; align-items: flex-start; gap: 0.8rem;
+  margin-bottom: 0.8rem; font-size: 0.9rem; color: #ccc;
+}
+.eco-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+.eco-rb .eco-dot { background: var(--red); }
+.eco-nb .eco-dot { background: var(--green); }
+.eco-url {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--gray); margin-top: 1.5rem; letter-spacing: 1px;
+}
+.eco-plus {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--black); border: 1px solid #333;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; color: #444; z-index: 10;
+}
+
+/* ── SLIDE 7: VISION ── */
+#s7 { background: #080808; }
+.s7-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.vision-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 9vw, 9rem);
+  line-height: 0.85; margin-bottom: 1rem;
+  background: linear-gradient(135deg, #fff 0%, var(--red) 50%, var(--green) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: gradShift 4s ease infinite;
+}
+@keyframes gradShift {
+  0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+}
+.vision-sub { font-size: 1rem; color: var(--gray); max-width: 600px; margin-bottom: 3rem; line-height: 1.7; }
+.scenario-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5px;
+}
+.scenario {
+  background: #111; padding: 1.8rem 1.4rem;
+  position: relative; transition: transform 0.3s, background 0.3s;
+  overflow: hidden;
+}
+.scenario:hover { transform: translateY(-6px); background: #1A1A1A; }
+.scenario-top { height: 3px; margin-bottom: 1.2rem; }
+.scenario-loc {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  letter-spacing: 2px; margin-bottom: 0.5rem;
+}
+.scenario-prob { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--white); margin-bottom: 0.8rem; }
+.scenario-sep { height: 1px; background: #222; margin-bottom: 0.8rem; }
+.scenario-sol { font-size: 0.82rem; color: var(--gray); line-height: 1.5; }
+
+/* ── SLIDE 8: FOUNDER ── */
+#s8 {
+  background: var(--white); color: var(--black);
+}
+.s8-inner {
+  display: grid; grid-template-columns: 1fr 1.4fr;
+  gap: 4rem; max-width: 1100px; margin: 0 auto; width: 100%;
+  align-items: center;
+}
+.founder-visual {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+}
+.sn-circle {
+  width: 240px; height: 240px; border-radius: 50%;
+  background: var(--red);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 5rem; color: var(--white);
+  box-shadow: 0 30px 80px rgba(209,0,0,0.3);
+  animation: floatCircle 4s ease-in-out infinite;
+}
+@keyframes floatCircle {
+  0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-12px) rotate(2deg)}
+}
+.founder-name {
+  font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem;
+  color: var(--black); margin-top: 1.5rem; letter-spacing: 2px;
+}
+.founder-role { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--red); letter-spacing: 2px; margin-top: 0.3rem; }
+.founder-brands { font-size: 0.8rem; color: #999; margin-top: 0.3rem; }
+.story-text { font-size: 1rem; color: #444; line-height: 1.8; margin-bottom: 2rem; }
+.cofound-box {
+  background: #F0F0EC; padding: 1.8rem;
+  border-left: 4px solid var(--red);
+}
+.cofound-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--black); margin-bottom: 1rem; letter-spacing: 1px; }
+.cofound-trait {
+  display: flex; align-items: flex-start; gap: 0.8rem;
+  margin-bottom: 0.6rem; font-size: 0.88rem; color: #555;
+}
+.ct-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); margin-top: 7px; flex-shrink: 0; }
+.build-line { font-size: 0.9rem; color: var(--red); font-style: italic; font-weight: 500; margin-top: 1rem; }
+
+/* ── SLIDE 9: CLOSE ── */
+#s9 { background: var(--black); text-align: center; }
+.s9-inner { max-width: 900px; margin: 0 auto; width: 100%; }
+.close-big {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 10vw, 10rem);
+  line-height: 0.85; margin-bottom: 1.5rem;
+  transform: perspective(800px) rotateX(5deg);
+}
+.close-sub { font-family: 'Space Mono', monospace; font-size: 0.8rem; color: var(--gray); letter-spacing: 3px; margin-bottom: 3rem; }
+.close-products {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.5px;
+  max-width: 700px; margin: 0 auto 3rem;
+}
+.close-rb {
+  background: #111; padding: 2rem;
+  border-top: 3px solid var(--red); text-align: left;
+}
+.close-nb {
+  background: var(--olive2); padding: 2rem;
+  border-top: 3px solid var(--green); text-align: left;
+}
+.close-prod-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 2px; margin-bottom: 0.4rem; }
+.close-rb .close-prod-name { color: var(--white); }
+.close-nb .close-prod-name { color: var(--green); }
+.close-prod-url { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--gray); margin-bottom: 0.3rem; }
+.close-prod-desc { font-size: 0.82rem; color: var(--gray); }
+.sign-off {
+  font-family: 'Space Mono', monospace; font-size: 0.85rem;
+  color: var(--gray); font-style: italic;
+}
+.alokara-tag {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1rem;
+  color: #333; letter-spacing: 4px; margin-top: 3rem;
+}
+
+/* ── PROGRESS BAR ── */
+.progress {
+  position: fixed; top: 0; left: 0; height: 2px;
+  background: linear-gradient(to right, var(--red), var(--green));
+  transition: width 0.3s; z-index: 200; width: 0%;
+}
+
+/* ── SLIDE NAV DOTS ── */
+.slide-nav {
+  position: fixed; right: 2rem; top: 50%;
+  transform: translateY(-50%); z-index: 100;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.snav-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #333; cursor: pointer;
+  transition: background 0.3s, transform 0.3s;
+}
+.snav-dot.active { background: var(--white); transform: scale(1.6); }
+
+/* ── 3D FLOATING ELEMENTS ── */
+.float-el {
+  position: absolute; pointer-events: none;
+  animation: floatEl var(--dur, 6s) ease-in-out infinite var(--delay, 0s);
+  opacity: 0.07;
+}
+@keyframes floatEl {
+  0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-20px) rotate(5deg)}
+}
+
+/* ── REVEAL ANIMATION ── */
+.reveal {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ── GLITCH TEXT ── */
+.glitch {
+  position: relative;
+}
+.glitch::before, .glitch::after {
+  content: attr(data-text); position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.glitch::before { animation: glitch1 3s infinite 2s; color: var(--red); }
+.glitch::after  { animation: glitch2 3s infinite 2s; }
+@keyframes glitch1 {
+  0%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  10%{clip-path:inset(30% 0 50% 0);transform:translateX(-3px)}
+  20%{clip-path:inset(60% 0 20% 0);transform:translateX(3px)}
+  30%{clip-path:inset(0 0 100% 0);transform:none}
+}
+@keyframes glitch2 {
+  0%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  15%{clip-path:inset(50% 0 30% 0);transform:translateX(3px)}
+  25%{clip-path:inset(20% 0 60% 0);transform:translateX(-3px)}
+  35%{clip-path:inset(0 0 100% 0);transform:none}
+}
+
+/* ── 3D CARD ── */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.4s;
+}
+
+/* ── SLIDE: OPEN ROLES (BUILDERS) ── */
+#sroles { background: #0D0D0D; }
+.sroles-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.sroles-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.9; margin-bottom: 0.8rem;
+}
+.sroles-sub { font-size: 1rem; color: var(--gray); max-width: 600px; margin-bottom: 2.5rem; line-height: 1.7; }
+.roles-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px;
+}
+@media (max-width: 900px) { .roles-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .roles-grid { grid-template-columns: 1fr; } }
+.role-card {
+  background: #1A1A1A; padding: 1.6rem 1.4rem;
+  position: relative; transition: transform 0.3s, background 0.3s;
+}
+.role-card:hover { background: #222; transform: translateY(-4px); }
+.role-head { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 1px; color: var(--white); margin-bottom: 0.5rem; }
+.role-body { font-size: 0.8rem; color: var(--gray); line-height: 1.55; min-height: 38px; margin-bottom: 1rem; }
+.role-row { display: flex; align-items: center; justify-content: space-between; }
+.role-open { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 1.5px; color: var(--red); }
+.role-btn {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 1px;
+  background: none; border: 1px solid var(--mgray); color: var(--white);
+  padding: 0.4rem 0.9rem; cursor: pointer; transition: all 0.2s;
+}
+.role-btn:hover { background: var(--red); border-color: var(--red); }
+
+/* ── SLIDE: ROADMAP ── */
+#sroadmap { background: var(--olive); }
+.sroadmap-inner { max-width: 800px; margin: 0 auto; width: 100%; }
+.sroadmap-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.9; color: var(--green); margin-bottom: 2.5rem;
+}
+.road-row {
+  display: grid; grid-template-columns: 110px 24px 1fr;
+  padding: 1.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.road-row:first-child { border-top: 1px solid rgba(255,255,255,0.08); }
+.road-stage { font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gray); padding-top: 3px; }
+.road-stage.active { color: var(--green); }
+.road-dot-col { display: flex; justify-content: center; }
+.road-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mgray); margin-top: 5px; }
+.road-dot.active { background: var(--green); box-shadow: 0 0 0 4px rgba(200,212,0,0.15); }
+.road-row h4 { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 1px; color: var(--white); }
+.road-row p { font-size: 0.82rem; color: var(--gray); margin-top: 0.3rem; line-height: 1.5; max-width: 440px; }
+
+/* ── PHILOSOPHY STRIP ── */
+#sphil { background: var(--black); text-align: center; }
+.phil-inner { max-width: 900px; margin: 0 auto; width: 100%; }
+.phil-line {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.6rem, 4.5vw, 3rem);
+  line-height: 1.4; color: var(--mgray);
+  transition: color 0.3s;
+}
+.phil-line b { color: var(--white); }
+.phil-line:hover { color: var(--gray); }
+.phil-line:hover b { color: var(--red); }
+
+/* ── FOOTER ── */
+footer.site-footer {
+  background: var(--black); border-top: 1px solid #1A1A1A;
+  padding: 4rem 3rem 2rem; position: relative; z-index: 2;
+}
+.footer-top {
+  display: flex; justify-content: space-between; flex-wrap: wrap;
+  gap: 2.5rem; max-width: 1100px; margin: 0 auto 2.5rem;
+}
+.footer-brand .footer-logo {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 2px; color: var(--white);
+}
+.footer-brand p { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--gray); letter-spacing: 1px; margin-top: 0.6rem; max-width: 240px; }
+.footer-cols { display: flex; gap: 3.5rem; flex-wrap: wrap; }
+.footer-col h5 { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: var(--gray); margin-bottom: 0.9rem; }
+.footer-col a { display: block; font-size: 0.82rem; color: var(--white); opacity: 0.8; text-decoration: none; margin-bottom: 0.6rem; transition: opacity 0.2s, color 0.2s; }
+.footer-col a:hover { opacity: 1; color: var(--red); }
+.footer-bottom {
+  max-width: 1100px; margin: 0 auto; padding-top: 1.6rem; border-top: 1px solid #1A1A1A;
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem;
+  font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--gray); letter-spacing: 1px;
+}
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(9,9,9,0.85); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal-box {
+  background: #111; border: 1px solid #222; max-width: 420px; width: 100%;
+  padding: 2.2rem; position: relative;
+  transform: translateY(14px) scale(0.97); transition: transform 0.35s cubic-bezier(.2,.8,.2,1);
+}
+.modal-overlay.open .modal-box { transform: translateY(0) scale(1); }
+.modal-close { position: absolute; top: 1rem; right: 1.2rem; background: none; border: none; color: var(--gray); font-size: 1.2rem; cursor: pointer; }
+.modal-box .section-label { margin-bottom: 0.8rem; }
+.modal-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--white); margin-bottom: 0.7rem; letter-spacing: 1px; }
+.modal-box p { font-size: 0.85rem; color: var(--gray); line-height: 1.6; margin-bottom: 1.6rem; }
+.modal-actions { display: flex; gap: 0.8rem; }
+.modal-cta {
+  flex: 1; text-align: center; font-family: 'Bebas Neue', sans-serif; letter-spacing: 2px;
+  font-size: 0.95rem; padding: 0.8rem; background: var(--red); color: var(--white);
+  text-decoration: none; transition: background 0.2s;
+}
+.modal-cta:hover { background: var(--red2); }
+.modal-cancel {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 1px;
+  background: none; border: 1px solid var(--mgray); color: var(--gray); padding: 0.8rem 1.2rem; cursor: pointer;
+}
+
+/* ── LAUNCH STORY REFINEMENTS ── */
+.hero-kicker {
+  font-family: 'Space Mono', monospace; font-size: 0.68rem;
+  color: var(--red); letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+.hero-reference {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--red); letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 1.4rem; animation: fadeUp 0.8s both;
+}
+.hero-logo {
+  display: block; width: min(680px, 75vw); height: auto;
+  margin: 0 auto; filter: drop-shadow(0 24px 60px rgba(255,255,255,0.08));
+  animation: titleRise 1.2s cubic-bezier(0.16,1,0.3,1) both;
+}
+.hero-tagline {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--gray);
+  letter-spacing: 4px; text-transform: uppercase; margin-top: 1rem;
+  animation: fadeUp 1s 0.25s both;
+}
+.reference-pills {
+  display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap;
+  margin-top: 1.4rem; animation: fadeUp 1s 0.4s both;
+}
+.reference-pill {
+  font-family: 'Bebas Neue', sans-serif; font-size: 0.85rem;
+  letter-spacing: 2px; padding: 0.55rem 1.4rem; color: var(--white);
+  border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.045);
+  backdrop-filter: blur(12px); text-decoration: none;
+}
+.reference-pill.red { border-color: rgba(209,0,0,0.5); background: rgba(209,0,0,0.14); }
+.reference-pill.green { border-color: rgba(200,212,0,0.45); color: var(--green); background: rgba(200,212,0,0.08); }
+.hero-attribution {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem; color: #44443F;
+  letter-spacing: 2px; margin-top: 1.2rem; text-transform: uppercase;
+  animation: fadeUp 1s 0.55s both;
+}
+.hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.3rem, 5vw, 4.8rem); line-height: 0.95;
+  letter-spacing: -1px; max-width: 860px; margin: 2rem auto 0;
+  background: linear-gradient(180deg, #fff 35%, rgba(255,255,255,0.22));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: titleRise 1.2s cubic-bezier(0.16,1,0.3,1) both;
+}
+.hero-story {
+  max-width: 620px; margin: 2rem auto 0; color: #9A9A94;
+  font-size: clamp(1rem, 1.8vw, 1.2rem); line-height: 1.75;
+  animation: fadeUp 1s 0.35s both;
+}
+.hero-story strong { color: var(--white); font-weight: 500; }
+.cta-row { display: flex; justify-content: center; gap: 0.8rem; flex-wrap: wrap; margin-top: 2.2rem; animation: fadeUp 1s 0.55s both; }
+.primary-cta, .secondary-cta {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 50px; padding: 0.9rem 1.5rem; text-decoration: none;
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  letter-spacing: 1.5px; text-transform: uppercase; transition: all 0.25s;
+}
+.primary-cta { background: var(--white); color: var(--black); }
+.primary-cta:hover { background: var(--red); color: var(--white); transform: translateY(-2px); }
+.secondary-cta { border: 1px solid #333; color: var(--white); }
+.secondary-cta:hover { border-color: var(--white); transform: translateY(-2px); }
+
+.missed-grid, .future-grid, .audience-grid, .project-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px;
+}
+.word-card, .future-card, .audience-card, .project-card {
+  background: rgba(26,26,26,0.78); border: 1px solid rgba(255,255,255,0.035);
+  padding: 1.6rem; position: relative; overflow: hidden;
+  backdrop-filter: blur(14px); transition: transform 0.3s, background 0.3s, border-color 0.3s;
+}
+.word-card:hover, .future-card:hover, .audience-card:hover, .project-card:hover {
+  transform: translateY(-4px); background: rgba(34,34,34,0.92); border-color: rgba(255,255,255,0.12);
+}
+.word-card { font-family: 'Bebas Neue', sans-serif; font-size: 1.55rem; letter-spacing: 1px; }
+.word-card span { display: block; font-family: 'Space Mono', monospace; color: var(--red); font-size: 0.58rem; margin-bottom: 0.7rem; }
+.truth-line { margin-top: 2rem; font-size: clamp(1.35rem, 2.5vw, 2.2rem); line-height: 1.35; color: var(--gray); }
+.truth-line strong { color: var(--white); font-weight: 500; }
+
+.swap-list { margin-top: 2rem; }
+.swap-row { display: grid; grid-template-columns: 1fr 80px 1fr; align-items: center; padding: 1.2rem 0; border-bottom: 1px solid #242424; }
+.swap-from, .swap-to { font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.7rem, 4vw, 3.6rem); }
+.swap-from { color: #3C3C39; }
+.swap-to { color: var(--white); text-align: right; }
+.swap-arrow { text-align: center; color: var(--red); font-family: 'Space Mono', monospace; }
+
+#s4 { background: #101010; }
+.future-grid { grid-template-columns: repeat(4, 1fr); margin-top: 2.5rem; }
+.future-card { min-height: 170px; display: flex; flex-direction: column; justify-content: space-between; }
+.future-num { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--gray); }
+.future-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; }
+.coming { font-family: 'Space Mono', monospace; font-size: 0.56rem; letter-spacing: 1.5px; color: var(--green); text-transform: uppercase; }
+
+.audience-grid { grid-template-columns: repeat(5, 1fr); margin-top: 2.5rem; }
+.audience-card { font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 1px; min-height: 100px; display: flex; align-items: flex-end; }
+.audience-card:last-child { color: var(--green); }
+
+#projects { background: radial-gradient(circle at 75% 40%, rgba(200,212,0,0.07), transparent 34%), #0B0B0B; }
+.ventures-layout { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 5rem; align-items: center; max-width: 1100px; width: 100%; margin: 0 auto; }
+.ventures-copy .s2-sub { margin-bottom: 0; }
+.venture-stage { min-height: 560px; position: relative; perspective: 1200px; }
+.venture-card {
+  --x: calc(var(--i) * 24px); --y: calc(var(--i) * 104px); --r: calc((var(--i) - 1.5) * 0.45deg);
+  position: absolute; top: 0; left: 0; width: calc(100% - 72px); min-height: 205px;
+  transform: translate3d(var(--x), var(--y), 0) rotate(var(--r));
+  z-index: calc(10 - var(--i)); padding: 1.5rem 1.6rem;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 1.3rem; align-items: start;
+  color: var(--white); text-decoration: none; overflow: hidden;
+  background: linear-gradient(135deg, rgba(255,255,255,0.115), rgba(255,255,255,0.035));
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 22px;
+  box-shadow: 0 28px 70px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.14);
+  backdrop-filter: blur(28px) saturate(145%);
+  transition: transform 0.45s cubic-bezier(.2,.8,.2,1), border-color 0.3s, background 0.3s;
+}
+.venture-card::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 12% 0%, var(--accent-soft), transparent 43%);
+}
+.venture-card:hover { transform: translate3d(calc(var(--x) - 12px), calc(var(--y) - 8px), 42px) rotate(0); border-color: var(--accent); background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.055)); }
+.venture-index { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--accent); padding-top: 0.35rem; }
+.venture-content { position: relative; z-index: 1; }
+.venture-status { font-family: 'Space Mono', monospace; font-size: 0.55rem; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; }
+.venture-name { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2rem, 4vw, 3.4rem); line-height: 0.95; margin-top: 0.65rem; }
+.venture-note { color: #AAA9A2; font-size: 0.8rem; line-height: 1.55; margin-top: 0.7rem; max-width: 370px; }
+.venture-arrow { color: var(--accent); font-size: 1.3rem; position: relative; z-index: 1; }
+.venture-chip { grid-column: 2/4; justify-self: start; font-family: 'Space Mono', monospace; font-size: 0.52rem; letter-spacing: 1px; color: #777770; text-transform: uppercase; }
+
+.role-card .role-body { min-height: 0; }
+.role-open { color: var(--green); }
+.role-btn:hover { background: var(--white); border-color: var(--white); color: var(--black); }
+
+.final-question { font-family: 'Bebas Neue', sans-serif; font-size: clamp(6rem, 18vw, 17rem); line-height: 0.8; margin-top: 2rem; }
+.final-copy { max-width: 900px; margin: 0 auto; font-size: clamp(2rem, 5vw, 5rem); line-height: 1.08; font-weight: 300; }
+
+@media (max-width: 900px) {
+  nav { padding: 1rem 1.3rem; }
+  .nav-links { display: none; }
+  .slide { padding: 6rem 1.4rem 4rem; min-height: auto; }
+  #s1, #s9 { min-height: 100vh; }
+  .missed-grid, .project-grid { grid-template-columns: repeat(2, 1fr); }
+  .future-grid, .audience-grid { grid-template-columns: repeat(2, 1fr); }
+  .ventures-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+  .venture-stage { min-height: 540px; }
+  .slide-nav { display: none; }
+}
+@media (max-width: 560px) {
+  body { cursor: auto; }
+  .cursor, .cursor-ring { display: none; }
+  .hero-title { font-size: clamp(4rem, 20vw, 6.5rem); }
+  .missed-grid, .future-grid, .audience-grid, .project-grid, .roles-grid { grid-template-columns: 1fr; }
+  .swap-row { grid-template-columns: 1fr 32px 1fr; }
+  .swap-arrow { font-size: 0.7rem; }
+  footer.site-footer { padding: 3rem 1.4rem 2rem; }
+  .hero-logo { width: min(520px, 88vw); }
+  .hero-reference { font-size: 0.52rem; line-height: 1.8; }
+  .hero-title { font-size: clamp(2.4rem, 12vw, 4rem); }
+  .venture-stage { min-height: auto; display: grid; gap: 0.8rem; }
+  .venture-card { position: relative; width: 100%; min-height: 180px; transform: none; border-radius: 18px; }
+  .venture-card:hover { transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+<div class="progress" id="progress"></div>
+
+<nav class="launch-nav">
+  <a class="nav-logo" href="#hero" aria-label="dotBro home"><img src="logo.svg" alt="dotBro"></a>
+  <div class="nav-links">
+    <a href="#problem">Why</a>
+    <a href="#future">Coming Soon</a>
+    <a href="#projects">Projects</a>
+    <a href="#community">Contribute</a>
+  </div>
+  <a class="nav-badge" href="#community" style="text-decoration:none;color:var(--white)">FOUNDING COMMUNITY →</a>
+</nav>
+
+<div class="slide-nav" id="slideNav"></div>
+
+<!-- ══ LAUNCH STORY ══ -->
+<section class="slide" id="hero">
+  <div class="float-el" style="font-size:24rem;top:3%;right:-4%;--dur:9s">?</div>
+  <div class="float-el" style="font-size:9rem;bottom:10%;left:4%;--dur:7s;--delay:1s">●</div>
+  <div class="s1-inner">
+    <div class="hero-reference">Himshikhar Entrepreneurship Program · IIT Mandi</div>
+    <img class="hero-logo" src="logo.svg" alt="dotBro">
+    <div class="hero-tagline">Stitch as per the crisis.</div>
+    <div class="reference-pills" aria-label="dotBro ventures">
+      <a class="reference-pill red" href="#projects">Relax Bro</a>
+      <a class="reference-pill green" href="https://num-bro.vercel.app" target="_blank" rel="noopener">Num.Bro</a>
+    </div>
+    <div class="hero-attribution">Sudipta Nandi · Founder · Under Alokara</div>
+    <h1 class="hero-title">Some conversations deserve another chance.</h1>
+    <p class="hero-story">You left the lecture. You walked away from the café. You overheard an amazing discussion. You thought, <strong>“I wish I had joined.”</strong><br>dotBro gives that conversation another chance.</p>
+    <div class="cta-row">
+      <a class="primary-cta" href="#community">I’m In</a>
+      <a class="secondary-cta" href="#community">Become a Founding Contributor</a>
+    </div>
+  </div>
+  <div class="scroll-hint">KEEP THE CONVERSATION GOING</div>
+</section>
+
+<section class="slide" id="problem">
+  <div class="s2-inner">
+    <div class="section-label reveal">What gets missed</div>
+    <h2 class="s2-headline reveal reveal-delay-1">The people and ideas<br>were already there.</h2>
+    <p class="s2-sub reveal reveal-delay-2">The moment passed before anyone found a way in.</p>
+    <div class="missed-grid reveal reveal-delay-3">
+      <div class="word-card"><span>01</span>Questions</div><div class="word-card"><span>02</span>Ideas</div><div class="word-card"><span>03</span>Collaborators</div>
+      <div class="word-card"><span>04</span>Mentors</div><div class="word-card"><span>05</span>Professors</div><div class="word-card"><span>06</span>Communities</div>
+      <div class="word-card"><span>07</span>Research</div><div class="word-card"><span>08</span>Friendships</div><div class="word-card"><span>09</span>Co-founders</div>
+    </div>
+    <p class="truth-line reveal reveal-delay-4">Not because they don’t exist.<br><strong>Because they never connect.</strong></p>
+  </div>
+</section>
+
+<section class="slide" id="vision">
+  <div class="s4-inner">
+    <div class="section-label reveal">A different kind of network</div>
+    <h2 class="s2-headline reveal reveal-delay-1">Less performance.<br>More possibility.</h2>
+    <div class="swap-list reveal reveal-delay-2">
+      <div class="swap-row"><div class="swap-from">Feeds</div><div class="swap-arrow">→</div><div class="swap-to">Graphs</div></div>
+      <div class="swap-row"><div class="swap-from">Followers</div><div class="swap-arrow">→</div><div class="swap-to">Conversations</div></div>
+      <div class="swap-row"><div class="swap-from">Likes</div><div class="swap-arrow">→</div><div class="swap-to">Collaborations</div></div>
+      <div class="swap-row"><div class="swap-from">Scrolling</div><div class="swap-arrow">→</div><div class="swap-to">Projects</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="future">
+  <div class="s2-inner">
+    <div class="section-label green reveal">What dotBro will become</div>
+    <h2 class="s2-headline reveal reveal-delay-1">Small openings.<br>Real outcomes.</h2>
+    <div class="future-grid reveal reveal-delay-2">
+      <div class="future-card card-3d"><div class="future-num">01</div><div class="future-name">Anonymous Questions</div><div class="coming">Coming Soon</div></div>
+      <div class="future-card card-3d"><div class="future-num">02</div><div class="future-name">Campus Communities</div><div class="coming">Coming Soon</div></div>
+      <div class="future-card card-3d"><div class="future-num">03</div><div class="future-name">Knowledge Graph</div><div class="coming">Coming Soon</div></div>
+      <div class="future-card card-3d"><div class="future-num">04</div><div class="future-name">Research Network</div><div class="coming">Coming Soon</div></div>
+      <div class="future-card card-3d"><div class="future-num">05</div><div class="future-name">Projects</div><div class="coming">Coming Soon</div></div>
+      <div class="future-card card-3d"><div class="future-num">06</div><div class="future-name">Meetups</div><div class="coming">Coming Soon</div></div>
+      <div class="future-card card-3d"><div class="future-num">07</div><div class="future-name">Mentorship</div><div class="coming">Coming Soon</div></div>
+      <div class="future-card card-3d"><div class="future-num">08</div><div class="future-name">The next conversation</div><div class="coming">Coming Soon</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="people">
+  <div class="s2-inner">
+    <div class="section-label reveal">Who this is for</div>
+    <h2 class="s2-headline reveal reveal-delay-1">Anyone still willing<br>to ask why.</h2>
+    <div class="audience-grid reveal reveal-delay-2">
+      <div class="audience-card">Students</div><div class="audience-card">Professors</div><div class="audience-card">Researchers</div><div class="audience-card">Founders</div><div class="audience-card">Engineers</div>
+      <div class="audience-card">Designers</div><div class="audience-card">Creators</div><div class="audience-card">Builders</div><div class="audience-card">Open Source Contributors</div><div class="audience-card">Everyone curious.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="projects">
+  <div class="ventures-layout">
+    <div class="ventures-copy">
+      <div class="section-label reveal">The venture stack</div>
+      <h2 class="s2-headline reveal reveal-delay-1">Different experiments.<br>One instinct: help.</h2>
+      <p class="s2-sub reveal reveal-delay-2">Every venture keeps its own identity. Together, they form the Alokara stack.</p>
+    </div>
+    <div class="venture-stage reveal reveal-delay-3" aria-label="All ventures">
+      <article class="venture-card" style="--i:0;--accent:#F5F5F0;--accent-soft:rgba(245,245,240,0.14)">
+        <span class="venture-index">01</span><div class="venture-content"><div class="venture-status">Building now</div><div class="venture-name">dotBro</div><p class="venture-note">A home for conversations that should not end when the moment does.</p></div><span class="venture-arrow">→</span><div class="venture-chip">Conversation network</div>
+      </article>
+      <article class="venture-card" style="--i:1;--accent:#FF1A1A;--accent-soft:rgba(209,0,0,0.22)">
+        <span class="venture-index">02</span><div class="venture-content"><div class="venture-status">Existing venture</div><div class="venture-name">Relax Bro</div><p class="venture-note">A local-first experiment in making help feel close, human, and immediate.</p></div><span class="venture-arrow">→</span><div class="venture-chip">Local help · trusted people</div>
+      </article>
+      <a class="venture-card" href="https://num-bro.vercel.app" target="_blank" rel="noopener" style="--i:2;--accent:#E2EE00;--accent-soft:rgba(200,212,0,0.18)">
+        <span class="venture-index">03</span><div class="venture-content"><div class="venture-status">Live venture</div><div class="venture-name">Num.Bro</div><p class="venture-note">A quiet, offline-first way to keep personal financial records clear.</p></div><span class="venture-arrow">↗</span><div class="venture-chip">Personal records · offline-first</div>
+      </a>
+      <article class="venture-card" style="--i:3;--accent:#9B87FF;--accent-soft:rgba(155,135,255,0.18)">
+        <span class="venture-index">04</span><div class="venture-content"><div class="venture-status">Parent studio</div><div class="venture-name">Alokara</div><p class="venture-note">The wider home for thoughtful, useful experiments—including every Bro venture.</p></div><span class="venture-arrow">→</span><div class="venture-chip">Independent venture studio</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="community">
+  <div class="sroles-inner">
+    <div class="section-label reveal">Founding Community</div>
+    <h2 class="sroles-headline reveal reveal-delay-1">We’re not hiring.<br>We’re co-founding.</h2>
+    <p class="sroles-sub reveal reveal-delay-2">Don’t join as a user. Help shape the questions, the culture, and the first useful version.</p>
+    <div class="roles-grid reveal reveal-delay-3">
+      <div class="role-card card-3d"><div class="role-head">Frontend</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('Frontend')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Backend</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('Backend')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">AI</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('AI')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">ML</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('ML')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Research</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('Research')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Design</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('Design')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Community</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('Community')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Professor</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('Professor')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Student</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('Student')">I’m In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Advisor</div><div class="role-row"><span class="role-open">Founding Contributor</span><button class="role-btn" onclick="openRoleModal('Advisor')">I’m In</button></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="principles">
+  <div class="phil-inner">
+    <div class="section-label reveal" style="justify-content:center;display:flex">Philosophy</div>
+    <div class="phil-line reveal reveal-delay-1"><b>Curiosity</b> over popularity.</div>
+    <div class="phil-line reveal reveal-delay-1"><b>Knowledge</b> over algorithms.</div>
+    <div class="phil-line reveal reveal-delay-2"><b>Builders</b> over spectators.</div>
+    <div class="phil-line reveal reveal-delay-2"><b>Questions</b> over assumptions.</div>
+    <div class="phil-line reveal reveal-delay-3"><b>Contribution</b> over attention.</div>
+  </div>
+</section>
+
+<section class="slide" id="finale">
+  <div class="s1-inner">
+    <p class="final-copy reveal">Imagine if every missed conversation could continue.</p>
+    <div class="final-question reveal reveal-delay-1">Are you in?</div>
+    <div class="cta-row reveal reveal-delay-2"><a class="primary-cta" href="mailto:hello@dotbro.in?subject=I%20want%20to%20help%20build%20dotBro">Let’s Build dotBro</a></div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 1: COVER ══ -->
+<!-- ══ SLIDE 2: CONTEXT ══ -->
+<!-- ══ SLIDE 3: RELAX BRO ══ -->
+<!-- ══ SLIDE 4: HOW IT WORKS ══ -->
+<!-- ══ SLIDE 5: NUM.BRO ══ -->
+<!-- ══ SLIDE 6: ECOSYSTEM ══ -->
+<!-- ══ SLIDE 7: VISION ══ -->
+<!-- ══ SLIDE: OPEN ROLES / BUILDERS ══ -->
+<!-- ══ SLIDE: ROADMAP ══ -->
+<!-- ══ SLIDE: PHILOSOPHY ══ -->
+<!-- ══ SLIDE 8: FOUNDER ══ -->
+<!-- ══ SLIDE 9: CLOSE ══ -->
+<div class="modal-overlay" id="roleModalOverlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeRoleModal()">✕</button>
+    <div class="section-label">Founding Community</div>
+    <h3 id="roleModalTitle">Role</h3>
+    <p>This is an invitation to help shape dotBro from the beginning—not a job application. Tell us what you are curious about and what you would love to build.</p>
+    <div class="modal-actions">
+      <a class="modal-cta" href="mailto:hello@dotbro.in">Email Us</a>
+      <button class="modal-cancel" onclick="closeRoleModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CURSOR ──
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+});
+function animRing() {
+  rx += (mx - rx) * 0.12; ry += (my - ry) *.12;
+  ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+  requestAnimationFrame(animRing);
+}
+animRing();
+document.querySelectorAll('a,button,.service-row,.crisis-card,.nb-feat,.scenario,.step-card,.pill-rb,.pill-nb,.role-card,.role-btn').forEach(el => {
+  el.addEventListener('mouseenter', () => { cursor.style.width = '24px'; cursor.style.height = '24px'; ring.style.width = '60px'; ring.style.height = '60px'; });
+  el.addEventListener('mouseleave', () => { cursor.style.width = '12px'; cursor.style.height = '12px'; ring.style.width = '40px'; ring.style.height = '40px'; });
+});
+
+// ── ROLE MODAL ──
+function openRoleModal(role) {
+  document.getElementById('roleModalTitle').textContent = role;
+  document.getElementById('roleModalOverlay').classList.add('open');
+}
+function closeRoleModal() {
+  document.getElementById('roleModalOverlay').classList.remove('open');
+}
+document.getElementById('roleModalOverlay').addEventListener('click', e => {
+  if (e.target.id === 'roleModalOverlay') closeRoleModal();
+});
+
+// ── 3D CANVAS ──
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [], time = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function makeParticles() {
+  particles = [];
+  const count = Math.floor(W * H / 15000);
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * W, y: Math.random() * H,
+      z: Math.random() * 3 + 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 2 + 0.5,
+      hue: Math.random() > 0.7 ? 'red' : Math.random() > 0.5 ? 'green' : 'white'
+    });
+  }
+}
+makeParticles();
+window.addEventListener('resize', makeParticles);
+
+// Lines between nearby particles
+function drawParticles() {
+  ctx.clearRect(0, 0, W, H);
+  time += 0.005;
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0 || p.x > W) p.vx *= -1;
+    if (p.y < 0 || p.y > H) p.vy *= -1;
+
+    const alpha = 0.4 * (p.z / 3.5);
+    if (p.hue === 'red')   ctx.fillStyle = `rgba(209,0,0,${alpha})`;
+    else if (p.hue === 'green') ctx.fillStyle = `rgba(200,212,0,${alpha})`;
+    else ctx.fillStyle = `rgba(255,255,255,${alpha * 0.5})`;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.z * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (let j = i + 1; j < particles.length; j++) {
+      const q = particles[j];
+      const dx = p.x - q.x, dy = p.y - q.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 120) {
+        const lineAlpha = (1 - dist / 120) * 0.08;
+        ctx.strokeStyle = `rgba(255,255,255,${lineAlpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(q.x, q.y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Floating 3D rings
+  for (let i = 0; i < 3; i++) {
+    const cx = W * (0.2 + i * 0.3);
+    const cy = H * 0.5 + Math.sin(time + i * 2) * 80;
+    const rad = 60 + i * 40 + Math.sin(time * 0.7 + i) * 15;
+    const rot = time * 0.3 + i * Math.PI / 3;
+    const a = Math.sin(rot) * 0.3;
+    const b = Math.cos(rot);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(1, Math.abs(b) * 0.5 + 0.1);
+    ctx.rotate(a);
+    if (i === 0) ctx.strokeStyle = `rgba(209,0,0,0.08)`;
+    else if (i === 1) ctx.strokeStyle = `rgba(200,212,0,0.06)`;
+    else ctx.strokeStyle = `rgba(255,255,255,0.05)`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, rad, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// ── SLIDE NAV DOTS ──
+const slides = document.querySelectorAll('.slide');
+const navEl = document.getElementById('slideNav');
+slides.forEach((sl, i) => {
+  const d = document.createElement('div');
+  d.className = 'snav-dot' + (i === 0 ? ' active' : '');
+  d.addEventListener('click', () => sl.scrollIntoView({ behavior: 'smooth' }));
+  navEl.appendChild(d);
+});
+
+// ── PROGRESS + ACTIVE DOT ──
+window.addEventListener('scroll', () => {
+  const prog = document.getElementById('progress');
+  const scrollTop = window.scrollY;
+  const docH = document.documentElement.scrollHeight - window.innerHeight;
+  prog.style.width = (scrollTop / docH * 100) + '%';
+
+  const dots = document.querySelectorAll('.snav-dot');
+  slides.forEach((sl, i) => {
+    const rect = sl.getBoundingClientRect();
+    if (rect.top <= window.innerHeight / 2 && rect.bottom >= window.innerHeight / 2) {
+      dots.forEach(d => d.classList.remove('active'));
+      dots[i].classList.add('active');
+    }
+  });
+});
+
+// ── REVEAL ON SCROLL ──
+const revealEls = document.querySelectorAll('.reveal');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+revealEls.forEach(el => obs.observe(el));
+
+// ── 3D CARD TILT ──
+document.querySelectorAll('.card-3d').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / rect.width * 20;
+    const dy = (e.clientY - cy) / rect.height * 20;
+    card.style.transform = `perspective(600px) rotateY(${dx}deg) rotateX(${-dy}deg) scale(1.03)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = '';
+  });
+});
+
+// ── KEYBOARD NAV ──
+document.addEventListener('keydown', e => {
+  const cur = Array.from(slides).findIndex(s => {
+    const r = s.getBoundingClientRect();
+    return r.top <= window.innerHeight / 2 && r.bottom >= window.innerHeight / 2;
+  });
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+    slides[Math.min(cur + 1, slides.length - 1)]?.scrollIntoView({ behavior: 'smooth' });
+  }
+  if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    slides[Math.max(cur - 1, 0)]?.scrollIntoView({ behavior: 'smooth' });
+  }
+});
+</script>
+</body>
+</html>

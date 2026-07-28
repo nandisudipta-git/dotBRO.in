@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>.BRO — Alokara</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black: #090909;
+  --white: #F5F5F0;
+  --red: #D10000;
+  --red2: #FF1A1A;
+  --green: #C8D400;
+  --green2: #E2EE00;
+  --olive: #1A1C0F;
+  --olive2: #252A10;
+  --gray: #666660;
+  --mgray: #333330;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* ── CUSTOM CURSOR ── */
+.cursor {
+  position: fixed; width: 12px; height: 12px;
+  background: var(--white); border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+  transition: transform 0.1s, width 0.2s, height 0.2s, background 0.2s;
+  mix-blend-mode: difference;
+}
+.cursor-ring {
+  position: fixed; width: 40px; height: 40px;
+  border: 1px solid rgba(255,255,255,0.4); border-radius: 50%;
+  pointer-events: none; z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: transform 0.15s ease-out, width 0.3s, height 0.3s;
+}
+body:hover .cursor { opacity: 1; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.2rem 3rem;
+  background: rgba(9,9,9,0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 8px;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem;
+  letter-spacing: 2px; color: var(--white);
+  text-decoration: none;
+}
+.nav-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--white); display: inline-block;
+}
+.nav-links {
+  display: flex; gap: 2rem;
+}
+.nav-links a {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--gray); text-decoration: none; letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--white); }
+.nav-badge {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--gray); letter-spacing: 1px;
+}
+
+/* ── SLIDE SYSTEM ── */
+.slide {
+  min-height: 100vh; display: flex; align-items: center;
+  justify-content: center; position: relative; overflow: hidden;
+  padding: 6rem 3rem 4rem;
+}
+
+/* ── CANVAS 3D BG ── */
+#bg-canvas {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+  opacity: 0.35;
+}
+
+/* ── SLIDE 1: COVER ── */
+#s1 { background: var(--black); z-index: 1; }
+.s1-inner {
+  text-align: center; position: relative; z-index: 2;
+  max-width: 1200px; margin: 0 auto;
+}
+.bro-giant {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(8rem, 22vw, 22rem);
+  line-height: 0.85;
+  letter-spacing: -4px;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transform: perspective(800px) rotateX(8deg);
+  transform-origin: center bottom;
+  animation: titleRise 1.2s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes titleRise {
+  from { opacity:0; transform: perspective(800px) rotateX(28deg) translateY(60px); }
+  to   { opacity:1; transform: perspective(800px) rotateX(8deg) translateY(0); }
+}
+.tagline {
+  font-family: 'Space Mono', monospace; font-size: 1rem;
+  color: var(--gray); letter-spacing: 4px; text-transform: uppercase;
+  margin: 1.5rem 0 2.5rem;
+  animation: fadeUp 1s 0.4s both;
+}
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(20px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.product-pills {
+  display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+  animation: fadeUp 1s 0.6s both;
+}
+.pill-rb {
+  background: var(--red); color: var(--white);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  letter-spacing: 3px; padding: 0.7rem 2.2rem;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  transition: transform 0.2s, background 0.2s;
+}
+.pill-nb {
+  background: var(--green); color: var(--olive);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  letter-spacing: 3px; padding: 0.7rem 2.2rem;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  transition: transform 0.2s;
+}
+.pill-rb:hover { transform: scale(1.05) translateY(-2px); background: var(--red2); }
+.pill-nb:hover { transform: scale(1.05) translateY(-2px); }
+.founder-tag {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--mgray); letter-spacing: 2px; margin-top: 3rem;
+  animation: fadeUp 1s 0.8s both;
+}
+.scroll-hint {
+  position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  color: var(--gray); letter-spacing: 3px; text-align: center;
+  animation: bounce 2s infinite 1.5s;
+}
+.scroll-hint::after {
+  content: ''; display: block; width: 1px; height: 40px;
+  background: linear-gradient(to bottom, var(--gray), transparent);
+  margin: 8px auto 0;
+}
+@keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
+
+/* ── SECTION LABELS ── */
+.section-label {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  color: var(--red); letter-spacing: 4px; text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.section-label.green { color: var(--green); }
+
+/* ── SLIDE 2: CONTEXT ── */
+#s2 { background: #0D0D0D; }
+.s2-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.s2-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3.5rem, 7vw, 7rem);
+  line-height: 0.9; margin-bottom: 1.5rem;
+  transform: perspective(600px) rotateY(-3deg);
+}
+.s2-sub { font-size: 1.1rem; color: var(--gray); max-width: 600px; margin-bottom: 3rem; line-height: 1.7; }
+.crisis-cards {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px;
+}
+.crisis-card {
+  background: var(--mgray); padding: 2rem 1.5rem;
+  position: relative; overflow: hidden;
+  transition: transform 0.3s, background 0.3s;
+}
+.crisis-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--red);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s;
+}
+.crisis-card:hover::before { transform: scaleX(1); }
+.crisis-card:hover { transform: translateY(-4px); background: #1A1A1A; }
+.crisis-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.crisis-head {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem;
+  letter-spacing: 1px; margin-bottom: 0.8rem; color: var(--white);
+}
+.crisis-body { font-size: 0.88rem; color: var(--gray); line-height: 1.6; }
+.red-bar {
+  background: var(--red); padding: 1rem 2rem; margin-top: 1.5px;
+  font-size: 0.9rem; font-weight: 500; grid-column: 1/-1;
+  text-align: center;
+}
+
+/* ── SLIDE 3: RELAX BRO ── */
+#s3 {
+  background: var(--white);
+  color: var(--black);
+}
+.s3-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4rem; max-width: 1100px; margin: 0 auto; width: 100%;
+  align-items: center;
+}
+.s3-left .big-rb {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(5rem, 11vw, 11rem);
+  line-height: 0.82; letter-spacing: -2px;
+  transform: perspective(600px) rotateY(5deg);
+  display: inline-block;
+}
+.s3-left .rb-white { color: var(--black); }
+.s3-left .rb-red   { color: var(--red); }
+.s3-tagline { font-family: 'Space Mono', monospace; font-size: 0.8rem; color: #888; margin-top: 1rem; letter-spacing: 2px; }
+.s3-services { display: flex; flex-direction: column; gap: 1px; }
+.service-row {
+  display: flex; align-items: center; gap: 1.2rem;
+  padding: 1.2rem 1.5rem; background: #F0F0EC;
+  border-left: 3px solid transparent;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+  position: relative;
+}
+.service-row:hover { border-left-color: var(--red); background: #E8E8E4; transform: translateX(6px); }
+.srv-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: var(--red); min-width: 2rem; }
+.srv-icon { font-size: 1.5rem; }
+.srv-text h4 { font-size: 0.95rem; font-weight: 700; color: var(--black); margin-bottom: 2px; }
+.srv-text p { font-size: 0.8rem; color: #888; }
+.srv-tag {
+  margin-left: auto; font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 1px;
+  padding: 2px 8px; background: var(--red); color: #fff;
+}
+
+/* ── SLIDE 4: HOW IT WORKS ── */
+#s4 { background: #111; }
+.s4-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.steps-row {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 1px; margin-top: 2rem;
+}
+.step-card {
+  background: #1A1A1A; padding: 2rem 1.2rem;
+  text-align: center; position: relative;
+  transition: transform 0.3s, background 0.3s;
+}
+.step-card:hover { background: #222; transform: translateY(-8px) scale(1.02); }
+.step-num-circle {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--red); display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: #fff;
+  margin: 0 auto 1rem;
+  box-shadow: 0 0 20px rgba(209,0,0,0.4);
+}
+.step-icon { font-size: 2rem; margin-bottom: 0.8rem; }
+.step-head { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
+.step-body { font-size: 0.8rem; color: var(--gray); line-height: 1.5; }
+.step-arrow {
+  position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+  color: var(--red); font-size: 1.2rem; z-index: 2;
+}
+.connector-bar {
+  background: var(--red); padding: 1rem; margin-top: 1px;
+  text-align: center; font-size: 0.85rem; font-weight: 500;
+}
+
+/* ── SLIDE 5: NUMBRO ── */
+#s5 { background: var(--olive); }
+.s5-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.nb-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(5rem, 12vw, 12rem);
+  line-height: 0.82; color: var(--green);
+  transform: perspective(600px) rotateX(-4deg);
+  display: inline-block; margin-bottom: 0.5rem;
+}
+.nb-sub {
+  font-family: 'Space Mono', monospace; font-size: 0.8rem;
+  color: #666; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 2rem;
+}
+.nb-tagline { font-size: 1.15rem; color: #ccc; max-width: 500px; margin-bottom: 3rem; line-height: 1.7; }
+.nb-features {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px;
+}
+.nb-feat {
+  background: var(--olive2); padding: 1.8rem 1.5rem;
+  position: relative; overflow: hidden;
+  transition: transform 0.3s, background 0.3s;
+}
+.nb-feat::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px; background: var(--green);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s;
+}
+.nb-feat:hover::after { transform: scaleX(1); }
+.nb-feat:hover { background: #2C2F18; transform: translateY(-4px); }
+.nb-feat-icon { font-size: 2rem; margin-bottom: 0.8rem; }
+.nb-feat-head {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  color: var(--white); letter-spacing: 1px; margin-bottom: 0.5rem;
+}
+.nb-feat-body { font-size: 0.82rem; color: #888; line-height: 1.6; }
+.nb-cta {
+  display: inline-block; margin-top: 2.5rem;
+  background: var(--green); color: var(--olive);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem;
+  letter-spacing: 3px; padding: 0.8rem 2.5rem;
+  clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+  text-decoration: none;
+  transition: transform 0.2s, background 0.2s;
+}
+.nb-cta:hover { transform: scale(1.04); background: var(--green2); }
+
+/* ── SLIDE 6: ECOSYSTEM ── */
+#s6 { background: var(--black); }
+.s6-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.s6-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.9; margin-bottom: 0.5rem;
+}
+.eco-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1.5px; margin-top: 2.5rem;
+}
+.eco-card {
+  padding: 2.5rem; position: relative; overflow: hidden;
+  transition: transform 0.3s;
+}
+.eco-card:hover { transform: scale(1.01); }
+.eco-rb { background: #111; }
+.eco-nb { background: var(--olive2); }
+.eco-header {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem;
+  letter-spacing: 3px; margin-bottom: 1.5rem; padding-bottom: 0.8rem;
+  border-bottom: 2px solid;
+}
+.eco-rb .eco-header { color: var(--white); border-color: var(--red); }
+.eco-nb .eco-header { color: var(--green); border-color: var(--green); }
+.eco-point {
+  display: flex; align-items: flex-start; gap: 0.8rem;
+  margin-bottom: 0.8rem; font-size: 0.9rem; color: #ccc;
+}
+.eco-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+.eco-rb .eco-dot { background: var(--red); }
+.eco-nb .eco-dot { background: var(--green); }
+.eco-url {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  color: var(--gray); margin-top: 1.5rem; letter-spacing: 1px;
+}
+.eco-plus {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--black); border: 1px solid #333;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; color: #444; z-index: 10;
+}
+
+/* ── SLIDE 7: VISION ── */
+#s7 { background: #080808; }
+.s7-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.vision-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 9vw, 9rem);
+  line-height: 0.85; margin-bottom: 1rem;
+  background: linear-gradient(135deg, #fff 0%, var(--red) 50%, var(--green) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: gradShift 4s ease infinite;
+}
+@keyframes gradShift {
+  0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+}
+.vision-sub { font-size: 1rem; color: var(--gray); max-width: 600px; margin-bottom: 3rem; line-height: 1.7; }
+.scenario-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5px;
+}
+.scenario {
+  background: #111; padding: 1.8rem 1.4rem;
+  position: relative; transition: transform 0.3s, background 0.3s;
+  overflow: hidden;
+}
+.scenario:hover { transform: translateY(-6px); background: #1A1A1A; }
+.scenario-top { height: 3px; margin-bottom: 1.2rem; }
+.scenario-loc {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  letter-spacing: 2px; margin-bottom: 0.5rem;
+}
+.scenario-prob { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--white); margin-bottom: 0.8rem; }
+.scenario-sep { height: 1px; background: #222; margin-bottom: 0.8rem; }
+.scenario-sol { font-size: 0.82rem; color: var(--gray); line-height: 1.5; }
+
+/* ── SLIDE 8: FOUNDER ── */
+#s8 {
+  background: var(--white); color: var(--black);
+}
+.s8-inner {
+  display: grid; grid-template-columns: 1fr 1.4fr;
+  gap: 4rem; max-width: 1100px; margin: 0 auto; width: 100%;
+  align-items: center;
+}
+.founder-visual {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+}
+.sn-circle {
+  width: 240px; height: 240px; border-radius: 50%;
+  background: var(--red);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 5rem; color: var(--white);
+  box-shadow: 0 30px 80px rgba(209,0,0,0.3);
+  animation: floatCircle 4s ease-in-out infinite;
+}
+@keyframes floatCircle {
+  0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-12px) rotate(2deg)}
+}
+.founder-name {
+  font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem;
+  color: var(--black); margin-top: 1.5rem; letter-spacing: 2px;
+}
+.founder-role { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--red); letter-spacing: 2px; margin-top: 0.3rem; }
+.founder-brands { font-size: 0.8rem; color: #999; margin-top: 0.3rem; }
+.story-text { font-size: 1rem; color: #444; line-height: 1.8; margin-bottom: 2rem; }
+.cofound-box {
+  background: #F0F0EC; padding: 1.8rem;
+  border-left: 4px solid var(--red);
+}
+.cofound-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--black); margin-bottom: 1rem; letter-spacing: 1px; }
+.cofound-trait {
+  display: flex; align-items: flex-start; gap: 0.8rem;
+  margin-bottom: 0.6rem; font-size: 0.88rem; color: #555;
+}
+.ct-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); margin-top: 7px; flex-shrink: 0; }
+.build-line { font-size: 0.9rem; color: var(--red); font-style: italic; font-weight: 500; margin-top: 1rem; }
+
+/* ── SLIDE 9: CLOSE ── */
+#s9 { background: var(--black); text-align: center; }
+.s9-inner { max-width: 900px; margin: 0 auto; width: 100%; }
+.close-big {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 10vw, 10rem);
+  line-height: 0.85; margin-bottom: 1.5rem;
+  transform: perspective(800px) rotateX(5deg);
+}
+.close-sub { font-family: 'Space Mono', monospace; font-size: 0.8rem; color: var(--gray); letter-spacing: 3px; margin-bottom: 3rem; }
+.close-products {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.5px;
+  max-width: 700px; margin: 0 auto 3rem;
+}
+.close-rb {
+  background: #111; padding: 2rem;
+  border-top: 3px solid var(--red); text-align: left;
+}
+.close-nb {
+  background: var(--olive2); padding: 2rem;
+  border-top: 3px solid var(--green); text-align: left;
+}
+.close-prod-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 2px; margin-bottom: 0.4rem; }
+.close-rb .close-prod-name { color: var(--white); }
+.close-nb .close-prod-name { color: var(--green); }
+.close-prod-url { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--gray); margin-bottom: 0.3rem; }
+.close-prod-desc { font-size: 0.82rem; color: var(--gray); }
+.sign-off {
+  font-family: 'Space Mono', monospace; font-size: 0.85rem;
+  color: var(--gray); font-style: italic;
+}
+.alokara-tag {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1rem;
+  color: #333; letter-spacing: 4px; margin-top: 3rem;
+}
+
+/* ── PROGRESS BAR ── */
+.progress {
+  position: fixed; top: 0; left: 0; height: 2px;
+  background: linear-gradient(to right, var(--red), var(--green));
+  transition: width 0.3s; z-index: 200; width: 0%;
+}
+
+/* ── SLIDE NAV DOTS ── */
+.slide-nav {
+  position: fixed; right: 2rem; top: 50%;
+  transform: translateY(-50%); z-index: 100;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.snav-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #333; cursor: pointer;
+  transition: background 0.3s, transform 0.3s;
+}
+.snav-dot.active { background: var(--white); transform: scale(1.6); }
+
+/* ── 3D FLOATING ELEMENTS ── */
+.float-el {
+  position: absolute; pointer-events: none;
+  animation: floatEl var(--dur, 6s) ease-in-out infinite var(--delay, 0s);
+  opacity: 0.07;
+}
+@keyframes floatEl {
+  0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-20px) rotate(5deg)}
+}
+
+/* ── REVEAL ANIMATION ── */
+.reveal {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ── GLITCH TEXT ── */
+.glitch {
+  position: relative;
+}
+.glitch::before, .glitch::after {
+  content: attr(data-text); position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.15) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.glitch::before { animation: glitch1 3s infinite 2s; color: var(--red); }
+.glitch::after  { animation: glitch2 3s infinite 2s; }
+@keyframes glitch1 {
+  0%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  10%{clip-path:inset(30% 0 50% 0);transform:translateX(-3px)}
+  20%{clip-path:inset(60% 0 20% 0);transform:translateX(3px)}
+  30%{clip-path:inset(0 0 100% 0);transform:none}
+}
+@keyframes glitch2 {
+  0%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  15%{clip-path:inset(50% 0 30% 0);transform:translateX(3px)}
+  25%{clip-path:inset(20% 0 60% 0);transform:translateX(-3px)}
+  35%{clip-path:inset(0 0 100% 0);transform:none}
+}
+
+/* ── 3D CARD ── */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.4s;
+}
+
+/* ── SLIDE: OPEN ROLES (BUILDERS) ── */
+#sroles { background: #0D0D0D; }
+.sroles-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.sroles-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.9; margin-bottom: 0.8rem;
+}
+.sroles-sub { font-size: 1rem; color: var(--gray); max-width: 600px; margin-bottom: 2.5rem; line-height: 1.7; }
+.roles-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px;
+}
+@media (max-width: 900px) { .roles-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .roles-grid { grid-template-columns: 1fr; } }
+.role-card {
+  background: #1A1A1A; padding: 1.6rem 1.4rem;
+  position: relative; transition: transform 0.3s, background 0.3s;
+}
+.role-card:hover { background: #222; transform: translateY(-4px); }
+.role-head { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 1px; color: var(--white); margin-bottom: 0.5rem; }
+.role-body { font-size: 0.8rem; color: var(--gray); line-height: 1.55; min-height: 38px; margin-bottom: 1rem; }
+.role-row { display: flex; align-items: center; justify-content: space-between; }
+.role-open { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 1.5px; color: var(--red); }
+.role-btn {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 1px;
+  background: none; border: 1px solid var(--mgray); color: var(--white);
+  padding: 0.4rem 0.9rem; cursor: pointer; transition: all 0.2s;
+}
+.role-btn:hover { background: var(--red); border-color: var(--red); }
+
+/* ── SLIDE: ROADMAP ── */
+#sroadmap { background: var(--olive); }
+.sroadmap-inner { max-width: 800px; margin: 0 auto; width: 100%; }
+.sroadmap-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.9; color: var(--green); margin-bottom: 2.5rem;
+}
+.road-row {
+  display: grid; grid-template-columns: 110px 24px 1fr;
+  padding: 1.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.road-row:first-child { border-top: 1px solid rgba(255,255,255,0.08); }
+.road-stage { font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gray); padding-top: 3px; }
+.road-stage.active { color: var(--green); }
+.road-dot-col { display: flex; justify-content: center; }
+.road-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mgray); margin-top: 5px; }
+.road-dot.active { background: var(--green); box-shadow: 0 0 0 4px rgba(200,212,0,0.15); }
+.road-row h4 { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 1px; color: var(--white); }
+.road-row p { font-size: 0.82rem; color: var(--gray); margin-top: 0.3rem; line-height: 1.5; max-width: 440px; }
+
+/* ── PHILOSOPHY STRIP ── */
+#sphil { background: var(--black); text-align: center; }
+.phil-inner { max-width: 900px; margin: 0 auto; width: 100%; }
+.phil-line {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.6rem, 4.5vw, 3rem);
+  line-height: 1.4; color: var(--mgray);
+  transition: color 0.3s;
+}
+.phil-line b { color: var(--white); }
+.phil-line:hover { color: var(--gray); }
+.phil-line:hover b { color: var(--red); }
+
+/* ── FOOTER ── */
+footer.site-footer {
+  background: var(--black); border-top: 1px solid #1A1A1A;
+  padding: 4rem 3rem 2rem; position: relative; z-index: 2;
+}
+.footer-top {
+  display: flex; justify-content: space-between; flex-wrap: wrap;
+  gap: 2.5rem; max-width: 1100px; margin: 0 auto 2.5rem;
+}
+.footer-brand .footer-logo {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 2px; color: var(--white);
+}
+.footer-brand p { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--gray); letter-spacing: 1px; margin-top: 0.6rem; max-width: 240px; }
+.footer-cols { display: flex; gap: 3.5rem; flex-wrap: wrap; }
+.footer-col h5 { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: var(--gray); margin-bottom: 0.9rem; }
+.footer-col a { display: block; font-size: 0.82rem; color: var(--white); opacity: 0.8; text-decoration: none; margin-bottom: 0.6rem; transition: opacity 0.2s, color 0.2s; }
+.footer-col a:hover { opacity: 1; color: var(--red); }
+.footer-bottom {
+  max-width: 1100px; margin: 0 auto; padding-top: 1.6rem; border-top: 1px solid #1A1A1A;
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem;
+  font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--gray); letter-spacing: 1px;
+}
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(9,9,9,0.85); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal-box {
+  background: #111; border: 1px solid #222; max-width: 420px; width: 100%;
+  padding: 2.2rem; position: relative;
+  transform: translateY(14px) scale(0.97); transition: transform 0.35s cubic-bezier(.2,.8,.2,1);
+}
+.modal-overlay.open .modal-box { transform: translateY(0) scale(1); }
+.modal-close { position: absolute; top: 1rem; right: 1.2rem; background: none; border: none; color: var(--gray); font-size: 1.2rem; cursor: pointer; }
+.modal-box .section-label { margin-bottom: 0.8rem; }
+.modal-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--white); margin-bottom: 0.7rem; letter-spacing: 1px; }
+.modal-box p { font-size: 0.85rem; color: var(--gray); line-height: 1.6; margin-bottom: 1.6rem; }
+.modal-actions { display: flex; gap: 0.8rem; }
+.modal-cta {
+  flex: 1; text-align: center; font-family: 'Bebas Neue', sans-serif; letter-spacing: 2px;
+  font-size: 0.95rem; padding: 0.8rem; background: var(--red); color: var(--white);
+  text-decoration: none; transition: background 0.2s;
+}
+.modal-cta:hover { background: var(--red2); }
+.modal-cancel {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 1px;
+  background: none; border: 1px solid var(--mgray); color: var(--gray); padding: 0.8rem 1.2rem; cursor: pointer;
+}
+
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+<div class="progress" id="progress"></div>
+
+<nav>
+  <a class="nav-logo" href="#s1">
+    <span class="nav-dot"></span>BRO
+  </a>
+  <div class="nav-links">
+    <a href="#s2">Context</a>
+    <a href="#s3">Relax Bro</a>
+    <a href="#s5">Num.Bro</a>
+    <a href="#s7">Vision</a>
+    <a href="#sroles">Builders</a>
+    <a href="#sroadmap">Roadmap</a>
+    <a href="#s8">Founder</a>
+  </div>
+  <div class="nav-badge">ALOKARA · 2026</div>
+</nav>
+
+<div class="slide-nav" id="slideNav"></div>
+
+<!-- ══ SLIDE 1: COVER ══ -->
+<section class="slide" id="s1">
+  <div class="float-el" style="font-size:20rem;top:10%;right:-5%;--dur:8s">?</div>
+  <div class="float-el" style="font-size:8rem;bottom:15%;left:5%;--dur:6s;--delay:1s">●</div>
+  <div class="s1-inner">
+    <div style="font-family:'Space Mono',monospace;font-size:0.7rem;color:#D10000;letter-spacing:4px;margin-bottom:1rem">HIMSHIKHAR ENTREPRENEURSHIP PROGRAM · IIT MANDI</div>
+    <div class="bro-giant glitch" data-text=".BRO">.BRO</div>
+    <div class="tagline">Stitch as per the crisis.</div>
+    <div class="product-pills">
+      <div class="pill-rb">Relax Bro</div>
+      <div class="pill-nb">Num.Bro</div>
+    </div>
+    <div class="founder-tag">Sudipta Nandi · Founder · Under Alokara</div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══ SLIDE 2: CONTEXT ══ -->
+<section class="slide" id="s2">
+  <div class="s2-inner">
+    <div class="section-label reveal">The Context</div>
+    <div class="s2-headline reveal reveal-delay-1">Mandi is not just<br>a campus town.</div>
+    <div class="s2-sub reveal reveal-delay-2">A landslide-prone, remotely connected, underserved hill district — where daily gaps become crises fast.</div>
+    <div class="crisis-cards reveal reveal-delay-3">
+      <div class="crisis-card">
+        <div class="crisis-icon">🏔️</div>
+        <div class="crisis-head">Landslide-prone region</div>
+        <div class="crisis-body">Road cuts, supply chain breaks, isolated communities during monsoon. Trusted local networks matter more than apps.</div>
+      </div>
+      <div class="crisis-card">
+        <div class="crisis-icon">📦</div>
+        <div class="crisis-head">E-commerce dead zone</div>
+        <div class="crisis-body">Amazon & Flipkart reach the highway. The last mile — from town to IIT Kamand and village homes — is completely broken.</div>
+      </div>
+      <div class="crisis-card">
+        <div class="crisis-icon">🏫</div>
+        <div class="crisis-head">Campus cut off</div>
+        <div class="crisis-body">IIT Mandi at Kamand is 15km from town. Students wait days for deliveries that could take hours with the right network.</div>
+      </div>
+      <div class="red-bar">.BRO exists to stitch these gaps — using trusted local people, not platforms.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 3: RELAX BRO ══ -->
+<section class="slide" id="s3">
+  <div class="s3-inner">
+    <div>
+      <div class="section-label reveal" style="color:#D10000">Product 01</div>
+      <div class="big-rb reveal reveal-delay-1">
+        <div class="rb-white">RELAX</div>
+        <div class="rb-red">BRO.</div>
+      </div>
+      <div class="s3-tagline reveal reveal-delay-2">You text. Bro handles it.</div>
+    </div>
+    <div class="s3-services reveal reveal-delay-2">
+      <div class="service-row card-3d">
+        <div class="srv-num">01</div>
+        <div class="srv-icon">🍞</div>
+        <div class="srv-text"><h4>Campus food delivery</h4><p>WhatsApp-first. Hostel room delivery.</p></div>
+        <div class="srv-tag">LIVE</div>
+      </div>
+      <div class="service-row card-3d">
+        <div class="srv-num">02</div>
+        <div class="srv-icon">📦</div>
+        <div class="srv-text"><h4>Amazon / Flipkart last mile</h4><p>Town to IIT Kamand, campus to door.</p></div>
+        <div class="srv-tag" style="background:#E05000">EXPANDING</div>
+      </div>
+      <div class="service-row card-3d">
+        <div class="srv-num">03</div>
+        <div class="srv-icon">🛵</div>
+        <div class="srv-text"><h4>Empowering local delivery boys</h4><p>Connectors, not couriers. Micro-entrepreneurs.</p></div>
+        <div class="srv-tag" style="background:#333">CORE</div>
+      </div>
+      <div class="service-row card-3d">
+        <div class="srv-num">04</div>
+        <div class="srv-icon">🆘</div>
+        <div class="srv-text"><h4>Crisis response logistics</h4><p>Landslide routes. Local people. Real trust.</p></div>
+        <div class="srv-tag" style="background:#555">VISION</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 4: HOW IT WORKS ══ -->
+<section class="slide" id="s4">
+  <div class="s4-inner">
+    <div class="section-label reveal">How Relax Bro Works</div>
+    <div class="steps-row reveal reveal-delay-1">
+      <div class="step-card">
+        <div class="step-num-circle">1</div>
+        <div class="step-icon">📱</div>
+        <div class="step-head">Text Bro</div>
+        <div class="step-body">WhatsApp in Hindi or English. Any item — food, package, grocery.</div>
+        <div class="step-arrow">→</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num-circle">2</div>
+        <div class="step-icon">🤖</div>
+        <div class="step-head">AI confirms</div>
+        <div class="step-body">Agent reads intent, confirms order, price and time. Auto-logged.</div>
+        <div class="step-arrow">→</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num-circle">3</div>
+        <div class="step-icon">🔔</div>
+        <div class="step-head">Local notified</div>
+        <div class="step-body">Nearest trusted delivery partner gets the ping — knows Mandi.</div>
+        <div class="step-arrow">→</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num-circle">4</div>
+        <div class="step-icon">🛵</div>
+        <div class="step-head">Pickup & deliver</div>
+        <div class="step-body">Partner collects from cafe, warehouse, or Amazon locker.</div>
+        <div class="step-arrow">→</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num-circle">5</div>
+        <div class="step-icon">✅</div>
+        <div class="step-head">Done.</div>
+        <div class="step-body">Cash collected. Logged. Partner paid. Record kept.</div>
+      </div>
+    </div>
+    <div class="connector-bar reveal reveal-delay-2">We are connectors, not couriers. Local people. Local knowledge. Real trust.</div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 5: NUM.BRO ══ -->
+<section class="slide" id="s5">
+  <div class="float-el" style="font-size:30rem;right:-10%;top:-10%;color:var(--green);--dur:10s;--delay:0.5s">₹</div>
+  <div class="s5-inner" style="position:relative;z-index:2">
+    <div class="section-label green reveal">Product 02</div>
+    <div class="nb-headline reveal reveal-delay-1">NUM.BRO</div>
+    <div class="nb-sub reveal reveal-delay-1">Your Bro for the Numbers</div>
+    <div class="nb-tagline reveal reveal-delay-2">Stop the spreadsheet mess. Record it, Num.BRO keeps it — every rupee, forever, only for you.</div>
+    <div class="nb-features reveal reveal-delay-3">
+      <div class="nb-feat">
+        <div class="nb-feat-icon">📵</div>
+        <div class="nb-feat-head">Works without internet</div>
+        <div class="nb-feat-body">Everything saved on your phone the moment you tap save. Quietly backs up to cloud.</div>
+      </div>
+      <div class="nb-feat">
+        <div class="nb-feat-icon">⏱️</div>
+        <div class="nb-feat-head">History, one tap away</div>
+        <div class="nb-feat-body">Every entry dated and categorised. Look back weeks or years — your book is always ready.</div>
+      </div>
+      <div class="nb-feat">
+        <div class="nb-feat-icon">🧮</div>
+        <div class="nb-feat-head">No calculator needed</div>
+        <div class="nb-feat-body">Type "500×3+200" straight into the amount — it solves instantly.</div>
+      </div>
+      <div class="nb-feat">
+        <div class="nb-feat-icon">🔒</div>
+        <div class="nb-feat-head">Built for trust</div>
+        <div class="nb-feat-body">No ads, no tracking, no selling. Your data belongs to you only.</div>
+      </div>
+      <div class="nb-feat">
+        <div class="nb-feat-icon">🔁</div>
+        <div class="nb-feat-head">Atomic transfers</div>
+        <div class="nb-feat-body">One tap. Both sides updated. Zero half-states. Fully reversible.</div>
+      </div>
+      <div class="nb-feat">
+        <div class="nb-feat-icon">📡</div>
+        <div class="nb-feat-head">Recording live</div>
+        <div class="nb-feat-body">Every tap becomes a permanent record — the book you'll always wish you'd kept.</div>
+      </div>
+    </div>
+    <a href="https://num-bro.vercel.app" target="_blank" class="nb-cta reveal reveal-delay-4">OPEN THE SYSTEM →</a>
+  </div>
+</section>
+
+<!-- ══ SLIDE 6: ECOSYSTEM ══ -->
+<section class="slide" id="s6">
+  <div class="s6-inner">
+    <div class="section-label reveal">The .BRO Ecosystem</div>
+    <div class="s6-headline reveal reveal-delay-1">Two products.<br>One mission.</div>
+    <div style="font-size:0.95rem;color:var(--gray);margin-bottom:0.5rem;font-style:italic" class="reveal reveal-delay-2">Solve real problems for real people — with trusted local people.</div>
+    <div class="eco-grid reveal reveal-delay-3" style="position:relative">
+      <div class="eco-card eco-rb">
+        <div class="eco-header">RELAX BRO</div>
+        <div class="eco-point"><div class="eco-dot"></div>WhatsApp-first campus delivery</div>
+        <div class="eco-point"><div class="eco-dot"></div>Amazon / Flipkart last-mile to Kamand</div>
+        <div class="eco-point"><div class="eco-dot"></div>Empowering local delivery boys as micro-entrepreneurs</div>
+        <div class="eco-point"><div class="eco-dot"></div>Crisis logistics in landslide-prone Mandi region</div>
+        <div class="eco-url">9547727143 · WhatsApp</div>
+      </div>
+      <div class="eco-card eco-nb">
+        <div class="eco-header">NUM.BRO</div>
+        <div class="eco-point"><div class="eco-dot"></div>Personal finance recordkeeping — no spreadsheets</div>
+        <div class="eco-point"><div class="eco-dot"></div>Works offline, syncs to cloud automatically</div>
+        <div class="eco-point"><div class="eco-dot"></div>Built for families, teams, and small businesses</div>
+        <div class="eco-point"><div class="eco-dot"></div>Inline calculator — type expressions, get answers</div>
+        <div class="eco-url">num-bro.vercel.app</div>
+      </div>
+      <div class="eco-plus">+</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 7: VISION ══ -->
+<section class="slide" id="s7">
+  <div class="s7-inner">
+    <div class="section-label reveal">The Vision</div>
+    <div class="vision-headline reveal reveal-delay-1">Stitch as per<br>the crisis.</div>
+    <div class="vision-sub reveal reveal-delay-2">Every location has a different gap. Our job is to identify it, deploy a trusted local network, and solve it — fast.</div>
+    <div class="scenario-grid reveal reveal-delay-3">
+      <div class="scenario">
+        <div class="scenario-top" style="background:var(--red)"></div>
+        <div class="scenario-loc" style="color:var(--red)">IIT MANDI · KAMAND</div>
+        <div class="scenario-prob">Campus cut off from town</div>
+        <div class="scenario-sep"></div>
+        <div class="scenario-sol">Relax Bro delivers food, packages, and essentials to hostel rooms.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-top" style="background:var(--red)"></div>
+        <div class="scenario-loc" style="color:var(--red)">MANDI TOWN</div>
+        <div class="scenario-prob">Local vendors with no digital reach</div>
+        <div class="scenario-sep"></div>
+        <div class="scenario-sol">Relax Bro connects them to campus and community customers.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-top" style="background:#E05000"></div>
+        <div class="scenario-loc" style="color:#E05000">MANDI · MONSOON</div>
+        <div class="scenario-prob">Landslides cut supply chains</div>
+        <div class="scenario-sep"></div>
+        <div class="scenario-sol">Bro network knows routes, people, and priorities — becomes a lifeline.</div>
+      </div>
+      <div class="scenario">
+        <div class="scenario-top" style="background:var(--green)"></div>
+        <div class="scenario-loc" style="color:var(--green)">ANY CAMPUS · INDIA</div>
+        <div class="scenario-prob">Same gap, different city</div>
+        <div class="scenario-sep"></div>
+        <div class="scenario-sol">License the model. Deploy locally. Scale nationally across 1000+ campuses.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE: OPEN ROLES / BUILDERS ══ -->
+<section class="slide" id="sroles">
+  <div class="sroles-inner">
+    <div class="section-label reveal">We're Looking For Builders</div>
+    <div class="sroles-headline reveal reveal-delay-1">Not hiring.<br>Co-founding.</div>
+    <div class="sroles-sub reveal reveal-delay-2">We're not posting a job. We're looking for people who want to build something meaningful, from Mandi, with skin in the game.</div>
+    <div class="roles-grid reveal reveal-delay-3">
+      <div class="role-card card-3d"><div class="role-head">Software Engineer</div><div class="role-body">Full-stack systems thinking — ship fast without breaking trust.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Software Engineer')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Frontend Engineer</div><div class="role-body">Interfaces that feel as fast as a WhatsApp text.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Frontend Engineer')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Backend Engineer</div><div class="role-body">Infrastructure that holds up across landslide season.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Backend Engineer')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">AI Engineer</div><div class="role-body">Building the WhatsApp agent that reads intent, not just text.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('AI Engineer')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">ML Engineer</div><div class="role-body">Modeling demand, routes, and trust across the local network.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('ML Engineer')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Product Designer</div><div class="role-body">Shaping the calm, trusted feel of every Bro product.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Product Designer')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Motion Designer</div><div class="role-body">Giving the brand the same energy it has on the street.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Motion Designer')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">UI/UX Designer</div><div class="role-body">Making the system simple enough for a first-time user in Hindi or English.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('UI/UX Designer')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Research Scientist</div><div class="role-body">Studying how trust actually spreads through a hill-town network.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Research Scientist')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Professor</div><div class="role-body">Bringing rigor and mentorship to an early-stage venture.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Professor')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Student Researcher</div><div class="role-body">Testing the system with the people it's actually built for.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Student Researcher')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Community Builder</div><div class="role-body">Turning delivery partners and early users into a real network.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Community Builder')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Startup Advisor</div><div class="role-body">Helping us skip the mistakes you've already made once.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Startup Advisor')">I'm In</button></div></div>
+      <div class="role-card card-3d"><div class="role-head">Open Source Contributor</div><div class="role-body">Building in the open, with people who do the same.</div><div class="role-row"><span class="role-open">OPEN POSITION</span><button class="role-btn" onclick="openRoleModal('Open Source Contributor')">I'm In</button></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE: ROADMAP ══ -->
+<section class="slide" id="sroadmap">
+  <div class="sroadmap-inner">
+    <div class="section-label green reveal">Roadmap</div>
+    <div class="sroadmap-headline reveal reveal-delay-1">Now to<br>everywhere.</div>
+    <div class="reveal reveal-delay-2">
+      <div class="road-row">
+        <div class="road-stage active">Now</div>
+        <div class="road-dot-col"><div class="road-dot active"></div></div>
+        <div><h4>Live in Mandi</h4><p>Relax Bro running on WhatsApp. Num.Bro live at num-bro.vercel.app.</p></div>
+      </div>
+      <div class="road-row">
+        <div class="road-stage">Next</div>
+        <div class="road-dot-col"><div class="road-dot"></div></div>
+        <div><h4>Prototype the AI agent</h4><p>Automating order intake, confirmation, and dispatch end to end.</p></div>
+      </div>
+      <div class="road-row">
+        <div class="road-stage">Then</div>
+        <div class="road-dot-col"><div class="road-dot"></div></div>
+        <div><h4>Early community</h4><p>A core group of delivery partners, vendors, and users shaping the system.</p></div>
+      </div>
+      <div class="road-row">
+        <div class="road-stage">Later</div>
+        <div class="road-dot-col"><div class="road-dot"></div></div>
+        <div><h4>University pilots</h4><p>Bring the model to other hill-town and remote campuses across India.</p></div>
+      </div>
+      <div class="road-row">
+        <div class="road-stage">Future</div>
+        <div class="road-dot-col"><div class="road-dot"></div></div>
+        <div><h4>Public beta</h4><p>Open the network beyond Mandi to the next district.</p></div>
+      </div>
+      <div class="road-row">
+        <div class="road-stage">Vision</div>
+        <div class="road-dot-col"><div class="road-dot"></div></div>
+        <div><h4>1000+ campuses</h4><p>One stitched network, licensed and deployed locally, nationwide.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE: PHILOSOPHY ══ -->
+<section class="slide" id="sphil">
+  <div class="phil-inner">
+    <div class="section-label reveal" style="justify-content:center;display:flex">Philosophy</div>
+    <div class="phil-line reveal reveal-delay-1"><b>Real problems</b> over fake metrics.</div>
+    <div class="phil-line reveal reveal-delay-1"><b>Local trust</b> over platforms.</div>
+    <div class="phil-line reveal reveal-delay-2"><b>Builders</b> over spectators.</div>
+    <div class="phil-line reveal reveal-delay-2"><b>Action</b> over pitch decks.</div>
+    <div class="phil-line reveal reveal-delay-3">Long-term <b>trust</b> over short-term scale.</div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 8: FOUNDER ══ -->
+<section class="slide" id="s8">
+  <div class="s8-inner">
+    <div class="founder-visual">
+      <div class="sn-circle reveal">SN</div>
+      <div class="founder-name reveal reveal-delay-1">Sudipta Nandi</div>
+      <div class="founder-role reveal reveal-delay-2">FOUNDER · .BRO · IIT MANDI</div>
+      <div class="founder-brands reveal reveal-delay-3">Relax Bro · Num.Bro · Alokara</div>
+    </div>
+    <div>
+      <div class="section-label reveal" style="color:var(--red)">The Founder</div>
+      <p class="story-text reveal reveal-delay-1">Started with a ₹500 Himshikhar project. The problem was too real to leave as a weekend experiment.<br><br>I saw students hungry with no options. I saw local boys in Mandi looking for work. I saw vendors with great food and no reach. Landslide roads cutting off communities.<br><br>.BRO is the answer — not one product, but a network that stitches the gaps wherever they appear.</p>
+      <div class="cofound-box reveal reveal-delay-2">
+        <div class="cofound-title">Looking for a Co-Founder</div>
+        <div class="cofound-trait"><div class="ct-dot"></div>Tech-savvy — can build the WhatsApp AI agent and SaaS dashboard</div>
+        <div class="cofound-trait"><div class="ct-dot"></div>Campus-obsessed — believes India's universities deserve better</div>
+        <div class="cofound-trait"><div class="ct-dot"></div>Mission-aligned — wants to build, not just launch</div>
+        <div class="build-line">Let's build it from Mandi.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SLIDE 9: CLOSE ══ -->
+<section class="slide" id="s9">
+  <div class="float-el" style="font-size:25rem;left:-5%;top:10%;--dur:9s">●</div>
+  <div class="s9-inner" style="position:relative;z-index:2">
+    <div class="close-big reveal">We still build it.<br>We just go faster<br>with you.</div>
+    <div class="close-sub reveal reveal-delay-1">— SUDIPTA NANDI · .BRO · ALOKARA</div>
+    <div class="close-products reveal reveal-delay-2">
+      <div class="close-rb">
+        <div class="close-prod-name">RELAX BRO</div>
+        <div class="close-prod-url">9547727143 · WhatsApp</div>
+        <div class="close-prod-desc">Campus delivery · Last-mile · Crisis logistics</div>
+      </div>
+      <div class="close-nb">
+        <div class="close-prod-name">NUM.BRO</div>
+        <div class="close-prod-url">num-bro.vercel.app</div>
+        <div class="close-prod-desc">Personal finance · No spreadsheets · Offline-first</div>
+      </div>
+    </div>
+    <div class="sign-off reveal reveal-delay-3">Bro ne kar diya. 🤙</div>
+    <div class="alokara-tag reveal reveal-delay-4">ALOKARA</div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="footer-top">
+    <div class="footer-brand">
+      <div class="footer-logo">.BRO</div>
+      <p>dotBro — Stitch as per the crisis.</p>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <h5>dotBro</h5>
+        <a href="#s7">Vision</a>
+        <a href="#sroadmap">Roadmap</a>
+        <a href="#sroles">Contributors</a>
+      </div>
+      <div class="footer-col">
+        <h5>Legal</h5>
+        <a href="#">Privacy</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h5>Connect</h5>
+        <a href="#">GitHub</a>
+        <a href="#">Socials</a>
+        <a href="#">Newsletter</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 dotBro · ALOKARA</span>
+    <span>BUILT FROM MANDI</span>
+  </div>
+</footer>
+
+<div class="modal-overlay" id="roleModalOverlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeRoleModal()">✕</button>
+    <div class="section-label">Open Position</div>
+    <h3 id="roleModalTitle">Role</h3>
+    <p>This is an early, founding-team role under dotBro — built around equity in the idea, not a job description. Send us a line about what you'd want to build and we'll reach out.</p>
+    <div class="modal-actions">
+      <a class="modal-cta" href="mailto:hello@dotbro.in">Email Us</a>
+      <button class="modal-cancel" onclick="closeRoleModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CURSOR ──
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+});
+function animRing() {
+  rx += (mx - rx) * 0.12; ry += (my - ry) *.12;
+  ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+  requestAnimationFrame(animRing);
+}
+animRing();
+document.querySelectorAll('a,button,.service-row,.crisis-card,.nb-feat,.scenario,.step-card,.pill-rb,.pill-nb,.role-card,.role-btn').forEach(el => {
+  el.addEventListener('mouseenter', () => { cursor.style.width = '24px'; cursor.style.height = '24px'; ring.style.width = '60px'; ring.style.height = '60px'; });
+  el.addEventListener('mouseleave', () => { cursor.style.width = '12px'; cursor.style.height = '12px'; ring.style.width = '40px'; ring.style.height = '40px'; });
+});
+
+// ── ROLE MODAL ──
+function openRoleModal(role) {
+  document.getElementById('roleModalTitle').textContent = role;
+  document.getElementById('roleModalOverlay').classList.add('open');
+}
+function closeRoleModal() {
+  document.getElementById('roleModalOverlay').classList.remove('open');
+}
+document.getElementById('roleModalOverlay').addEventListener('click', e => {
+  if (e.target.id === 'roleModalOverlay') closeRoleModal();
+});
+
+// ── 3D CANVAS ──
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [], time = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function makeParticles() {
+  particles = [];
+  const count = Math.floor(W * H / 15000);
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * W, y: Math.random() * H,
+      z: Math.random() * 3 + 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 2 + 0.5,
+      hue: Math.random() > 0.7 ? 'red' : Math.random() > 0.5 ? 'green' : 'white'
+    });
+  }
+}
+makeParticles();
+window.addEventListener('resize', makeParticles);
+
+// Lines between nearby particles
+function drawParticles() {
+  ctx.clearRect(0, 0, W, H);
+  time += 0.005;
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0 || p.x > W) p.vx *= -1;
+    if (p.y < 0 || p.y > H) p.vy *= -1;
+
+    const alpha = 0.4 * (p.z / 3.5);
+    if (p.hue === 'red')   ctx.fillStyle = `rgba(209,0,0,${alpha})`;
+    else if (p.hue === 'green') ctx.fillStyle = `rgba(200,212,0,${alpha})`;
+    else ctx.fillStyle = `rgba(255,255,255,${alpha * 0.5})`;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.z * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (let j = i + 1; j < particles.length; j++) {
+      const q = particles[j];
+      const dx = p.x - q.x, dy = p.y - q.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 120) {
+        const lineAlpha = (1 - dist / 120) * 0.08;
+        ctx.strokeStyle = `rgba(255,255,255,${lineAlpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(q.x, q.y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Floating 3D rings
+  for (let i = 0; i < 3; i++) {
+    const cx = W * (0.2 + i * 0.3);
+    const cy = H * 0.5 + Math.sin(time + i * 2) * 80;
+    const rad = 60 + i * 40 + Math.sin(time * 0.7 + i) * 15;
+    const rot = time * 0.3 + i * Math.PI / 3;
+    const a = Math.sin(rot) * 0.3;
+    const b = Math.cos(rot);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(1, Math.abs(b) * 0.5 + 0.1);
+    ctx.rotate(a);
+    if (i === 0) ctx.strokeStyle = `rgba(209,0,0,0.08)`;
+    else if (i === 1) ctx.strokeStyle = `rgba(200,212,0,0.06)`;
+    else ctx.strokeStyle = `rgba(255,255,255,0.05)`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, rad, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// ── SLIDE NAV DOTS ──
+const slides = document.querySelectorAll('.slide');
+const navEl = document.getElementById('slideNav');
+slides.forEach((sl, i) => {
+  const d = document.createElement('div');
+  d.className = 'snav-dot' + (i === 0 ? ' active' : '');
+  d.addEventListener('click', () => sl.scrollIntoView({ behavior: 'smooth' }));
+  navEl.appendChild(d);
+});
+
+// ── PROGRESS + ACTIVE DOT ──
+window.addEventListener('scroll', () => {
+  const prog = document.getElementById('progress');
+  const scrollTop = window.scrollY;
+  const docH = document.documentElement.scrollHeight - window.innerHeight;
+  prog.style.width = (scrollTop / docH * 100) + '%';
+
+  const dots = document.querySelectorAll('.snav-dot');
+  slides.forEach((sl, i) => {
+    const rect = sl.getBoundingClientRect();
+    if (rect.top <= window.innerHeight / 2 && rect.bottom >= window.innerHeight / 2) {
+      dots.forEach(d => d.classList.remove('active'));
+      dots[i].classList.add('active');
+    }
+  });
+});
+
+// ── REVEAL ON SCROLL ──
+const revealEls = document.querySelectorAll('.reveal');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+revealEls.forEach(el => obs.observe(el));
+
+// ── 3D CARD TILT ──
+document.querySelectorAll('.card-3d').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / rect.width * 20;
+    const dy = (e.clientY - cy) / rect.height * 20;
+    card.style.transform = `perspective(600px) rotateY(${dx}deg) rotateX(${-dy}deg) scale(1.03)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = '';
+  });
+});
+
+// ── KEYBOARD NAV ──
+document.addEventListener('keydown', e => {
+  const cur = Array.from(slides).findIndex(s => {
+    const r = s.getBoundingClientRect();
+    return r.top <= window.innerHeight / 2 && r.bottom >= window.innerHeight / 2;
+  });
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+    slides[Math.min(cur + 1, slides.length - 1)]?.scrollIntoView({ behavior: 'smooth' });
+  }
+  if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    slides[Math.max(cur - 1, 0)]?.scrollIntoView({ behavior: 'smooth' });
+  }
+});
+</script>
+</body>
+</html>

@@ -4,6 +4,15 @@
 
 **Short answer: yes for a small, invited group. No for a public link you can't take back.**
 
+> **Update 2026-07-28 — the three blockers below are CLOSED:** `/mod.html` (passphrase-gated
+> moderation: delete questions/replies, reported items pinned first), a "report" control in every
+> conversation sheet, admin passphrase now bcrypt-hashed in a `private` schema with a
+> 5-fails/15-min lockout, `parbro_register` revoked, and DB-side rate limits (BEFORE INSERT
+> triggers: questions 10/min·200/day, replies 30/min·600/day, reports 20/min·400/day).
+> Remaining known limits: the caps are global, not per-IP (PostgREST exposes no caller IP —
+> per-IP needs an edge function in front), and the `.limit(300)` / unbounded-replies fetch
+> items further down still stand.
+
 The build is sound — it loads, it holds frame rate, it saves what people write, and it no
 longer dies when the network misbehaves. What it does not yet have is a way to deal with
 people behaving badly, and that is the only thing standing between "share with the cohort"
