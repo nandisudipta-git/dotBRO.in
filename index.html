@@ -82,6 +82,7 @@ body {
 .principles { --si: 3; }
 .family     { --si: 4; }
 .ronvey     { --si: 5; }
+.connect    { --si: 6; }
 body {
   background: #050505;                  /* the void behind the cards */
 }
@@ -331,6 +332,37 @@ body {
   text-wrap: balance;
 }
 
+/* ══ CONNECT — the one place the framework asks something of you ══ */
+.connect {
+  padding: 8vh 6vw;
+  align-items: center;
+  gap: 2.2rem;
+  text-align: center;
+}
+.connect h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6.5vw, 5.5rem);
+  line-height: 1.08;
+  letter-spacing: 0.005em;
+}
+.connect p {
+  max-width: 52ch;
+  color: var(--whisper);
+  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  line-height: 1.7;
+  text-wrap: balance;
+}
+.connect .mailline {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  word-break: break-all;
+}
+.connect .mailline a { color: var(--whisper); text-decoration: none; border-bottom: 1px solid var(--hairline); }
+.connect .mailline a:hover { color: var(--white); border-color: var(--red); }
+footer a:hover { color: var(--red); }
+
 /* ══ FOOTER — the last card to rise. No slogan, no CTA. ══ */
 footer {
   position: relative;   /* in-flow: slides up over the stuck last card */
@@ -408,12 +440,31 @@ footer .fdot {
   transition: opacity 0.28s ease;
 }
 .companion .cmsg.swap,
+.companion .cmsg.moving,
 .companion .cmsg.hide { opacity: 0; }
 /* NOTE: bubble colour is driven entirely by JS (contrast-safe). No panel override. */
+.companion .cmsg { max-width: min(30ch, 78vw); }
 @media (max-width: 640px) {
   .companion { gap: 9px; }
-  .companion .cmsg { font-size: 0.68rem; max-width: 66vw; }
+  .companion .cmsg { font-size: 0.68rem; max-width: 82vw; }
 }
+
+/* ══ THE COMPANION'S BAND ══
+   The dot used to stand beside whatever you were reading, which meant its
+   speech bubble sat directly on top of the writing. It now walks along a strip
+   at the bottom edge that is reserved for it: every card and the footer keep
+   their content out of that strip, so the bubble has nothing to cover.
+   Specificity is deliberate — `.hero`, `.why`, `.how` … all set `padding`
+   shorthand later in this sheet, and a bare `.panel` rule would lose to them. */
+/* --comp-band is a first-paint fallback only. Because the bubble's height
+   depends on how far its text wraps — which depends on the viewport — the real
+   value is written from JS whenever the message changes, so the reservation
+   always matches the bubble that has to fit inside it. */
+:root { --comp-band: 104px; }
+/* The hero is deliberately exempt: there the dot is docked inside the wordmark,
+   not in the band, so reserving space would only push the CTA below the fold. */
+body .panel:not(.hero) { padding-bottom: var(--comp-band); }
+body footer { padding-bottom: calc(var(--comp-band) + env(safe-area-inset-bottom, 0px)); }
 
 /* ══ PANEL 3 — the inverted card ══ */
 .how {
@@ -460,7 +511,7 @@ footer .fdot {
   </div>
   <h1 class="statement">.Bro is a family of specialized companions that help people turn curiosity into meaningful action.</h1>
   <p class="substatement">A Human Needs Framework where every companion is built around a human need — sharing one intelligence and one evolving knowledge foundation.</p>
-  <a class="cta" href="/feed.html">float your question →</a>
+  <a class="cta" href="/alge.html">float your question →</a>
 </header>
 
 <!-- ══ 2 · WHY ══ -->
@@ -526,13 +577,13 @@ footer .fdot {
     <p>One last founders' night. Entry costs the year you were born.</p>
     <span class="farrow" aria-hidden="true">→</span>
   </a>
-  <a class="frow reveal" href="/feed.html#build-startup">
+  <a class="frow reveal" href="/alge.html#build-startup">
     <span class="pdot" aria-hidden="true"></span>
     <h3>Num.Bro</h3>
     <p>Clearer records, shared understanding, fewer assumptions.</p>
     <span class="farrow" aria-hidden="true">→</span>
   </a>
-  <a class="frow reveal" href="/feed.html#life">
+  <a class="frow reveal" href="/alge.html#life">
     <span class="pdot" aria-hidden="true"></span>
     <h3>Relax.Bro</h3>
     <p>A calmer route from asking for help to finding it.</p>
@@ -561,8 +612,19 @@ footer .fdot {
   <p class="reveal">RonVey is the reasoning architecture the whole framework thinks with. It learns you once, remembers what matters, and keeps it yours — private by design. It advises. You decide.</p>
 </section>
 
+<!-- ══ 7 · CONNECT ══ -->
+<section class="connect panel" aria-label="Connect with the team">
+  <span class="eyebrow reveal">Connect</span>
+  <h2 class="reveal">Want to build this<br>with us?</h2>
+  <p class="reveal">Bring your campus or community onto the globe, work on it with us, or just tell us what you thought. A person reads every mail — not a form, not a bot.</p>
+  <a class="cta reveal" href="mailto:alokara.team@gmail.com?subject=Connect%20with%20.Bro&amp;body=Hi%20.Bro%20team%2C%0A%0A">connect now →</a>
+  <p class="mailline reveal"><a href="mailto:alokara.team@gmail.com">alokara.team@gmail.com</a></p>
+</section>
+
 <footer>
   <span>dotbro.in</span>
+  <span class="fdot" aria-hidden="true"></span>
+  <a href="mailto:alokara.team@gmail.com" style="text-transform:none;color:inherit">alokara.team@gmail.com</a>
   <span class="fdot" aria-hidden="true"></span>
   <span style="text-transform:none">aLOKaRa</span>
 </footer>
@@ -611,6 +673,7 @@ if ('IntersectionObserver' in window) {
     [principles[3], "many companions. each one does exactly one job."],
     [document.querySelector('.family .eyebrow'), "meet the family — each door opens its corner of the feed."],
     [document.querySelector('.ronvey h2'), "and behind us all, one brain: ronvey. it advises — you decide."],
+    [document.querySelector('.connect h2'), "if any of this is your thing — write to us. a real person reads it."],
     [document.querySelector('footer'), "that's .bro. simple, right?"],
   ].map(([el, msg]) => ({ el, msg }))
    .filter(s => s.el);
@@ -646,7 +709,13 @@ if ('IntersectionObserver' in window) {
   }
   let cr = 209, cg = 0, cb = 0;              // current colour (lerped)
 
+  // Sixteen getBoundingClientRect calls per frame forced a layout on every frame.
+  // The answer can only change when the page scrolls or resizes, so cache it.
+  let spyIdx = 0, spyAt = null;
   function pickActive() {
+    const y = window.scrollY;
+    if (spyAt === y) return spyIdx;
+    spyAt = y;
     // scrollspy that survives the sticky sheet stack:
     // the active stop is the LAST one whose center has risen past 58% of the viewport
     const line = window.innerHeight * 0.58;
@@ -655,8 +724,10 @@ if ('IntersectionObserver' in window) {
       const r = stops[i].el.getBoundingClientRect();
       if (r.top + r.height / 2 < line) idx = i;
     }
+    spyIdx = idx;
     return idx;
   }
+  window.addEventListener('resize', () => { spyAt = null; }, { passive: true });
 
   let swapTimer = null;
   function setMessage(i) {
@@ -665,13 +736,94 @@ if ('IntersectionObserver' in window) {
     if (cmsg.textContent === msg) return;          // nothing changed — no flicker
     document.body.dataset.panel = stops[i].el.closest('.how') ? 'how' : 'dark';
     if (swapTimer) clearTimeout(swapTimer);        // cancel a mid-flight swap (fast scroll)
-    if (!msg) { cmsg.textContent = ''; return; }   // docked: empty, .hide handles opacity
+    if (!msg) { cmsg.textContent = ''; metricsDirty = true; return; }  // docked: empty
     cmsg.classList.add('swap');
     swapTimer = setTimeout(() => {
       cmsg.textContent = msg;
       cmsg.classList.remove('swap');
+      metricsDirty = true;                         // the bubble just changed size
+      spot = null;                                 // …so re-pick a clear corner
     }, 260);
   }
+
+  // Reading the companion's own box forces a layout, so it is measured only when
+  // something can actually have changed it — a new message, or a resize.
+  let compW = 0, compH = 0, metricsDirty = true, band = 104;
+  function measure() {
+    if (!metricsDirty) return;
+    compW = comp.offsetWidth; compH = comp.offsetHeight;
+    metricsDirty = false;
+    // Publish the band the cards must keep clear. A short message on a wide
+    // screen needs less; a long one wrapping on a phone needs more. Deriving it
+    // from the measured bubble is what makes "never covers the text" hold at
+    // every viewport instead of only the ones that were eyeballed.
+    const want = Math.max(mobile() ? 88 : 80, compH + 24);
+    if (want !== band) {
+      band = want;
+      document.documentElement.style.setProperty('--comp-band', band + 'px');
+    }
+  }
+  window.addEventListener('resize', () => { metricsDirty = true; }, { passive: true });
+
+  // ── Staying off the writing ──────────────────────────────────────────────
+  // The reserved band solves the common case, but a card taller than the
+  // viewport puts text at the bottom edge anyway. So before settling, the
+  // companion looks at what is actually on screen and takes the first corner
+  // that is clear. It also gets out of the way entirely while you are scrolling,
+  // because during a scroll every position is crossing something.
+  const TEXTSEL = 'h1,h2,h3,p,.label,.caption,.eyebrow,.cta,.wordmark,footer span,footer a';
+  function visibleTextRects() {
+    const out = [];
+    document.querySelectorAll(TEXTSEL).forEach(el => {
+      if (!el.textContent.trim()) return;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.15) return;
+      // ignore text hidden behind a card that has risen over it
+      const hit = document.elementFromPoint(
+        Math.min(Math.max((r.left + r.right) / 2, 1), window.innerWidth - 2),
+        Math.min(Math.max((r.top + r.bottom) / 2, 1), window.innerHeight - 2));
+      if (hit && !(hit === el || el.contains(hit) || hit.contains(el))) return;
+      out.push(r);
+    });
+    return out;
+  }
+  const PAD = 10;
+  function clearOf(rects, x, y, w, h) {
+    for (const r of rects)
+      if (!(r.right < x - PAD || r.left > x + w + PAD ||
+            r.bottom < y - PAD || r.top > y + h + PAD)) return false;
+    return true;
+  }
+  // corner preference: bottom-left first — that is the companion's home
+  function pickSpot() {
+    measure();
+    const W = window.innerWidth, H = window.innerHeight;
+    const low = H - band + (band - compH) / 2;
+    const cands = mobile()
+      ? [[Math.max(10, (W - compW) / 2), low], [10, low], [Math.max(10, W - compW - 10), low],
+         [Math.max(10, (W - compW) / 2), 74]]
+      : [[34, low], [Math.max(10, W - compW - 34), low], [34, 74],
+         [Math.max(10, W - compW - 34), 74]];
+    const rects = visibleTextRects();
+    for (const [cx, cy] of cands) if (clearOf(rects, cx, cy, compW, compH)) return [cx, cy];
+    return cands[0];                       // nothing is clear — keep it home
+  }
+  let spot = null;
+  function refreshSpot() { spot = pickSpot(); }
+
+  // hide the bubble while the page is moving; re-place and show once it settles
+  let scrollTimer = null;
+  window.addEventListener('scroll', () => {
+    cmsg.classList.add('moving');
+    if (scrollTimer) clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      refreshSpot();
+      cmsg.classList.remove('moving');
+    }, 220);
+  }, { passive: true });
+  window.addEventListener('resize', () => { spot = null; }, { passive: true });
 
   let scTarget = 1;
   function computeTarget(i) {
@@ -679,27 +831,17 @@ if ('IntersectionObserver' in window) {
     // scaled up to its size. one element, two lives.
     if (i === 0 && wordDot && !reduced) {
       const wd = wordDot.getBoundingClientRect();
+      measure();
       tx = wd.left + wd.width / 2 - 8;
-      ty = wd.top + wd.height / 2 - comp.offsetHeight / 2;
+      ty = wd.top + wd.height / 2 - compH / 2;
       scTarget = Math.max(1, wd.width / 16);
       cmsg.classList.add('hide');
       return;
     }
     scTarget = 1;
     cmsg.classList.remove('hide');
-    const r = stops[i].el.getBoundingClientRect();
-    if (mobile()) {
-      // two-hand grip ergonomics: eyes rest center-x, 25–50% viewport height.
-      // the dot lives in that gaze band, riding just above what you're reading.
-      const vh = window.innerHeight;
-      tx = Math.max(12, (window.innerWidth - comp.offsetWidth) / 2);
-      const above = r.top - comp.offsetHeight - 16;           // hover above the active text
-      ty = Math.min(Math.max(above, vh * 0.16), vh * 0.50);   // clamped to the gaze band
-      ty = Math.max(ty, 72);                                  // never under the island
-      return;
-    }
-    tx = Math.max(20, r.left - 56);                 // stand just left of the content
-    ty = Math.min(Math.max(r.top + r.height / 2 - 8, 64), window.innerHeight - 90);
+    if (!spot) refreshSpot();
+    tx = spot[0]; ty = spot[1];
   }
 
   // ── life: the dot is never perfectly still. it hovers — a slow

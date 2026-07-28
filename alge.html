@@ -161,21 +161,56 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 .rmeta b{color:var(--ink);}
 .rmeta .rk{color:var(--red);font-weight:700;letter-spacing:.1em;}
 .rbody{font-size:.88rem;line-height:1.5;color:#3c3c3c;white-space:pre-wrap;word-wrap:break-word;}
+
+/* ── connect sheet ── */
+.mailrow{display:flex;align-items:center;gap:12px;margin-top:15px;padding:13px 15px;
+  border:1px solid rgba(0,0,0,.12);border-radius:12px;background:rgba(0,0,0,.03);
+  color:var(--ink);transition:border-color .18s,background .18s,transform .18s;}
+.mailrow:hover{border-color:rgba(230,0,0,.4);background:rgba(230,0,0,.05);transform:translateY(-1px);}
+.mail-ico{font-size:17px;color:var(--red);}
+.mailrow b{display:block;font-family:'Space Mono',ui-monospace,monospace;font-size:.86rem;word-break:break-all;}
+.mailrow em{display:block;margin-top:3px;font-style:normal;font-size:.58rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dimink);}
+.mail-arrow{margin-left:auto;color:var(--dimink);}
+.copybtn{margin-top:9px;width:100%;font-family:inherit;font-size:.6rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dimink);background:none;border:1px dashed rgba(0,0,0,.18);
+  border-radius:10px;padding:9px;cursor:pointer;transition:all .15s;}
+.copybtn:hover{color:var(--ink);border-color:rgba(0,0,0,.4);}
+.copybtn.done{color:#1b7a4b;border-color:#1b7a4b;border-style:solid;}
+
+/* ── connection status: the page must never lie about being live ── */
+#netmsg{position:fixed;top:0;left:0;right:0;z-index:40;display:none;padding:9px 16px;
+  text-align:center;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(230,0,0,.92);color:#fff;}
+#netmsg.on{display:block;}
+#netmsg button{margin-left:10px;font:inherit;text-transform:inherit;letter-spacing:inherit;
+  background:none;border:1px solid rgba(255,255,255,.6);border-radius:99px;
+  color:#fff;padding:2px 10px;cursor:pointer;}
+
+/* ── toast: quiet confirmation, never an alert() ── */
+#toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,10px);z-index:70;
+  max-width:min(360px,88vw);padding:11px 17px;border-radius:12px;
+  background:rgba(13,22,30,.94);color:var(--paper);font-size:.76rem;line-height:1.45;
+  text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.35);
+  opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;}
+#toast.on{opacity:1;transform:translate(-50%,0);}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="netmsg"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <div class="hud topleft">
   <a href="/" style="pointer-events:auto;text-decoration:none;color:inherit;display:inline-block">
     <div class="brand"><span class="dot"></span><span class="wm">alge</span></div>
   </a>
   <div class="sub">dotBro · live</div>
-  <div style="pointer-events:auto;margin-top:9px;display:flex;gap:12px;">
-    <a href="/feed.html" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">the space</a>
+  <div style="pointer-events:auto;margin-top:9px;display:flex;gap:12px;flex-wrap:wrap;">
     <a href="https://con.dotbro.in" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">con.BRO</a>
     <a href="/parbro.html" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;">par.BRO</a>
     <a href="/podbro.html" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#FF7A1A;text-decoration:none;">pod.BRO</a>
+    <a href="#connect" id="connectLink" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper);text-decoration:none;border-bottom:1px solid rgba(255,255,255,.35);">connect now</a>
   </div>
 </div>
 <div class="hud topright">
@@ -215,6 +250,30 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
   <div class="sh-body" id="qview"></div>
 </div>
 
+<!-- connect sheet -->
+<div class="sheet" id="connect">
+  <div class="sh-head"><span class="sh-title">Connect now</span><button class="x" data-close>&times;</button></div>
+  <div class="sh-body">
+    <p style="font-size:.92rem;line-height:1.55;color:var(--ink);">
+      Want to build with us, bring your community onto the globe, or just talk about
+      what you saw here? Write to the team — a person reads every mail.
+    </p>
+    <a class="mailrow" href="mailto:alokara.team@gmail.com?subject=Connect%20with%20.Bro&amp;body=Hi%20.Bro%20team%2C%0A%0AI%20found%20you%20through%20the%20alge%20globe.%0A%0A">
+      <span class="mail-ico">&#9993;</span>
+      <span>
+        <b>alokara.team@gmail.com</b>
+        <em>tap to open your mail app</em>
+      </span>
+      <span class="mail-arrow">&rarr;</span>
+    </a>
+    <button class="copybtn" id="copyMail" type="button">copy the address</button>
+    <p style="margin-top:14px;font-size:.62rem;color:var(--dimink);line-height:1.6;">
+      Prefer to stay in the space? Float what you want to say as a conversation instead —
+      it reaches more people than an inbox does.
+    </p>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script>
@@ -228,6 +287,36 @@ const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.inn
 const ago=ts=>{const s=Math.floor((Date.now()-new Date(ts))/1e3);if(s<60)return'just now';
   const m=s/60|0;if(m<60)return m+'m ago';const h=m/60|0;return h<24?h+'h ago':(h/24|0)+'d ago'};
 
+/* ─── quiet feedback: a toast, never a blocking alert() ─── */
+const toastEl=document.getElementById('toast');let toastT=null;
+function toast(msg,ms){
+  toastEl.textContent=msg;toastEl.classList.add('on');
+  if(toastT)clearTimeout(toastT);
+  toastT=setTimeout(()=>toastEl.classList.remove('on'),ms||3200);
+}
+const netEl=document.getElementById('netmsg');
+function netdown(msg,retry){
+  netEl.innerHTML='';
+  netEl.append(msg);
+  if(retry){const b=document.createElement('button');b.textContent='retry';b.onclick=retry;netEl.append(b);}
+  netEl.classList.add('on');
+}
+function netup(){netEl.classList.remove('on');}
+
+/* ─── client-side throttle. Honest about what it is: a speed bump that stops
+       double-taps and casual flooding. It does NOT stop a determined abuser —
+       the anon key is public, so real limits have to live in the database. ─── */
+function rateOk(bucket,max,windowMs){
+  const key='dotbro_rl_'+bucket, now=Date.now();
+  let hits=[];
+  try{hits=JSON.parse(localStorage.getItem(key))||[]}catch(_){}
+  hits=hits.filter(t=>now-t<windowMs);
+  if(hits.length>=max)return false;
+  hits.push(now);
+  try{localStorage.setItem(key,JSON.stringify(hits))}catch(_){}
+  return true;
+}
+
 /* ─── demo mode: ?n=100 | 1000 | 100000 — synthetic local data, Supabase untouched ─── */
 const DEMO_N=Math.min(parseInt(new URLSearchParams(location.search).get('n'))||0,150000);
 const IS_DEMO=DEMO_N>0;
@@ -238,8 +327,14 @@ if(IS_DEMO)document.getElementById('demoBadge').classList.add('on');
 /* ─── data layer — same live tables as feed.html, replies carry a real kind ─── */
 const SUPABASE_URL='https://fliheqjbwmcoggajovln.supabase.co';
 const SUPABASE_KEY='sb_publishable_qaGLnY9bUZ3nhveVw-64xg_kDuJLfHt';
-const sb=IS_DEMO?null:supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-const db=IS_DEMO?null:{
+/* The client library comes from a CDN. If that one request fails — flaky mobile
+   data, a network that blocks jsdelivr — touching `supabase` would throw at the
+   top level and kill this entire script: no globe, no message, a dead grey page.
+   So the page checks first and carries on without a backend instead of dying. */
+const SB_OK=typeof supabase!=='undefined'&&supabase&&typeof supabase.createClient==='function';
+const LIVE=!IS_DEMO&&SB_OK;
+const sb=LIVE?supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+const db=!LIVE?null:{
   listQuestions:()=>sb.from('questions').select('*').order('created_at',{ascending:false}).limit(300),
   listReplies:()=>sb.from('replies').select('*').order('created_at',{ascending:true}),
   addQuestion:(name,body,category,lat,lon)=>sb.from('questions').insert({name,body,category,lat,lon}).select().single(),
@@ -312,16 +407,35 @@ function kindCounts(id){
   rs.forEach(r=>{const k=c[r.kind]!==undefined?r.kind:'discuss';c[k]++;});return c;
 }
 
+/* ─── legend + deep links ───────────────────────────────────────────────────
+   The landing page and the family list link straight into a cluster
+   (/alge.html#life, #build-startup, …) — the slug form of a category name.
+   This is the behaviour feed.html used to own; it lives here now. */
+const slugOf=k=>k.replace(/\s*&\s*/g,'-').replace(/\s+/g,'-');
+const CAT_BY_SLUG={};CATKEYS.forEach(k=>{CAT_BY_SLUG[slugOf(k)]=k;});
+CAT_BY_SLUG['study-gyan']='study & gyaan';   // older links used the short spelling
+CAT_BY_SLUG['ai']='ai & future';
+
 const legendBox=$('#legend');
+const legendEls={};
+function setFilter(k){
+  S.filter=k||null;
+  for(const key in legendEls)legendEls[key].classList.toggle('on',S.filter===key);
+}
 CATKEYS.forEach(k=>{
   const [r,g,b]=CATS[k].col;
   const el=document.createElement('div'); el.className='lg';
   el.innerHTML=`<span class="sw" style="background:rgb(${r},${g},${b})"></span>${k}`;
-  el.onclick=()=>{S.filter=S.filter===k?null:k;
-    [...legendBox.children].forEach(c=>c.classList.remove('on'));
-    if(S.filter)el.classList.add('on')};
+  el.onclick=()=>setFilter(S.filter===k?null:k);
+  legendEls[k]=el;
   legendBox.appendChild(el);
 });
+function applyHash(){
+  const h=decodeURIComponent(location.hash.replace(/^#/,'')).toLowerCase().trim();
+  if(h==='connect'){openSheet('#connect');return;}
+  setFilter(CAT_BY_SLUG[h]||null);
+}
+addEventListener('hashchange',applyHash);
 
 let W,H,DPR,CX,CY,R,BGGRAD=null;
 function computeR(){
@@ -451,10 +565,16 @@ function physics(){
   const nodes=S.arr, n=nodes.length;
   for(let i=0;i<n;i++){const p=nodes[i];p.fx=0;p.fy=0;p.fz=0;}
   const REP=900;
-  for(let i=0;i<n;i++){const a=nodes[i];for(let j=i+1;j<n;j++){const b=nodes[j];
-    let dx=a.x-b.x,dy=a.y-b.y,dz=a.z-b.z,d2=dx*dx+dy*dy+dz*dz+.01;
-    const d=Math.sqrt(d2),f=REP/d2;
-    const fx=dx/d*f,fy=dy/d*f,fz=dz/d*f;
+  // Repulsion falls off as 1/d² — past this radius a pair contributes less than a
+  // pixel, so the pair is skipped. Turns the n² inner loop into a cheap compare
+  // for the vast majority of pairs once the shell is populated.
+  const CUT=R*0.55, CUT2=CUT*CUT;
+  for(let i=0;i<n;i++){const a=nodes[i];const ax=a.x,ay=a.y,az=a.z;
+    for(let j=i+1;j<n;j++){const b=nodes[j];
+    const dx=ax-b.x,dy=ay-b.y,dz=az-b.z,d2=dx*dx+dy*dy+dz*dz+.01;
+    if(d2>CUT2)continue;
+    const f=REP/(d2*Math.sqrt(d2));
+    const fx=dx*f,fy=dy*f,fz=dz*f;
     a.fx+=fx;a.fy+=fy;a.fz+=fz;b.fx-=fx;b.fy-=fy;b.fz-=fz;}}
   for(let i=0;i<n;i++){const p=nodes[i];
     const anc=p.anchor;
@@ -563,11 +683,20 @@ function updateSpot(now){
   }
 }
 
+let _calloutOn=false,_tipStamp=null;
+const tipCat=tip.querySelector('.tc'),tipQ=tip.querySelector('.tq'),tipM=tip.querySelector('.tm');
+function hideCallout(){
+  if(!_calloutOn)return;                    // already hidden — don't touch the DOM every frame
+  _calloutOn=false;
+  tip.style.opacity='0';leaderPath.style.opacity='0';
+  leaderHalo.style.opacity='0';leaderDot.style.opacity='0';
+}
 function updateCallout(){
-  if(intro.active){tip.style.opacity='0';leaderPath.style.opacity='0';leaderHalo.style.opacity='0';leaderDot.style.opacity='0';return;}
+  if(intro.active){hideCallout();return;}
   const focus=hover||(spot&&spot.node)||null;
+  if(!focus){ hideCallout(); return; }
   tip.classList.toggle('missed',!hover&&!!spot);
-  if(!focus){ tip.style.opacity='0'; leaderPath.style.opacity='0'; leaderHalo.style.opacity='0'; leaderDot.style.opacity='0'; return; }
+  _calloutOn=true;
   const p=focus, [r,g,b]=p.col;
   const flip = p.px > W*0.6;
   const midx=p.px+(flip?-14:14), midy=p.py-28;
@@ -582,13 +711,19 @@ function updateCallout(){
 
   tip.style.left=endx+'px'; tip.style.top=endy+'px';
   tip.style.transform=flip?'translate(-100%,-100%)':'translate(0,-100%)';
-  tip.querySelector('.tc').style.color=`rgb(${r},${g},${b})`;
-  tip.querySelector('.tc').textContent=p.cat;
-  tip.querySelector('.tq').textContent=p.text.slice(0,120);
-  const q=qOf(p.id), rs=repliesOf(p.id);
-  tip.querySelector('.tm').textContent=(q?q.name+' · ':'')+ago(p.createdAt||p.ts)+' · '+
-    (rs.length?rs.length+(rs.length>1?' voices':' voice'):'still unfinished')+
-    (IS_DEMO?'':' · '+fmtLoc(q&&q.lat,q&&q.lon));
+  // the text only changes when the focused node (or its reply count) does —
+  // rewriting it 60×/s was forcing a layout on every single frame
+  const rs=repliesOf(p.id), stamp=p.id+':'+rs.length;
+  if(_tipStamp!==stamp){
+    _tipStamp=stamp;
+    const q=qOf(p.id);
+    tipCat.style.color=`rgb(${r},${g},${b})`;
+    tipCat.textContent=p.cat;
+    tipQ.textContent=p.text.slice(0,120);
+    tipM.textContent=(q?q.name+' · ':'')+ago(p.createdAt||p.ts)+' · '+
+      (rs.length?rs.length+(rs.length>1?' voices':' voice'):'still unfinished')+
+      (IS_DEMO?'':' · '+fmtLoc(q&&q.lat,q&&q.lon));
+  }
   tip.style.opacity='1';
 }
 
@@ -611,22 +746,30 @@ function rebuildLabels(){
   }
   labelSet=new Set(picked.map(p=>p.id));
 }
+const LABEL_FONT='12px "Space Mono",ui-monospace,monospace';
 function drawLabels(){
+  let styled=false;
   for(const p of S.arr){
     const target=labelSet.has(p.id)?1:0;
     if(p.la===0&&target===0)continue;
     p.la+=(target-p.la)*0.05;
     if(p.la<0.02){p.la=0;continue;}
-    const depth=1-Math.min(1,Math.max(0,(p.pz+R)/(2*R)));
-    let label=p.text.length>44?p.text.slice(0,43)+'…':p.text;
+    if(!styled){ctx.save();ctx.font=LABEL_FONT;ctx.textBaseline='middle';styled=true;}
+    // the label text and its width never change for a node — measure once, keep it
+    if(p.lbl===undefined){
+      p.lbl=p.text.length>44?p.text.slice(0,43)+'…':p.text;
+      p.lblW=ctx.measureText(p.lbl).width;
+    }
+    const label=p.lbl,tw=p.lblW;
     const rx=p.px-CX,ry=p.py-CY,rl=Math.sqrt(rx*rx+ry*ry)+1e-6;
     const nx=rx/rl,ny=ry/rl;
-    const tx=p.px+nx*24,ty=p.py+ny*24;
-    const alignRight=nx<-0.25;
-    ctx.save();
-    ctx.font='12px "Space Mono",ui-monospace,monospace';
-    ctx.textBaseline='middle';
-    const tw=ctx.measureText(label).width;
+    let tx=p.px+nx*24;const ty=p.py+ny*24;
+    // a label pushed radially outward near the edge used to run off-screen and
+    // get cut mid-word — flip it inward instead of letting it leave the viewport
+    let alignRight=nx<-0.25;
+    if(!alignRight&&tx+tw+9>W-8)alignRight=true;
+    else if(alignRight&&tx-tw-9<8)alignRight=false;
+    tx=alignRight?Math.min(tx,W-8):Math.max(tx,tw+17);
     const bx=alignRight?tx-tw-9:tx-9;
     ctx.globalAlpha=0.88*p.la;
     ctx.fillStyle='rgba(255,255,255,0.9)';
@@ -690,36 +833,86 @@ let texCv=null,texCtx=null,texImg=null,lastRas={y:9e9,x:9e9,s:0};
     }
   }catch(_){TEX=null;}
 })();
-function rasterEarth(sil){
-  const S=Math.min(W<700?560:820,Math.max(160,Math.round(sil*2)));
-  if(!texCv||texCv.width!==S){
-    texCv=document.createElement('canvas');texCv.width=texCv.height=S;
-    texCtx=texCv.getContext('2d');texImg=texCtx.createImageData(S,S);}
-  const d=texImg.data;
-  const cYr=Math.cos(rotY),sYr=Math.sin(rotY),cXr=Math.cos(rotX),sXr=Math.sin(rotX);
-  const half=S/2;let k=0;
-  for(let j=0;j<S;j++){
-    const uy=(j-half)/half;
-    for(let i=0;i<S;i++,k+=4){
-      const ux=(i-half)/half;
-      const d2=ux*ux+uy*uy;
-      if(d2>1){d[k+3]=0;continue;}
-      const uz=-Math.sqrt(1-d2);
-      const wy=uy*cXr+uz*sXr;
-      const z1=-uy*sXr+uz*cXr;
-      const wx=ux*cYr+z1*sYr;
-      const wz=-ux*sYr+z1*cYr;
-      const lat=Math.asin(Math.max(-1,Math.min(1,-wy)));
-      const lon=Math.atan2(wz,wx);
-      let u=((lon+Math.PI)/(2*Math.PI)*TW)|0;if(u>=TW)u=TW-1;if(u<0)u=0;
-      let v=((Math.PI/2-lat)/Math.PI*TH)|0;if(v>=TH)v=TH-1;if(v<0)v=0;
-      const t=(v*TW+u)*4;
-      let sh=ux*LIGHT.x+uy*LIGHT.y+uz*LIGHT.z;
-      sh=0.4+0.72*Math.max(0,sh);
-      d[k]=TEX[t]*sh;d[k+1]=TEX[t+1]*sh;d[k+2]=TEX[t+2]*sh;d[k+3]=255;
+/* ─── globe raster — the single most expensive thing on the page ───────────────
+   The sphere is ray-cast per pixel on the CPU. Three things keep it cheap:
+   (1) everything that does NOT depend on rotation (the screen-space ray and the
+       key-light shading) is precomputed once per raster size into flat arrays,
+       and off-disc pixels are dropped from the list entirely (~21% of the square);
+   (2) asin/atan2 — the real cost — are replaced by a lookup table and a
+       polynomial, both accurate to well under one texel of a 2048px texture;
+   (3) the raster runs at a fraction of the on-screen size and is upscaled, and
+       drops further while the globe is actually moving.
+   Net effect: a spin that used to hitch on every re-raster now holds frame rate. */
+let GEO=null;               // {n, ux, uy, uz, sh, off} for the current raster size
+function buildGeo(size){
+  const half=size/2, cap=size*size;
+  const ux=new Float32Array(cap),uy=new Float32Array(cap),uz=new Float32Array(cap),
+        sh=new Float32Array(cap),off=new Int32Array(cap);
+  let n=0;
+  for(let j=0;j<size;j++){
+    const vy=(j-half)/half;
+    for(let i=0;i<size;i++){
+      const vx=(i-half)/half, d2=vx*vx+vy*vy;
+      if(d2>1)continue;
+      const vz=-Math.sqrt(1-d2);
+      let s=vx*LIGHT.x+vy*LIGHT.y+vz*LIGHT.z;
+      ux[n]=vx;uy[n]=vy;uz[n]=vz;
+      sh[n]=0.4+0.72*(s>0?s:0);
+      off[n]=(j*size+i)*4;
+      n++;
     }
   }
+  GEO={n,ux,uy,uz,sh,off};
+}
+/* asin lookup — 8193 samples over [-1,1]; error < 1/4 texel except within a few
+   pixels of the poles, where the equirectangular texture is degenerate anyway. */
+const ASIN_N=8192, ASIN=new Float32Array(ASIN_N+1);
+for(let i=0;i<=ASIN_N;i++)ASIN[i]=Math.asin(i*2/ASIN_N-1);
+/* atan2 without the call: |error| < 0.0013 rad ≈ 0.4 texel at TW=2048 */
+function fatan2(y,x){
+  const ax=x<0?-x:x, ay=y<0?-y:y;
+  const a=(ax<ay?ax/(ay||1e-12):ay/(ax||1e-12));
+  const s=a*a;
+  let r=((-0.0464964749*s+0.15931422)*s-0.327622764)*s*a+a;
+  if(ay>ax)r=1.57079633-r;
+  if(x<0)r=3.14159265-r;
+  return y<0?-r:r;
+}
+let rasterMs=6;             // rolling cost of one raster, drives the re-raster gate
+function rasterEarth(sil,moving){
+  // resolution: a fraction of on-screen size, cut further while the globe moves
+  let size=Math.round(sil*(moving?0.85:1.35));
+  const capMax=W<700?420:640;
+  size=Math.min(capMax,Math.max(150,size));
+  size=(size>>1)<<1;                                  // keep it even
+  if(!texCv||texCv.width!==size){
+    texCv=document.createElement('canvas');texCv.width=texCv.height=size;
+    texCtx=texCv.getContext('2d');texImg=texCtx.createImageData(size,size);
+    buildGeo(size);
+  }
+  const t0=performance.now();
+  const d=texImg.data;
+  d.fill(0);
+  const cYr=Math.cos(rotY),sYr=Math.sin(rotY),cXr=Math.cos(rotX),sXr=Math.sin(rotX);
+  const {n,ux,uy,uz,sh,off}=GEO;
+  const uScale=TW/(2*Math.PI), vScale=TH/Math.PI, halfPi=Math.PI/2;
+  for(let p=0;p<n;p++){
+    const vx=ux[p],vy=uy[p],vz=uz[p];
+    const wy=vy*cXr+vz*sXr;
+    const z1=-vy*sXr+vz*cXr;
+    const wx=vx*cYr+z1*sYr;
+    const wz=-vx*sYr+z1*cYr;
+    // lat = asin(-wy) via LUT; v = (π/2 - lat)/π * TH
+    let ai=((wy<-1?-1:wy>1?1:wy)+1)*(ASIN_N/2)|0;
+    const lat=-ASIN[ai];
+    const lon=fatan2(wz,wx);
+    let u=((lon+Math.PI)*uScale)|0;if(u>=TW)u=TW-1;else if(u<0)u=0;
+    let v=((halfPi-lat)*vScale)|0;if(v>=TH)v=TH-1;else if(v<0)v=0;
+    const t=(v*TW+u)*4, s=sh[p], k=off[p];
+    d[k]=TEX[t]*s;d[k+1]=TEX[t+1]*s;d[k+2]=TEX[t+2]*s;d[k+3]=255;
+  }
   texCtx.putImageData(texImg,0,0);
+  rasterMs=rasterMs*0.8+(performance.now()-t0)*0.2;
 }
 const LAND_RAMP=[[],[],[]];
 (function(){const specs=[[95,26,26,62],[95,22,30,66],[110,8,52,86]];
@@ -739,8 +932,14 @@ function drawGlobeSkin(){
     const nowMs=performance.now();
     const rotDelta=Math.abs(rotY-lastRas.y)+Math.abs(rotX-lastRas.x);
     const silDelta=Math.abs(sil-lastRas.s)/Math.max(1,sil);
-    if(!texCv||((rotDelta>0.0008||silDelta>0.004)&&nowMs-(lastRas.t||0)>120)){
-      rasterEarth(sil);lastRas={y:rotY,x:rotX,s:sil,t:nowMs};}
+    // "moving" = the user is driving it, or it drifted far enough to matter.
+    const moving=dragging||pinching||rotDelta>0.004;
+    // Amortise: never spend more than roughly a fifth of the time rastering.
+    // A slow device therefore re-rasters less often instead of dropping frames.
+    const gap=Math.max(55,Math.min(240,rasterMs*4));
+    if(!texCv||((rotDelta>0.0016||silDelta>0.006)&&nowMs-(lastRas.t||0)>gap)){
+      rasterEarth(sil,moving);lastRas={y:rotY,x:rotX,s:sil,t:nowMs};}
+    ctx.imageSmoothingQuality='high';
     ctx.drawImage(texCv,CX-sil,CY-sil,sil*2,sil*2);
     g=ctx.createRadialGradient(CX-sil*0.42,CY-sil*0.48,0,CX-sil*0.42,CY-sil*0.48,sil*0.36);
     g.addColorStop(0,'rgba(255,255,255,0.28)');
@@ -846,7 +1045,8 @@ function drawYouNode(now){
   ctx.restore();
 }
 
-const nqEl=$('#nq');
+const nqEl=$('#nq');let _nqShown=-1;
+const _order=[],_byZ=(a,b)=>a.pz-b.pz;
 function drawMassive(){
   // point-cloud pass: front hemisphere only, unsorted, square dots batched by category color
   for(const p of S.arr){
@@ -874,8 +1074,11 @@ function drawFull(now){
     ctx.beginPath();ctx.moveTo(p.ppx,p.ppy);ctx.lineTo(p.px,p.py);ctx.stroke();}
     p.ppx=p.px;p.ppy=p.py;}
 
-  const order=S.arr.slice().sort((a,b)=>a.pz-b.pz);
-  for(const p of order){
+  // depth sort into a reused buffer — a fresh slice() every frame was pure GC churn
+  if(_order.length!==S.arr.length){_order.length=0;for(const p of S.arr)_order.push(p);}
+  else for(let i=0;i<S.arr.length;i++)_order[i]=S.arr[i];
+  _order.sort(_byZ);
+  for(const p of _order){
     const [r,g,b]=p.col;
     const dim=S.filter&&S.filter!==p.cat;
     const depth=1-Math.min(1,Math.max(0,(p.pz+R)/(2*R)));
@@ -978,7 +1181,8 @@ function draw(){
   drawSpot(now);
   updateCallout();
   if(introAlpha<1){ctx.fillStyle='rgba(69,82,92,'+(1-introAlpha)+')';ctx.fillRect(0,0,W,H);}
-  nqEl.textContent=S.arr.length.toLocaleString('en-US');
+  if(_nqShown!==S.arr.length){_nqShown=S.arr.length;
+    nqEl.textContent=_nqShown.toLocaleString('en-US');}
   requestAnimationFrame(draw);
 }
 
@@ -1000,6 +1204,22 @@ document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeAll);
 scrim.onclick=closeAll;
 addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 $('#fab').onclick=()=>{closeAll();captureGeo();openSheet('#compose')};
+
+/* ─── connect now: one real address, one tap, and a copy fallback for
+       browsers with no mail client wired up ─── */
+const TEAM_MAIL='alokara.team@gmail.com';
+$('#connectLink').onclick=e=>{e.preventDefault();closeAll();openSheet('#connect');};
+$('#copyMail').onclick=async e=>{
+  const b=e.currentTarget;
+  try{
+    if(navigator.clipboard&&isSecureContext)await navigator.clipboard.writeText(TEAM_MAIL);
+    else throw new Error('no clipboard');
+    b.textContent='copied ✓';b.classList.add('done');
+  }catch(_){
+    b.textContent=TEAM_MAIL;                 // worst case: show it to select by hand
+  }
+  setTimeout(()=>{b.textContent='copy the address';b.classList.remove('done');},2600);
+};
 
 /* ─── identity: post visible or anonymous; location: city-level, rounded, silent home fallback ─── */
 const anonBtn=$('#anonBtn'), nameEl=$('#name');
@@ -1028,14 +1248,22 @@ CATKEYS.forEach(k=>{const [r,g,b]=CATS[k].col;
   if(k===S.cat)setTimeout(()=>c.onclick(),0);});
 $('#body').addEventListener('input',e=>$('#count').textContent=`${e.target.value.length} / 500`);
 $('#post').onclick=async()=>{
-  if(IS_DEMO){alert('demo data — read only. Remove ?n= from the URL to go live.');return}
+  if(IS_DEMO){toast('demo data — read only. Remove ?n= from the URL to go live.');return}
+  if(!db){toast("can't reach the space right now — your words wouldn't be saved.");return}
   const name=S.anon?'anonymous':$('#name').value.trim(),body=$('#body').value.trim();
-  if(name.length<1||body.length<3){alert(S.anon?'write what you want to say (3+ chars).':'add your name and what you want to say (3+ chars).');return}
-  const btn=$('#post');btn.disabled=true;if(!S.anon)localStorage.setItem('dotbro_name',name);
+  if(name.length<1||body.length<3){toast(S.anon?'write what you want to say (3+ characters).':'add your name and what you want to say (3+ characters).');return}
+  if(body.length>500){toast('keep it under 500 characters.');return}
+  if(!rateOk('post',3,60000)){toast('easy — a few seconds between conversations.');return}
+  const btn=$('#post');btn.disabled=true;btn.textContent='Sending…';
+  if(!S.anon)localStorage.setItem('dotbro_name',name);
   const loc=S.geo||{lat:31.8,lon:77.0};
-  const {data,error}=await db.addQuestion(name,body,S.cat,loc.lat,loc.lon);btn.disabled=false;
-  if(error){alert("couldn't start it — try again.");return}
+  let data=null,error=null;
+  try{({data,error}=await db.addQuestion(name,body,S.cat,loc.lat,loc.lon));}
+  catch(err){error=err;}
+  btn.disabled=false;btn.textContent='Say it →';
+  if(error){toast("couldn't start it — check your connection and try again.");return}
   $('#body').value='';$('#count').textContent='0 / 500';
+  toast('it\'s floating. someone will find it.');
   if(data){S.mine.add(data.id);localStorage.setItem('dotbro_mine',JSON.stringify([...S.mine]));
     if(!S.q.has(data.id)){S.q.set(data.id,data);addNode(data,true);}
     const n=S.nodes.get(data.id);
@@ -1092,19 +1320,24 @@ function renderQ(){
 }
 
 async function submitAction(){
-  if(IS_DEMO){alert('demo data — read only. Remove ?n= from the URL to go live.');return}
+  if(IS_DEMO){toast('demo data — read only. Remove ?n= from the URL to go live.');return}
+  if(!db){toast("can't reach the space right now — your words wouldn't be saved.");return}
   const id=S.openId; if(!id||!activeKind) return;
   const input=$('#pText'); const body=(input?input.value.trim():'');
   const isMeet=activeKind==='meet';
   const finalBody = body || (isMeet? 'wants to connect' : '');
   if(!isMeet && finalBody.length<1) return;
+  if(finalBody.length>500){toast('keep it under 500 characters.');return}
+  if(!rateOk('reply',8,60000)){toast('slow down a moment — too many in a row.');return}
   const anonChk=$('#pAnon');
   const anon=anonChk?anonChk.checked:S.anon;
   const name=anon?'anonymous':(($('#name').value.trim())||localStorage.getItem('dotbro_name')||'anonymous');
-  const btn=$('#pSubmit'); if(btn) btn.disabled=true;
-  const {data,error}=await db.addReply(id,name,finalBody,activeKind);
+  const btn=$('#pSubmit'); if(btn){btn.disabled=true;btn.textContent='Sending…';}
+  let data=null,error=null;
+  try{({data,error}=await db.addReply(id,name,finalBody,activeKind));}
+  catch(err){error=err;}
   if(btn) btn.disabled=false;
-  if(error){ alert('could not send — try again.'); return; }
+  if(error){ toast('could not send — check your connection and try again.'); return; }
   if(data) pushReply(data);
   activeKind=null;
   renderQ();
@@ -1119,21 +1352,42 @@ function pushReply(r){const arr=S.replies.get(r.question_id)||[];
   if(S.openId===r.question_id)renderQ();}
 
 /* ─── boot ─── */
+async function loadLive(){
+  const [qres,rres]=await Promise.all([db.listQuestions(),db.listReplies()]);
+  if(qres.error)throw qres.error;
+  if(rres.error)throw rres.error;
+  const qs=qres.data||[], rs=rres.data||[];
+  S.replies.clear();
+  rs.forEach(r=>{const a=S.replies.get(r.question_id)||[];a.push(r);S.replies.set(r.question_id,a)});
+  qs.slice().reverse().forEach(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,false)}});
+  netup();
+}
 (async function(){
   const saved=localStorage.getItem('dotbro_name');if(saved)$('#name').value=saved;
   resize();
+  applyHash();
   if(IS_DEMO){
     generateDemo(DEMO_N);
     resize();
     draw();
     return;
   }
-  const [{data:qs},{data:rs}]=await Promise.all([db.listQuestions(),db.listReplies()]);
-  (rs||[]).forEach(r=>{const a=S.replies.get(r.question_id)||[];a.push(r);S.replies.set(r.question_id,a)});
-  (qs||[]).slice().reverse().forEach(q=>{S.q.set(q.id,q);addNode(q,false)});
-  db.onQuestion(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,true)}});
-  db.onReply(pushReply);
-  draw();
+  draw();                                   // the globe turns even if the data is late
+  if(!SB_OK){
+    netdown("couldn't load the live space — the globe is here, but nothing can be posted.",
+      ()=>location.reload());
+    return;
+  }
+  try{
+    await loadLive();
+    db.onQuestion(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,true)}});
+    db.onReply(pushReply);
+  }catch(err){
+    // an empty globe with no explanation reads as "nobody is here" — say the truth
+    netdown("can't reach the space right now — showing nothing until it's back.",
+      ()=>{netup();loadLive().catch(()=>netdown('still no connection.',null));});
+  }
+  addEventListener('online',()=>{loadLive().catch(()=>{})});
 })();
 </script>
 </body>
