@@ -41,4 +41,7 @@ these pages aggressively and will silently serve the previous build.
 - Perf (2D fallback only): the globe raster is the hot path. `rasterEarth(sil, moving)` should cost <10ms at sil=400;
   if a change pushes it past ~16ms the spin visibly stutters.
 - `/mod.html` = passphrase-gated moderation (noindex, robots-blocked). Unlock → list with reported-first, delete question/reply. Every destructive call re-checks the passphrase server-side (bcrypt + lockout in `private` schema).
+- PWA: manifest.webmanifest + sw.js (network-first shell, CDN cache-first, supabase never cached).
+  Bump `VERSION` in sw.js when a deploy must invalidate cached shells. Camera fit is aspect-aware
+  (`baseDist()` in alge-engine.js) — globe fills ~87% of the narrow axis at any aspect ratio.
 - **Deploy:** live site is Vercel (confirmed via `curl -sI https://dotbro.in` → `server: Vercel`), deployed via Vercel file-upload API — NOT git push, NOT GitHub Pages (old DEPLOY.md in ../www.dotbro.in is stale). See ../dotbro-in-PROJECT.md build log.

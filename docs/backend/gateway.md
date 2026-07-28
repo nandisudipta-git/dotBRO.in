@@ -1,4 +1,4 @@
-# gateway
+ # gateway
 
 The single public service. Authenticates every request, finds the caller's
 node, and reverse-proxies to it. Holds **no** data — one shared httpx pool is

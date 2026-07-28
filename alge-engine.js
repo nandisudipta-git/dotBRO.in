@@ -319,7 +319,21 @@ let yaw = home.yaw - 2.2, pitch = 0.35, vyaw = 0, vpitch = 0;
 let zoomT = 1, zoom = REDUCED ? 1 : 0.55;
 let dragging = false, lx = 0, ly = 0, lastInteract = 0, flyTo = null;
 const ptrs = new Map(); let pinchD0 = 0, pinchZ0 = 1, pinching = false;
-const distFor = z => THREE.MathUtils.clamp(3.55 / Math.pow(z, 0.85), 1.45, 6.4);
+/* ── aspect-aware fit: the globe must FIT the frame on any screen ──
+   A fixed camera distance framed desktop only — on a portrait phone the
+   horizontal field is far narrower than the vertical one, so the globe
+   overflowed the width. Fit against the SMALLER half-angle instead: the
+   shell (1.16) plus glow margin always lands inside both dimensions. */
+const FIT_R = 1.32;
+function baseDist() {
+  const vHalf = THREE.MathUtils.degToRad(camera.fov / 2);
+  const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
+  return FIT_R / Math.sin(Math.min(vHalf, hHalf));
+}
+const distFor = z => THREE.MathUtils.clamp(baseDist() / Math.pow(z, 0.85), 1.45, baseDist() * 1.2);
+/* portrait: the FAB + chips live at the bottom, so the globe rides a little
+   high; wide screens keep it centered */
+const lookY = () => camera.aspect < 0.8 ? -0.16 : 0;
 
 const intro = { active: !REDUCED, t0: 0, dur: 5200 };
 if (REDUCED) { yaw = home.yaw; pitch = home.pitch; }
@@ -556,7 +570,7 @@ function frame() {
   pitchG.rotation.x = pitch; yawG.rotation.y = yaw;
   atmo.rotation.copy(pitchG.rotation);                     // rim stays camera-true
   camera.position.set(0, 0, distFor(zoom));
-  camera.lookAt(0, 0, 0);
+  camera.lookAt(0, lookY(), 0);
 
   // stars parallax: trail the drag at different depths
   starsFar.rotation.y = yaw * 0.06; starsFar.rotation.x = pitch * 0.06;
