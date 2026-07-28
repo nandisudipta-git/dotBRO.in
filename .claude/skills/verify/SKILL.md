@@ -32,7 +32,13 @@ these pages aggressively and will silently serve the previous build.
 - The landing companion dot must never sit on text: it picks a clear corner when the scroll settles and
   hides its bubble while scrolling. Regression test = scroll the whole page and assert the `.cmsg` rect
   intersects no visible text rect at rest.
-- Perf: the globe raster is the hot path. `rasterEarth(sil, moving)` should cost <10ms at sil=400;
+- The globe renders in WebGL (alge-engine.js — three.js + UnrealBloom; day/night shader with real
+  city lights, off-axis sun so the terminator always crosses the disc). The 2D canvas engine in
+  index.html is the AUTOMATIC FALLBACK — the module sets `window.__3D` and the old draw loop stands
+  down. `window.__ENGINE.fps()` reads the live frame rate. Classic-script consts reach the module
+  ONLY via the `window.APP` bridge — a "window.X is not a function" error in the engine means a
+  missing bridge entry, not a missing function.
+- Perf (2D fallback only): the globe raster is the hot path. `rasterEarth(sil, moving)` should cost <10ms at sil=400;
   if a change pushes it past ~16ms the spin visibly stutters.
 - `/mod.html` = passphrase-gated moderation (noindex, robots-blocked). Unlock → list with reported-first, delete question/reply. Every destructive call re-checks the passphrase server-side (bcrypt + lockout in `private` schema).
 - **Deploy:** live site is Vercel (confirmed via `curl -sI https://dotbro.in` → `server: Vercel`), deployed via Vercel file-upload API — NOT git push, NOT GitHub Pages (old DEPLOY.md in ../www.dotbro.in is stale). See ../dotbro-in-PROJECT.md build log.

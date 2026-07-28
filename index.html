@@ -115,6 +115,11 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 #leaderHalo{opacity:0;transition:opacity .15s ease;}
 #leaderDot{opacity:0;transition:opacity .15s ease;}
 
+#labels{position:fixed;inset:0;pointer-events:none;z-index:8;}
+.albl{position:absolute;transform:translate(0,-50%);white-space:nowrap;
+  font-size:12px;font-family:'Space Mono',ui-monospace,monospace;
+  background:rgba(255,255,255,.92);color:#22303C;padding:4px 10px;border-radius:11px;
+  opacity:0;transition:opacity .6s ease;will-change:transform;}
 #tip{position:fixed;pointer-events:none;z-index:20;max-width:270px;padding:11px 14px;
   background:rgba(255,255,255,.97);border:1px solid var(--hair);border-radius:9px;
   box-shadow:0 10px 28px rgba(0,0,0,.14);opacity:0;transition:opacity .15s ease;}
@@ -253,6 +258,7 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 </head>
 <body>
 <canvas id="c" role="img" aria-label="A globe of live conversations. Use the arrow keys to spin it, plus and minus to zoom, and the Start a conversation button to add yours."></canvas>
+<div id="labels" aria-hidden="true"></div>
 <div id="grain" aria-hidden="true"></div>
 <div id="netmsg"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -337,6 +343,12 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+} }
+</script>
 <script>
 'use strict';
 const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
@@ -1389,6 +1401,7 @@ function drawSpot(now){
 }
 
 function draw(){
+  if(window.__3D)return;              // the WebGL engine has taken over — this loop is the no-WebGL fallback
   const now=performance.now();
   ctx.fillStyle=BGGRAD||'#46525C';ctx.fillRect(0,0,W,H);
   drawStars();
@@ -1707,6 +1720,9 @@ function startPresence(){
   }catch(_){/* presence is decoration — never let it break the page */}
 }
 
+/* ─── bridge for the WebGL engine (module scripts cannot see const/let here) ─── */
+window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)};
+
 /* ─── boot ─── */
 async function loadLive(){
   const [qres,rres]=await Promise.all([db.listQuestions(),db.listReplies()]);
@@ -1749,5 +1765,6 @@ async function loadLive(){
   addEventListener('online',()=>{loadLive().catch(()=>{})});
 })();
 </script>
+<script type="module" src="/alge-engine.js"></script>
 </body>
 </html>
