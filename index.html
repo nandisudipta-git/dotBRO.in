@@ -150,6 +150,8 @@ body.gated .fab{opacity:0 !important;pointer-events:none;}
    topic legend. The compose button stays: it is the point. */
 body.feeding .botleft,body.feeding .zoomui,body.feeding #hint,
 body.feeding .albl,body.feeding #tip,body.feeding #leader{opacity:0 !important;pointer-events:none;}
+/* reading one conversation? then that is the only thing being said */
+body.sheeting .albl,body.sheeting #tip,body.sheeting #leader,body.sheeting #hint{opacity:0 !important;}
 .albl{position:absolute;transform:translate(0,-50%);white-space:nowrap;
   font-size:12px;font-family:'Space Mono',ui-monospace,monospace;
   background:rgba(255,255,255,.92);color:#22303C;padding:4px 10px;border-radius:11px;
@@ -175,16 +177,21 @@ body.feeding .albl,body.feeding #tip,body.feeding #leader{opacity:0 !important;p
   transform:translateX(-50%) scale(1.04);box-shadow:0 14px 48px rgba(0,0,0,.45);}
 .fab:active{transform:translateX(-50%) scale(.97);}
 
-.scrim{position:fixed;inset:0;z-index:50;background:rgba(12,20,28,.5);
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;}
+/* no backdrop-filter here either — stacking one over the WebGL canvas is what
+   produced the black flash. A plain tint dims the globe just as well. */
+.scrim{position:fixed;inset:0;z-index:50;background:rgba(10,16,23,.66);display:none;}
 .scrim.open{display:block;}
+/* Safari paints a black block where a backdrop-filtered element is mid-transform
+   over a WebGL canvas — it showed up as a hard black rectangle behind this panel
+   while it opened. Two changes kill it: the panel is now opaque enough that the
+   blur is a bonus rather than the thing carrying the background, and the open
+   animation moves instead of scaling. */
 .sheet{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;
-  width:min(440px,90vw);max-height:82vh;background:rgba(255,255,255,.9);border:1px solid rgba(0,0,0,.1);
-  border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.16);
-  backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
+  width:min(440px,90vw);max-height:82vh;background:rgba(250,251,253,.985);border:1px solid rgba(0,0,0,.1);
+  border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.22);
   color:var(--ink);display:none;flex-direction:column;overflow:hidden;}
 .sheet.open{display:flex;animation:panelIn .22s cubic-bezier(.2,.9,.25,1);}
-@keyframes panelIn{from{opacity:0;transform:translate(-50%,-50%) scale(.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes panelIn{from{opacity:0;transform:translate(-50%,calc(-50% + 12px))}to{opacity:1;transform:translate(-50%,-50%)}}
 @media(max-width:640px){.sheet{width:92vw;}}
 .sh-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid rgba(0,0,0,.06);}
 .sh-title{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.5px;}
@@ -1619,12 +1626,13 @@ const scrim=$('#scrim');
 let lastFocus=null;
 function openSheet(id){
   lastFocus=document.activeElement;
+  document.body.classList.add('sheeting');   // the globe's own chatter stands down
   const sh=$(id);sh.classList.add('open');scrim.classList.add('open');
   const f=sh.querySelector('textarea,input:not([disabled]),button:not([data-close])')||sh.querySelector('[data-close]');
   if(f)setTimeout(()=>f.focus(),60);
 }
 function closeAll(){document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
-  scrim.classList.remove('open');S.openId=null;activeKind=null;
+  scrim.classList.remove('open');document.body.classList.remove('sheeting');S.openId=null;activeKind=null;
   if(lastFocus&&lastFocus.focus){lastFocus.focus();lastFocus=null;}}
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeAll);
 scrim.onclick=closeAll;
@@ -2096,6 +2104,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=4"></script>
+<script type="module" src="/alge-engine.js?v=5"></script>
 </body>
 </html>

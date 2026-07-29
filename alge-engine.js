@@ -279,14 +279,19 @@ function spriteFor(n) {
     ? new THREE.Vector3(n.anchor.x, -n.anchor.y, -n.anchor.z)
     : new THREE.Vector3(n.dx, -n.dy, -n.dz);
   d.normalize();
-  // co-located posts (whole cohorts share one rounded lat/lon) spread into a
-  // small bouquet around the spot — tangentially, so they still point at it
+  // Co-located posts (a whole cohort shares one rounded lat/lon) fan out so each
+  // stays tappable. This used to spread ±0.035 rad — about 400km — so questions
+  // asked at IIT Mandi were drawn over Afghanistan and China while the panel
+  // still said "from IIT Mandi". The dot was lying about the place.
+  // 0.009 keeps them separable at the zoom where you'd tap one, and is close to
+  // the ~11km the location is deliberately rounded to anyway. The feed, not the
+  // spread, is what makes every conversation reachable.
   const i = nid++;
   const up = Math.abs(d.y) < 0.94 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
   const t1 = new THREE.Vector3().crossVectors(d, up).normalize();
   const t2 = new THREE.Vector3().crossVectors(d, t1).normalize();
-  d.addScaledVector(t1, (hash(i * 3 + 1) - 0.5) * 0.07)
-   .addScaledVector(t2, (hash(i * 3 + 2) - 0.5) * 0.07)
+  d.addScaledVector(t1, (hash(i * 3 + 1) - 0.5) * 0.009)
+   .addScaledVector(t2, (hash(i * 3 + 2) - 0.5) * 0.009)
    .normalize();
   // own material clone per sprite — 21 live nodes, and it buys per-node dimming
   const sp = new THREE.Sprite(MATS[CATS[n.cat] ? n.cat : 'random'].clone());
@@ -589,6 +594,9 @@ function stepLabels() {
   labelEls.forEach((el, i) => {
     const pick = labelPick[i];
     if (!pick || !sprites.has(pick.s.userData.node)) { el.style.opacity = '0'; return; }
+    // the callout and the hover tooltip already name this one — a floating label
+    // for the same node printed the same sentence twice on screen
+    if (pick.s === spot || pick.s === hover) { el.style.opacity = '0'; return; }
     const p = screenPos(pick.s);
     if (!p.front) { el.style.opacity = '0'; return; }
     const t = pick.s.userData.node.text;
