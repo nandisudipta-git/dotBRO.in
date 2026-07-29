@@ -72,6 +72,16 @@ const backdropMat = new THREE.ShaderMaterial({
       return smoothstep(r, 0.0, distance(p * asp, c * asp));
     }
 
+    /* value noise — stands in for mont-fort's tiling noise texture, which they
+       sample twice at different scales to give the fog its texture */
+    float hash(vec2 q){ return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
+    float vnoise(vec2 q){
+      vec2 i = floor(q), f = fract(q);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i),               hash(i + vec2(1.,0.)), f.x),
+                 mix(hash(i + vec2(0.,1.)), hash(i + vec2(1.,1.)), f.x), f.y);
+    }
+
     void main(){
       vec2 uv  = gl_FragCoord.xy / uRes;
       vec2 asp = vec2(uRes.x / uRes.y, 1.0);
@@ -83,17 +93,48 @@ const backdropMat = new THREE.ShaderMaterial({
                      vec3(0.137, 0.180, 0.220),
                      smoothstep(0.0, 1.0, uv.y * 0.85 + 0.15));
 
-      col += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.20 + sin(t * 0.023) * 0.10,
-                                                      0.30 + cos(t * 0.017) * 0.05), 0.42, asp) * 0.085;
-      col += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.70 + sin(t * 0.031 + 2.1) * 0.14,
-                                                      0.75 + sin(t * 0.021 + 0.7) * 0.07), 0.46, asp) * 0.070;
-      col += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.90 + sin(t * 0.019 + 1.3) * 0.08,
-                                                      0.20 + cos(t * 0.027) * 0.06), 0.34, asp) * 0.055;
-      col += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.50 + sin(t * 0.013 + 4.2) * 0.12,
-                                                      0.55 + cos(t * 0.023 + 1.1) * 0.06), 0.38, asp) * 0.050;
+      vec3 mist = vec3(0.0);
+      mist += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.20 + sin(t * 0.023) * 0.10,
+                                                       0.30 + cos(t * 0.017) * 0.05), 0.42, asp) * 0.085;
+      mist += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.70 + sin(t * 0.031 + 2.1) * 0.14,
+                                                       0.75 + sin(t * 0.021 + 0.7) * 0.07), 0.46, asp) * 0.070;
+      mist += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.90 + sin(t * 0.019 + 1.3) * 0.08,
+                                                       0.20 + cos(t * 0.027) * 0.06), 0.34, asp) * 0.055;
+      mist += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.50 + sin(t * 0.013 + 4.2) * 0.12,
+                                                       0.55 + cos(t * 0.023 + 1.1) * 0.06), 0.38, asp) * 0.050;
+
+      /* the banks alone are smooth blobs; two octaves of drifting noise give
+         them internal texture — this is the half of mont-fort's fog we lacked */
+      float fogN = vnoise(p * asp * 3.0 + vec2(t * 0.020, -t * 0.012)) * 0.65
+                 + vnoise(p * asp * 7.0 - vec2(t * 0.014,  t * 0.009)) * 0.35;
+      col += mist * (0.70 + 0.60 * fogN);
+
+      /* mont-fort blueprint grid: derivative-AA lines, brighter crosses at the
+         intersections, dots lit by a slow drifting noise pool. Held far from
+         the centre — the globe sits on air, not graph paper. */
+      vec2 gUv = p * asp * 16.0;
+      vec2 gridUV = 1.0 - abs(fract(gUv) * 2.0 - 1.0);
+      vec2 deriv = fwidth(gUv);
+      vec2 aa = deriv * 1.5;
+      vec2 drawW = clamp(vec2(0.03), deriv, vec2(0.5));
+      vec2 g2 = smoothstep(drawW + aa, drawW - aa, gridUV) * clamp(vec2(0.03) / drawW, 0.0, 1.0);
+      float grid = max(g2.x, g2.y);
+      vec2 crossW = clamp(vec2(0.14), deriv, vec2(0.5));
+      vec2 inter = smoothstep(crossW + aa, crossW - aa, gridUV);
+      float crossMark = inter.x * inter.y;
+      float dots = smoothstep(0.30, 0.10, length(gridUV));
+      float lit  = smoothstep(0.62, 0.95, vnoise(gUv * 0.14 + vec2(t * 0.030, -t * 0.018)));
+      float ring = smoothstep(0.16, 0.55, length((uv - 0.5) * asp));
+      col += vec3(0.28, 0.36, 0.44) * grid      * 0.045 * ring;
+      col += vec3(0.42, 0.58, 0.72) * crossMark * 0.075 * ring;
+      col += vec3(0.30, 0.60, 0.85) * dots * lit * 0.16 * ring;
 
       float v = smoothstep(1.25, 0.30, length((uv - 0.5) * asp) * 1.30);
       col *= mix(0.52, 1.0, v);
+
+      /* mont-fort ships dithering:!0 on every material for the same reason:
+         8-bit output posterises these long dark gradients without it */
+      col += (hash(gl_FragCoord.xy) - 0.5) / 255.0;
 
       gl_FragColor = vec4(col, 1.0);
     }

@@ -729,7 +729,7 @@ function resize(){
   BGGRAD=ctx.createLinearGradient(0,0,0,H);
   /* darker at the top — night above the horizon, so the stars actually show */
   BGGRAD.addColorStop(0,'#2C3843');BGGRAD.addColorStop(0.55,'#3D4A55');BGGRAD.addColorStop(1,'#333E48');
-  buildStars();buildMist();
+  buildStars();buildMist();buildGrid();
   if(!IS_STATIC)for(const p of S.arr)p.targetR=R*ORBIT;
 }
 addEventListener('resize',resize);
@@ -809,6 +809,51 @@ function drawMist(now){
   ctx.globalAlpha=0.9;
   ctx.drawImage(MIST1,x1-W*0.08,y1-H*0.04,W*1.16,H*1.08);
   ctx.drawImage(MIST2,x2-W*0.10,y2-H*0.05,W*1.2,H*1.1);
+  ctx.globalAlpha=1;
+}
+
+/* ─── mont-fort blueprint grid: faint lines with brighter crosses at the
+       intersections, baked once per resize with the centre masked out so the
+       globe sits on air, not graph paper. Per frame it is one drawImage plus
+       a few noise-lit dots twinkling at intersections. ─── */
+let GRID=null,GRIDDOTS=[];
+function buildGrid(){
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const c2=cv.getContext('2d');
+  const s=Math.max(48,Math.min(W,H)/14);
+  c2.strokeStyle='rgba(150,175,196,0.05)';c2.lineWidth=1;
+  c2.beginPath();
+  for(let x=0.5;x<=W;x+=s){c2.moveTo(x,0);c2.lineTo(x,H);}
+  for(let y=0.5;y<=H;y+=s){c2.moveTo(0,y);c2.lineTo(W,y);}
+  c2.stroke();
+  const arm=s*0.14;
+  c2.strokeStyle='rgba(170,200,224,0.10)';
+  c2.beginPath();
+  for(let x=0.5;x<=W;x+=s)for(let y=0.5;y<=H;y+=s){
+    c2.moveTo(x-arm,y);c2.lineTo(x+arm,y);c2.moveTo(x,y-arm);c2.lineTo(x,y+arm);
+  }
+  c2.stroke();
+  const m=c2.createRadialGradient(CX,CY,R*0.55,CX,CY,Math.hypot(W,H)*0.55);
+  m.addColorStop(0,'rgba(0,0,0,0)');m.addColorStop(0.45,'rgba(0,0,0,0.55)');m.addColorStop(1,'rgba(0,0,0,1)');
+  c2.globalCompositeOperation='destination-in';
+  c2.fillStyle=m;c2.fillRect(0,0,W,H);
+  GRID=cv;
+  GRIDDOTS=[];
+  for(let x=0.5;x<=W;x+=s)for(let y=0.5;y<=H;y+=s)
+    if(((x*7+y*13|0)%97)<14&&Math.hypot(x-CX,y-CY)>R*1.15)
+      GRIDDOTS.push([x,y,((x*31+y*17|0)%100)/100*6.283]);
+}
+function drawGrid(now){
+  if(!GRID)return;
+  ctx.drawImage(GRID,0,0);
+  const t=REDUCED?0:now*0.001;
+  ctx.fillStyle='rgb(77,153,217)';
+  for(const [x,y,ph] of GRIDDOTS){
+    const a=Math.pow(Math.max(0,Math.sin(t*0.5+ph)),3)*0.22;
+    if(a<0.01)continue;
+    ctx.globalAlpha=a;
+    ctx.beginPath();ctx.arc(x,y,1.4,0,7);ctx.fill();
+  }
   ctx.globalAlpha=1;
 }
 
@@ -1581,6 +1626,7 @@ function draw(){
   if(window.__3D)return;              // the WebGL engine has taken over — this loop is the no-WebGL fallback
   const now=performance.now();
   ctx.fillStyle=BGGRAD||'#46525C';ctx.fillRect(0,0,W,H);
+  drawGrid(now);
   drawStars();
   drawMeteor(now);
   drawMist(now);
