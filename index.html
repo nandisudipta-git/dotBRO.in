@@ -355,6 +355,24 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
 .fpill.none{background:none;color:var(--dim);border:1px dashed rgba(255,255,255,.2);}
 .feedempty{padding:38px 8px;text-align:center;color:var(--dim);font-size:.9rem;line-height:1.6;}
 
+/* the launch: a posted question leaves as an orb and lands as a ripple */
+.orb{position:fixed;left:0;top:0;z-index:80;pointer-events:none;will-change:transform,opacity;
+  display:flex;align-items:center;justify-content:center;
+  min-width:18px;min-height:18px;padding:0 2px;border-radius:999px;
+  background:radial-gradient(circle at 50% 45%, #fff 0%, var(--oc,#fff) 42%, rgba(0,0,0,0) 72%);
+  box-shadow:0 0 26px 8px var(--oc,#fff), 0 0 70px 22px rgba(255,255,255,.16);}
+.orbtext{max-width:15ch;padding:7px 13px;border-radius:999px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;font-size:11px;letter-spacing:.04em;color:#0B131B;
+  background:rgba(255,255,255,.94);box-shadow:0 4px 18px rgba(0,0,0,.3);}
+.ripple{position:fixed;z-index:79;pointer-events:none;width:16px;height:16px;margin:-8px 0 0 -8px;
+  border-radius:50%;border:2px solid var(--oc,#fff);
+  animation:rippleOut 1s cubic-bezier(.16,.8,.3,1) forwards;}
+@keyframes rippleOut{
+  0%{transform:scale(.4);opacity:.95;box-shadow:0 0 22px 6px var(--oc,#fff);}
+  100%{transform:scale(11);opacity:0;box-shadow:0 0 0 0 rgba(0,0,0,0);}
+}
+@media (prefers-reduced-motion: reduce){ .orb,.ripple{display:none;} }
+
 /* the place stack, inside the conversation sheet */
 .stack{margin-top:20px;padding-top:15px;border-top:1px solid rgba(0,0,0,.08);}
 .stackhead{font-size:.63rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dimink);margin-bottom:10px;}
@@ -1994,7 +2012,72 @@ $('#post').onclick=async()=>{
     if(!S.q.has(data.id)){S.q.set(data.id,data);addNode(data,true);}
     const n=S.nodes.get(data.id);
     if(n)n.launch={sx:W/2,sy:H-60,t0:performance.now(),dur:1300};}
-  closeAll();};
+  closeAll();
+  renderFeed();
+  if(data)launchOrb(data);};
+
+/* ─── the launch ───────────────────────────────────────────────────────────
+   Posting used to be a form submit: the sheet closed and a line of text
+   appeared somewhere. This is the same event told as an arrival — the question
+   leaves as a glowing orb, the camera flies to where it is going, the orb meets
+   it at the centre of the screen and lands with a ripple.
+
+   The orb travels to screen centre rather than to a projected node position,
+   because openQ's camera flight puts the node AT the centre — they meet there
+   by construction, with no coupling to the engine's projection.
+
+   Skippable, and short by default after the first one: the fifth time this
+   plays it is a toll booth, not a moment. Tap anywhere to cut it. Under
+   prefers-reduced-motion it does not run at all. */
+function launchOrb(q){
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const seen=+(localStorage.getItem('dotbro_launches')||0);
+  try{localStorage.setItem('dotbro_launches',String(seen+1))}catch(_){}
+  if(reduce){flyToNode(q.id);return;}
+
+  const first=seen===0;
+  const dur=first?2200:1100;
+  const orb=document.createElement('div');
+  orb.className='orb';
+  const cat=CATS[q.category]?CATS[q.category].col:CATS.random.col;
+  orb.style.setProperty('--oc',`rgb(${cat[0]},${cat[1]},${cat[2]})`);
+  if(first)orb.innerHTML=`<span class="orbtext">${esc(q.body.length>52?q.body.slice(0,51)+'…':q.body)}</span>`;
+  document.body.appendChild(orb);
+
+  const sx=innerWidth/2, sy=innerHeight-96;      // where the compose sheet was
+  const tx=innerWidth/2, ty=innerHeight*0.5;     // where the camera will hold it
+  const t0=performance.now();
+  let done=false;
+  const finish=()=>{
+    if(done)return; done=true;
+    orb.remove();
+    const rip=document.createElement('div');
+    rip.className='ripple';
+    rip.style.left=tx+'px'; rip.style.top=ty+'px';
+    rip.style.setProperty('--oc',`rgb(${cat[0]},${cat[1]},${cat[2]})`);
+    document.body.appendChild(rip);
+    setTimeout(()=>rip.remove(),1100);
+    removeEventListener('pointerdown',skip,true);
+  };
+  const skip=()=>{finish();};
+  addEventListener('pointerdown',skip,true);
+  // rAF stops in a backgrounded tab, so the orb would hang on screen until the
+  // tab was looked at again. A timer does not stop, so the landing always
+  // happens whether or not anyone was watching it.
+  setTimeout(finish,dur+250);
+
+  flyToNode(q.id);                               // the world comes to meet it
+  (function step(now){
+    const k=Math.min(1,(now-t0)/dur);
+    // ease-out-cubic on the way up, with a slight arc so it does not feel linear
+    const e=1-Math.pow(1-k,3);
+    const x=sx+(tx-sx)*e;
+    const y=sy+(ty-sy)*e - Math.sin(k*Math.PI)*54;
+    orb.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%) scale(${first?(0.7+0.5*e):(0.6+0.4*e)})`;
+    orb.style.opacity=String(k<0.12?k/0.12:(k>0.88?(1-k)/0.12:1));
+    if(k<1&&!done)requestAnimationFrame(step); else finish();
+  })(t0);
+}
 
 /* ─── the place stack ──────────────────────────────────────────────────────
    A location is a cluster, not a single dot. Every question here shares one
@@ -2227,6 +2310,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=9"></script>
+<script type="module" src="/alge-engine.js?v=10"></script>
 </body>
 </html>
