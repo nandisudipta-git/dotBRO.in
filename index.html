@@ -354,6 +354,21 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
   font-size:.66rem;letter-spacing:.06em;background:rgba(255,255,255,.09);color:var(--paper);white-space:nowrap;}
 .fpill.none{background:none;color:var(--dim);border:1px dashed rgba(255,255,255,.2);}
 .feedempty{padding:38px 8px;text-align:center;color:var(--dim);font-size:.9rem;line-height:1.6;}
+
+/* the place stack, inside the conversation sheet */
+.stack{margin-top:20px;padding-top:15px;border-top:1px solid rgba(0,0,0,.08);}
+.stackhead{font-size:.63rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dimink);margin-bottom:10px;}
+.scard{display:block;width:100%;text-align:left;font-family:inherit;cursor:pointer;
+  background:rgba(0,0,0,.028);border:1px solid rgba(0,0,0,.07);
+  border-left:3px solid var(--sc,#999);border-radius:10px;
+  padding:11px 13px;margin-bottom:7px;min-height:44px;
+  transition:background .18s ease,transform .18s ease;}
+.scard:hover{background:rgba(0,0,0,.06);}
+.scard:active{transform:scale(.99);}
+.scard:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+.scard .sq{display:block;font-size:.87rem;line-height:1.4;color:var(--ink);margin-bottom:5px;}
+.scard .smeta{display:block;font-size:.63rem;color:var(--dimink);}
+.scard .scat{text-transform:uppercase;letter-spacing:.1em;color:var(--sc,#999);}
 @media(max-width:640px){
   #feed{padding:70px 12px calc(120px + env(safe-area-inset-bottom,0px));}
   .frow .fq{font-size:.97rem;}
@@ -1981,6 +1996,44 @@ $('#post').onclick=async()=>{
     if(n)n.launch={sx:W/2,sy:H-60,t0:performance.now(),dur:1300};}
   closeAll();};
 
+/* ─── the place stack ──────────────────────────────────────────────────────
+   A location is a cluster, not a single dot. Every question here shares one
+   campus, so opening one used to hide the rest behind it — the other dots are
+   literally underneath. This puts the whole place in the sheet: every other
+   conversation asked from the same spot, most-answered first so the live ones
+   surface, unanswered still listed so nothing disappears. Browsing the cluster
+   never leaves the globe. */
+function placeKeyOf(q){
+  if(!q) return null;
+  if(q.lat==null||q.lon==null) return 'home';
+  return q.lat.toFixed(1)+','+q.lon.toFixed(1);
+}
+function siblingsOf(q){
+  const k=placeKeyOf(q); if(!k) return [];
+  return [...S.q.values()]
+    .filter(o=>o.id!==q.id && placeKeyOf(o)===k)
+    .sort((a,b)=>(nReplies(b.id)-nReplies(a.id))||(new Date(b.created_at)-new Date(a.created_at)));
+}
+function siblingsHtml(q){
+  const sibs=siblingsOf(q); if(!sibs.length) return '';
+  const place=fmtLoc(q.lat,q.lon);
+  return `<div class="stack"><div class="stackhead">${sibs.length} more from ${esc(place)}</div>`+
+    sibs.map(s=>{
+      const c=CATS[s.category]?CATS[s.category].col:CATS.random.col;
+      const n=nReplies(s.id);
+      return `<button class="scard" data-sid="${esc(s.id)}" style="--sc:rgb(${c[0]},${c[1]},${c[2]})">
+        <span class="sq">${esc(s.body.length>84?s.body.slice(0,83)+'…':s.body)}</span>
+        <span class="smeta"><span class="scat">${esc(s.category)}</span> · ${esc(s.name)}
+          · ${n?`${n} ${n===1?'answer':'answers'}`:'no answer yet'}</span>
+      </button>`;
+    }).join('')+`</div>`;
+}
+function wireSiblings(){
+  document.querySelectorAll('.scard').forEach(b=>{
+    b.onclick=()=>openQ(b.dataset.sid);      // stays in the sheet, swaps the conversation
+  });
+}
+
 function renderQ(){
   const q=qOf(S.openId); if(!q) return;
   const [r,g,b]=CATS[q.category]?CATS[q.category].col:CATS.random.col;
@@ -2016,7 +2069,9 @@ function renderQ(){
     (IS_DEMO?'':`<div class="reportbox" id="reportBox"><input id="reportWhy" type="text" maxlength="300" aria-label="Why are you reporting this?" placeholder="why? (optional)"><button class="btn" id="reportGo">Report</button></div>`)+
     `<div class="p-actions" id="pActions">${actionsHtml}</div>`+
     composeHtml+
-    `<div class="replies">${repliesHtml}</div>`;
+    `<div class="replies">${repliesHtml}</div>`+
+    siblingsHtml(q);
+  wireSiblings();
 
   $('#pActions').querySelectorAll('.p-btn').forEach(btn=>{
     btn.onclick=()=>{
@@ -2172,6 +2227,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=8"></script>
+<script type="module" src="/alge-engine.js?v=9"></script>
 </body>
 </html>
