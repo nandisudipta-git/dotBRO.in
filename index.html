@@ -93,6 +93,12 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;
 /* mobile: filtering used to be impossible (legend was display:none).
    Now a horizontal chip row above the FAB, scrollable if it must be. */
 @media(max-width:640px){
+  /* the live counters are the eye-candy — on a phone they were dim 12px text
+     lost against the globe. Chips give them a floor to stand on. */
+  .topright{padding:calc(12px + env(safe-area-inset-top,0px)) 12px 8px;display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+  .topright .count{background:rgba(13,22,30,.6);border:1px solid var(--hair);border-radius:99px;padding:5px 11px;font-size:11px;color:#cfdbe6;}
+  .topright .count b{color:#fff;}
+  .topright #hereRow{margin-top:0!important;}
   .botleft{left:0;right:0;bottom:calc(88px + env(safe-area-inset-bottom,0px));padding:0 10px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
   .legend{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px;
     scrollbar-width:none;-webkit-overflow-scrolling:touch;}
@@ -214,6 +220,11 @@ body.sheeting .albl,body.sheeting #tip,body.sheeting #leader,body.sheeting #hint
 .anonline{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--dimink);cursor:pointer;user-select:none;}
 .anonline input{accent-color:#1D1D1F;}
 .cats{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
+/* the place choice: two honest options, location-free first */
+.placerow{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
+.placeopt{font-size:.72rem;letter-spacing:.03em;border:1px solid rgba(0,0,0,.14);background:none;
+  border-radius:99px;padding:7px 12px;cursor:pointer;color:var(--dimink);font-family:inherit;}
+.placeopt[aria-pressed="true"]{background:#22303C;color:#fff;border-color:#22303C;}
 .chip{font-size:.68rem;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(0,0,0,.12);background:none;
   color:var(--dimink);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .15s;font-family:inherit;}
 .chip.on{color:#1D1D1F;font-weight:700;border-color:transparent;}
@@ -249,7 +260,7 @@ body.sheeting .albl,body.sheeting #tip,body.sheeting #leader,body.sheeting #hint
 .p-btn.active .pb-count{color:rgba(255,255,255,.6);}
 .p-icon{font-size:16px;margin-bottom:4px;}
 .pb-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
-.pb-count{font-size:10px;color:var(--dimink);margin-top:3px;font-variant-numeric:tabular-nums;}
+.pb-count{font-size:11.5px;font-weight:700;color:var(--ink);margin-top:3px;font-variant-numeric:tabular-nums;}
 
 .p-input{display:none;flex-direction:column;gap:8px;margin-top:12px;}
 .p-input.open{display:flex;}
@@ -549,13 +560,18 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
     </div>
     <textarea id="body" aria-label="Your conversation" placeholder="What conversation are you leaving unfinished?" maxlength="500"></textarea>
     <div class="cats" id="cats"></div>
+    <!-- the place is a CHOICE at posting time, not a permission at the door.
+         Browser location is requested only if "attach" is chosen. -->
+    <div class="placerow" role="radiogroup" aria-label="Where should this conversation live?">
+      <button type="button" class="placeopt" id="placeFree" aria-pressed="true">✨ no place — it orbits, belongs to everyone</button>
+      <button type="button" class="placeopt" id="placeGeo" aria-pressed="false">🌍 attach my rough area (~11 km)</button>
+    </div>
     <div class="crow">
       <span class="cnt" id="count">0 / 500</span>
       <button class="btn" id="post">Say it →</button>
     </div>
-    <p class="honest">Anyone can read this, and it can't be unsent. If you allow location,
-    only your rough area (~11&nbsp;km) is used — to place your dot on the globe.
-    If you decline, your dot floats without a place — we never guess one for you.</p>
+    <p class="honest">Anyone can read this, and it can't be unsent. A place is only
+    attached if you choose it — and then only your rough area (~11&nbsp;km), never more.</p>
   </div>
 </div>
 
@@ -723,7 +739,7 @@ function fmtLoc(lat,lon){
   // reasoning that every user was from that campus — true in July, false the
   // moment the first Kolkata question arrived. Someone who declines the prompt
   // must not be captioned as standing somewhere they have never been.
-  if(lat==null||lon==null)return 'location not shared';
+  if(lat==null||lon==null)return 'in orbit · belongs to everyone';
   let best=null,bd=2.5*2.5;
   for(const [name,cla,clo] of CITIES){
     const dla=lat-cla,dlo=(lon-clo)*Math.cos(lat*Math.PI/180);
@@ -2050,12 +2066,14 @@ function syncAnon(){
 }
 anonBtn.onclick=()=>{S.anon=!S.anon;syncAnon();};
 syncAnon();
-function captureGeo(){
-  if(S.geo||IS_DEMO||!navigator.geolocation)return;
+function captureGeo(ok,fail){
+  if(IS_DEMO||!navigator.geolocation){if(fail)fail();return;}
+  if(S.geo){if(ok)ok();return;}
   navigator.geolocation.getCurrentPosition(
     p=>{S.geo={lat:Math.round(p.coords.latitude*10)/10,lon:Math.round(p.coords.longitude*10)/10};
-      localStorage.setItem('dotbro_geo',JSON.stringify(S.geo));},
-    ()=>{},{timeout:4000,maximumAge:600000});
+      localStorage.setItem('dotbro_geo',JSON.stringify(S.geo));
+      if(ok)ok();},
+    ()=>{if(fail)fail();},{timeout:8000,maximumAge:600000});
 }
 
 const catsEl=$('#cats');
@@ -2066,10 +2084,24 @@ CATKEYS.forEach(k=>{const [r,g,b]=CATS[k].col;
   catsEl.appendChild(c);
   if(k===S.cat)setTimeout(()=>c.onclick(),0);});
 $('#body').addEventListener('input',e=>$('#count').textContent=`${e.target.value.length} / 500`);
-/* Location permission fires on the FIRST KEYSTROKE, not on opening the sheet.
-   By then the disclosure above the textarea has been on screen and read —
-   the browser prompt arrives with its "why" already answered. */
-$('#body').addEventListener('input',captureGeo,{once:true});
+/* The place is a choice made while posting, not a permission demanded at the
+   door. Browser location is requested ONLY when "attach my rough area" is
+   chosen — contextual, intentional, revocable by tapping the other option. */
+let wantPlace=false;
+const placeFree=$('#placeFree'),placeGeo=$('#placeGeo');
+function syncPlace(){
+  placeFree.setAttribute('aria-pressed',String(!wantPlace));
+  placeGeo.setAttribute('aria-pressed',String(wantPlace));
+}
+placeFree.onclick=()=>{wantPlace=false;syncPlace();};
+placeGeo.onclick=()=>{
+  wantPlace=true;syncPlace();
+  captureGeo(
+    ()=>{placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;},
+    ()=>{wantPlace=false;syncPlace();
+      toast('no location permission — it will orbit instead, which is also beautiful.');});
+  if(S.geo)placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;
+};
 $('#post').onclick=async()=>{
   if(IS_DEMO){toast('demo data — read only. Remove ?n= from the URL to go live.');return}
   if(!db){toast("can't reach the space right now — your words wouldn't be saved.");return}
@@ -2079,11 +2111,9 @@ $('#post').onclick=async()=>{
   if(!rateOk('post',3,60000)){toast('easy — a few seconds between conversations.');return}
   const btn=$('#post');btn.disabled=true;btn.textContent='Sending…';
   if(!S.anon)localStorage.setItem('dotbro_name',name);
-  /* No location means NO LOCATION. This used to fall back to 31.8/77.0, which
-     fmtLoc happily resolved to "IIT Mandi" — captioning a stranger in Lagos as
-     standing in Himachal. Null is honest: the dot floats on the shared scatter
-     and the panel reads "location not shared". */
-  const loc=S.geo||{lat:null,lon:null};
+  /* A place only if it was CHOSEN. Everything else orbits — a first-class
+     kind of conversation, not missing data. */
+  const loc=(wantPlace&&S.geo)?S.geo:{lat:null,lon:null};
   let data=null,error=null;
   try{({data,error}=await db.addQuestion(name,body,S.cat,loc.lat,loc.lon));}
   catch(err){error=err;}
@@ -2283,7 +2313,7 @@ function renderQ(){
   $('#qview').innerHTML =
     `<div class="qcat" style="color:rgb(${r},${g},${b})">${esc(q.category)}</div>`+
     `<div class="qbody">${esc(q.body)}</div>`+
-    `<div class="qmeta">${esc(q.name)} · ${ago(q.created_at)}${IS_DEMO?'':' · '+(q.lat==null?'location not shared':'from '+fmtLoc(q.lat,q.lon))}`+
+    `<div class="qmeta">${esc(q.name)} · ${ago(q.created_at)}${IS_DEMO?'':' · '+(q.lat==null?'in orbit · belongs to everyone':'from '+fmtLoc(q.lat,q.lon))}`+
       (IS_DEMO?'':` · <button type="button" class="linkbtn" id="shareQ">copy link</button> · <button type="button" class="linkbtn" id="reportQ">report</button>`)+`</div>`+
     (IS_DEMO?'':`<div class="reportbox" id="reportBox"><input id="reportWhy" type="text" maxlength="300" aria-label="Why are you reporting this?" placeholder="why? (optional)"><button class="btn" id="reportGo">Report</button></div>`)+
     `<div class="p-actions" id="pActions">${actionsHtml}</div>`+
@@ -2524,6 +2554,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=19"></script>
+<script type="module" src="/alge-engine.js?v=20"></script>
 </body>
 </html>

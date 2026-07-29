@@ -351,9 +351,11 @@ function strokeShape(c, kind, cx, cy, rad) {
 function nodeTexture([r, g, b], kind) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128;
   const c = cv.getContext('2d');
-  let gr = c.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gr.addColorStop(0, `rgba(${r},${g},${b},0.8)`);
-  gr.addColorStop(0.3, `rgba(${r},${g},${b},0.28)`);
+  /* soft halo, not a searchlight — the glow used to fill the whole 128px tile
+     and stacked clusters fused into one blob of light */
+  let gr = c.createRadialGradient(64, 64, 0, 64, 64, 44);
+  gr.addColorStop(0, `rgba(${r},${g},${b},0.5)`);
+  gr.addColorStop(0.45, `rgba(${r},${g},${b},0.12)`);
   gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
   c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
   // White core = the conversation itself; coloured ring = which corner of life
@@ -362,10 +364,10 @@ function nodeTexture([r, g, b], kind) {
   // thing telling two neighbours apart — with it. Smaller core, heavier ring:
   // the category survives being stacked.
   c.fillStyle = '#fff';
-  c.beginPath(); c.arc(64, 64, 7, 0, 7); c.fill();
-  c.lineWidth = 8; c.strokeStyle = `rgb(${r},${g},${b})`;
+  c.beginPath(); c.arc(64, 64, 6, 0, 7); c.fill();
+  c.lineWidth = 9; c.strokeStyle = `rgb(${r},${g},${b})`;
   c.lineJoin = 'round';
-  strokeShape(c, kind || 'circle', 64, 64, 17);
+  strokeShape(c, kind || 'circle', 64, 64, 20);
   // 'random' is the only one that reads as a plain dot, so it gets a second
   // outline to stay distinguishable from 'life' rather than being its twin
   if (kind === 'ring') { c.lineWidth = 3; c.beginPath(); c.arc(64, 64, 27, 0, 7); c.stroke(); }
@@ -373,12 +375,18 @@ function nodeTexture([r, g, b], kind) {
   return t;
 }
 const MATS = {};
+/* Normal blending, not additive: additive is WHY a dense cluster became one
+   white glare — every overlap summed toward the searchlight. Normal keeps
+   each silhouette and its colour intact when stacked; bloom still lifts the
+   bright cores. Category identity survives density now. */
 for (const k in CATS) MATS[k] = new THREE.SpriteMaterial({
   map: nodeTexture(CATS[k].col, SHAPE[k]), transparent: true,
-  blending: THREE.AdditiveBlending, depthWrite: false,
+  depthWrite: false,
 });
 
 const ORBIT = 1.16, BOB = 0.011;   // float height + bob amplitude — 'conversations float on a shell above the surface'
+const FREE_R = 1.44;               // the satellite shell — location-free conversations orbit here
+const _orb = new THREE.Vector3();
 let clusterSpread = 0;             // how far a co-located cluster has opened, by zoom
 let qualityHold = 0;               // frames to wait before changing quality again
 const nodeGroup = new THREE.Group(); yawG.add(nodeGroup);
@@ -390,6 +398,7 @@ function rebuildTethers() {
   if (!list.length) return;
   const lp = new Float32Array(list.length * 6), sp2 = new Float32Array(list.length * 3);
   list.forEach((sp, i) => {
+    if (sp.userData.free) return;   // satellites are not anchored to any ground — zeros hide inside the Earth
     const d = sp.userData.dir;
     lp.set([d.x * 1.002, d.y * 1.002, d.z * 1.002, sp.position.x, sp.position.y, sp.position.z], i * 6);
     sp2.set([d.x * 1.003, d.y * 1.003, d.z * 1.003], i * 3);
@@ -415,22 +424,20 @@ function spriteFor(n) {
   // (the classic anchor blends in a category offset — that is a clustering trick
   //  for the 2D physics, not a location, and it put dots off their cities.)
   const q = !IS_DEMO && S.q.get(n.id);
-  let d;
+  let d, free = null;
   if (q && q.lat != null && q.lon != null) d = ll2v(q.lat, q.lon);
   else if (!IS_DEMO) {
-    // No location given. Parking these on home was fine when every user was
-    // from that one campus; it stopped being fine the moment questions arrived
-    // from Kolkata. They still need to exist somewhere on a globe, so they sit
-    // high above home on a wide, obviously-not-a-place scatter, and the caption
-    // now reads "location not shared" rather than naming a town for them.
-    // The real fix is confirming the place at post time — the globe should not
-    // be guessing on someone's behalf at all.
-    d = homeDir.clone();
-    const u = Math.abs(d.y) < 0.94 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-    const a1 = new THREE.Vector3().crossVectors(d, u).normalize();
-    const a2 = new THREE.Vector3().crossVectors(d, a1).normalize();
-    const k = nid * 2.399963;                       // golden-angle, so they never stack
-    d.addScaledVector(a1, Math.cos(k) * 0.055).addScaledVector(a2, Math.sin(k) * 0.055);
+    /* No place — ON PURPOSE. These are the universal conversations: instead of
+       squatting over one campus they orbit the world like satellites, slowly,
+       each on its own tilted ring. They belong to everyone, and the motion
+       says so before any caption does. */
+    const axis = new THREE.Vector3(Math.sin(hash(nid * 5 + 3) * 1.2 - 0.6), 1,
+                                   Math.sin(hash(nid * 5 + 9) * 1.2 - 0.6)).normalize();
+    const ref = Math.abs(axis.y) < 0.94 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const e1 = new THREE.Vector3().crossVectors(axis, ref).normalize();
+    const e2 = new THREE.Vector3().crossVectors(axis, e1).normalize();
+    free = { e1, e2, ph: hash(nid * 5 + 4) * Math.PI * 2, sp: 0.7 + hash(nid * 5 + 7) * 0.6 };
+    d = e1.clone().multiplyScalar(Math.cos(free.ph)).addScaledVector(e2, Math.sin(free.ph));
   }
   // Five of twelve conversations have no location — someone declined the prompt.
   // They used to fall through to the classic anchor, which is a CATEGORY
@@ -457,8 +464,9 @@ function spriteFor(n) {
   d.addScaledVector(t1, jx * 0.009).addScaledVector(t2, jy * 0.009).normalize();
   // own material clone per sprite — 21 live nodes, and it buys per-node dimming
   const sp = new THREE.Sprite(MATS[CATS[n.cat] ? n.cat : 'random'].clone());
-  sp.position.copy(d).multiplyScalar(ORBIT);
+  sp.position.copy(d).multiplyScalar(free ? FREE_R : ORBIT);
   sp.userData.node = n; sp.userData.dir = d; sp.userData.ph = hash(i * 7 + 5) * Math.PI * 2;
+  sp.userData.free = free;
   // kept so the cluster can OPEN as you dive into it — see spreadFor() in the
   // frame loop. Honest and tight from orbit, separable once you are close.
   sp.userData.t1 = t1; sp.userData.t2 = t2; sp.userData.jx = jx; sp.userData.jy = jy;
@@ -554,7 +562,10 @@ function stepArcs(now) {
 /* ── composer: the bloom IS the new era ── */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.55, 0.78);
+/* Calmer than it was (0.38/0.55/0.78): bloom had become the subject. Higher
+   threshold means only genuinely bright cores glow; the conversation, not the
+   lighting, is the hero. */
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.4, 0.85);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -853,18 +864,15 @@ function stepLabels() {
   // texts stacked on the same pixels.
   if (isGated()) { labelEls.forEach(el => el.style.opacity = '0'); return; }
   if (++labelFrame % 150 === 1) {
+    /* ONE label, and it has to earn it: the most-answered conversation facing
+       the camera. Everything else stays quiet until hovered or opened — the
+       globe was starting to read as a page of captions, and a label you have
+       to reach for is worth more than three you have to ignore. */
+    const nr = s => IS_DEMO ? (s.userData.node.nr || 0) : (S.replies.get(s.userData.node.id) || []).length;
     const cand = [...sprites.values()]
       .filter(s => frontDot(s) > 0.35 && (!S.filter || S.filter === s.userData.node.cat))
-      .sort((a, b) => frontDot(b) - frontDot(a));
-    labelPick = [];
-    // 3, not 4, and spaced further apart — nodes bunch over one city, so the
-    // old 230×54 box still let labels land almost on top of each other.
-    for (const s of cand) {
-      if (labelPick.length >= 3) break;
-      const p = screenPos(s);
-      if (labelPick.some(o => Math.abs(o.p.x - p.x) < 300 && Math.abs(o.p.y - p.y) < 92)) continue;
-      labelPick.push({ s, p });
-    }
+      .sort((a, b) => nr(b) - nr(a) || frontDot(b) - frontDot(a));
+    labelPick = cand.length ? [{ s: cand[0], p: screenPos(cand[0]) }] : [];
   }
   labelEls.forEach((el, i) => {
     const pick = labelPick[i];
@@ -1000,8 +1008,16 @@ function frame() {
       // size and position; grow-in, hover, dim and filtering all still respond.
       const pulse = (spot === sp && !REDUCED) ? 1 + 0.22 * Math.sin(now * 0.004) : 1;
       const breathe = REDUCED ? 1 : 1 + 0.05 * Math.sin(now * 0.0012 + sp.userData.ph);
-      // the float: each conversation bobs gently on its shell
-      let r = ORBIT + (REDUCED ? 0 : BOB * Math.sin(now * 0.0009 + sp.userData.ph * 6) * grow);
+      // the float: each conversation bobs gently on its shell — and the
+      // location-free ones ORBIT it, slow satellites that belong to everyone
+      const F = sp.userData.free;
+      let dirNow = sp.userData.dir, rBase = ORBIT;
+      if (F) {
+        const a = F.ph + (REDUCED ? 0 : now * 0.000018 * F.sp);
+        _orb.copy(F.e1).multiplyScalar(Math.cos(a)).addScaledVector(F.e2, Math.sin(a));
+        dirNow = _orb; rBase = FREE_R;
+      }
+      let r = rBase + (REDUCED || F ? 0 : BOB * Math.sin(now * 0.0009 + sp.userData.ph * 6) * grow);
       let extra = 1;
       /* ── arrival: a new conversation travels in from above, lands with a
          ripple, and its topic neighbours notice. Category stands in for the
@@ -1011,7 +1027,7 @@ function frame() {
       if (A) {
         const k = Math.min(1, (now - A.t0) / A.dur);
         const e = 1 - Math.pow(1 - k, 3);
-        r = ORBIT * (2.4 - 1.4 * e);
+        r = rBase * (2.4 - 1.4 * e);
         extra = 1 + (1 - e) * 1.4;                 // brighter while travelling
         if (k >= 1) {
           sp.userData.arrive = null;
@@ -1029,19 +1045,21 @@ function frame() {
         if (k >= 1) sp.userData.react = null; else extra *= 1 + 0.16 * Math.sin(Math.PI * k); }
       sp.scale.setScalar(base * grow * pulse * breathe * extra * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
       sp.material.opacity += ((dim ? 0.12 : 1) - sp.material.opacity) * 0.15;
-      sp.position.copy(sp.userData.dir).multiplyScalar(r);
+      sp.position.copy(dirNow).multiplyScalar(r);
       // Every question here comes from one campus, so from orbit they are one
       // dot and nothing can be picked out. As you dive in, the cluster opens:
       // the extra separation only exists at the zoom where you are trying to
       // tell them apart, so the dots stay honest about place when you are far.
-      if (clusterSpread > 0) {
+      if (clusterSpread > 0 && !F) {
         sp.position.addScaledVector(sp.userData.t1, sp.userData.jx * clusterSpread)
                    .addScaledVector(sp.userData.t2, sp.userData.jy * clusterSpread);
       }
       if (tpos) {
-        tpos.array[ti * 6 + 3] = sp.position.x;
-        tpos.array[ti * 6 + 4] = sp.position.y;
-        tpos.array[ti * 6 + 5] = sp.position.z;
+        if (!F) {          // satellites have no ground point — their tether stays degenerate at the core
+          tpos.array[ti * 6 + 3] = sp.position.x;
+          tpos.array[ti * 6 + 4] = sp.position.y;
+          tpos.array[ti * 6 + 5] = sp.position.z;
+        }
         ti++;
       }
     }
