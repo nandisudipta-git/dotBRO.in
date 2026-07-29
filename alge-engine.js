@@ -121,7 +121,18 @@ const faceAngles = d => ({ yaw: Math.atan2(-d.x, d.z), pitch: Math.asin(THREE.Ma
 const TEXBASE = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r134/examples/textures/planets/';
 const loader = new THREE.TextureLoader();
 loader.setCrossOrigin('anonymous');
-const tex = n => { const t = loader.load(TEXBASE + n); t.colorSpace = THREE.SRGBColorSpace; return t; };
+/* Anisotropy was never set, and that — not the pixel count — is most of why the
+   surface turned to mush when you dived in. Without it the GPU samples an
+   obliquely-viewed texture along a square footprint and blurs everything at a
+   grazing angle, which is exactly the angle you look at a globe from once you
+   are close to it. Free: no extra bytes, just correct sampling. */
+const MAXANISO = renderer.capabilities.getMaxAnisotropy();
+const tex = n => {
+  const t = loader.load(TEXBASE + n);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = MAXANISO;
+  return t;
+};
 const dayMap = tex('earth_atmos_2048.jpg');
 const nightMap = tex('earth_lights_2048.png');
 const specMap = loader.load(TEXBASE + 'earth_specular_2048.jpg');
@@ -170,6 +181,29 @@ const earthMat = new THREE.ShaderMaterial({
       gl_FragColor = vec4(col, 1.0);
     }`,
 });
+/* Sharper Earth, without paying for it on first paint. The 2K map above is what
+   you see immediately; this pulls the 4K one (713KB, same equirectangular
+   projection, same source) in the background and swaps it in when it lands.
+   Four times the pixels — roughly 20km per pixel down to 10km.
+
+   Honest limit: this makes the planet crisp, it does not make it a map. Street
+   detail would need real tile servers, and it would be pointless here anyway —
+   every location is deliberately rounded to ~0.1° (~11km) before it is stored,
+   so the data itself does not know an address. Sharper is reachable; "exact
+   address" is not, and should not be.
+
+   Skipped entirely when the device asks for reduced data. */
+const saveData = navigator.connection && navigator.connection.saveData;
+if (!saveData) {
+  loader.load(TEXBASE + 'earth_atmos_4096.jpg', t => {
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = MAXANISO;
+    const old = earthMat.uniforms.dayMap.value;
+    earthMat.uniforms.dayMap.value = t;
+    if (old && old !== t) old.dispose();
+  }, undefined, () => {/* 2K stays; the globe never depended on this */});
+}
+
 const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 96), earthMat);
 yawG.add(earth);
 
@@ -275,6 +309,13 @@ function spriteFor(n) {
   const q = !IS_DEMO && S.q.get(n.id);
   let d;
   if (q && q.lat != null && q.lon != null) d = ll2v(q.lat, q.lon);
+  else if (!IS_DEMO) d = homeDir.clone();
+  // Five of twelve conversations have no location — someone declined the prompt.
+  // They used to fall through to the classic anchor, which is a CATEGORY
+  // clustering position, not a place: questions asked in Mandi were drawn over
+  // Africa and the Pacific while the panel underneath read "IIT Mandi", because
+  // fmtLoc() already reports home when lat/lon are null. Now the dot agrees with
+  // the words. The demo path keeps the lattice — it has no real places to honour.
   else d = n.anchor
     ? new THREE.Vector3(n.anchor.x, -n.anchor.y, -n.anchor.z)
     : new THREE.Vector3(n.dx, -n.dy, -n.dz);
