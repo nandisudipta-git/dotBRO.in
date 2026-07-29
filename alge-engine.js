@@ -60,6 +60,7 @@ const backdropMat = new THREE.ShaderMaterial({
     uTime:   { value: 0 },
     uPar:    { value: new THREE.Vector2(0, 0) },
     uMotion: { value: REDUCED ? 0 : 1 },
+    uQuality:{ value: 1 },     // dropped to 0 automatically when frames are missed
   },
   vertexShader: `
     void main(){ gl_Position = vec4(position.xy, 1.0, 1.0); }
@@ -67,6 +68,7 @@ const backdropMat = new THREE.ShaderMaterial({
   fragmentShader: `
     precision mediump float;
     uniform vec2 uRes; uniform float uTime; uniform vec2 uPar; uniform float uMotion;
+    uniform float uQuality;
 
     float bank(vec2 p, vec2 c, float r, vec2 asp){
       return smoothstep(r, 0.0, distance(p * asp, c * asp));
@@ -105,13 +107,16 @@ const backdropMat = new THREE.ShaderMaterial({
 
       /* the banks alone are smooth blobs; two octaves of drifting noise give
          them internal texture — this is the half of mont-fort's fog we lacked */
-      float fogN = vnoise(p * asp * 3.0 + vec2(t * 0.020, -t * 0.012)) * 0.65
-                 + vnoise(p * asp * 7.0 - vec2(t * 0.014,  t * 0.009)) * 0.35;
+      float fogN = vnoise(p * asp * 3.0 + vec2(t * 0.020, -t * 0.012)) * 0.65;
+      if (uQuality > 0.5)
+        fogN += vnoise(p * asp * 7.0 - vec2(t * 0.014, t * 0.009)) * 0.35;
+      else fogN *= 1.35;                       // keep the fog's weight without the octave
       col += mist * (0.70 + 0.60 * fogN);
 
       /* mont-fort blueprint grid: derivative-AA lines, brighter crosses at the
          intersections, dots lit by a slow drifting noise pool. Held far from
          the centre — the globe sits on air, not graph paper. */
+      if (uQuality > 0.5) {
       vec2 gUv = p * asp * 16.0;
       vec2 gridUV = 1.0 - abs(fract(gUv) * 2.0 - 1.0);
       vec2 deriv = fwidth(gUv);
@@ -128,6 +133,7 @@ const backdropMat = new THREE.ShaderMaterial({
       col += vec3(0.28, 0.36, 0.44) * grid      * 0.045 * ring;
       col += vec3(0.42, 0.58, 0.72) * crossMark * 0.075 * ring;
       col += vec3(0.30, 0.60, 0.85) * dots * lit * 0.16 * ring;
+      }
 
       float v = smoothstep(1.25, 0.30, length((uv - 0.5) * asp) * 1.30);
       col *= mix(0.52, 1.0, v);
@@ -319,6 +325,8 @@ for (const k in CATS) MATS[k] = new THREE.SpriteMaterial({
 });
 
 const ORBIT = 1.16, BOB = 0.011;   // float height + bob amplitude — 'conversations float on a shell above the surface'
+let clusterSpread = 0;             // how far a co-located cluster has opened, by zoom
+let qualityHold = 0;               // frames to wait before changing quality again
 const nodeGroup = new THREE.Group(); yawG.add(nodeGroup);
 let tetherLine = null, surfDots = null;
 function rebuildTethers() {
@@ -377,13 +385,15 @@ function spriteFor(n) {
   const up = Math.abs(d.y) < 0.94 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
   const t1 = new THREE.Vector3().crossVectors(d, up).normalize();
   const t2 = new THREE.Vector3().crossVectors(d, t1).normalize();
-  d.addScaledVector(t1, (hash(i * 3 + 1) - 0.5) * 0.009)
-   .addScaledVector(t2, (hash(i * 3 + 2) - 0.5) * 0.009)
-   .normalize();
+  const jx = (hash(i * 3 + 1) - 0.5), jy = (hash(i * 3 + 2) - 0.5);
+  d.addScaledVector(t1, jx * 0.009).addScaledVector(t2, jy * 0.009).normalize();
   // own material clone per sprite — 21 live nodes, and it buys per-node dimming
   const sp = new THREE.Sprite(MATS[CATS[n.cat] ? n.cat : 'random'].clone());
   sp.position.copy(d).multiplyScalar(ORBIT);
   sp.userData.node = n; sp.userData.dir = d; sp.userData.ph = hash(i * 7 + 5) * Math.PI * 2;
+  // kept so the cluster can OPEN as you dive into it — see spreadFor() in the
+  // frame loop. Honest and tight from orbit, separable once you are close.
+  sp.userData.t1 = t1; sp.userData.t2 = t2; sp.userData.jx = jx; sp.userData.jy = jy;
   sp.userData.born = performance.now();
   nodeGroup.add(sp); sprites.set(n, sp);
   return sp;
@@ -771,6 +781,14 @@ function frame() {
       // the float: each conversation bobs gently on its shell
       const r = ORBIT + (REDUCED ? 0 : BOB * Math.sin(now * 0.0009 + sp.userData.ph * 6) * grow);
       sp.position.copy(sp.userData.dir).multiplyScalar(r);
+      // Every question here comes from one campus, so from orbit they are one
+      // dot and nothing can be picked out. As you dive in, the cluster opens:
+      // the extra separation only exists at the zoom where you are trying to
+      // tell them apart, so the dots stay honest about place when you are far.
+      if (clusterSpread > 0) {
+        sp.position.addScaledVector(sp.userData.t1, sp.userData.jx * clusterSpread)
+                   .addScaledVector(sp.userData.t2, sp.userData.jy * clusterSpread);
+      }
       if (tpos) {
         tpos.array[ti * 6 + 3] = sp.position.x;
         tpos.array[ti * 6 + 4] = sp.position.y;
@@ -803,6 +821,24 @@ function frame() {
   // the air: seconds for the sine paths, plus a light parallax off the drag
   backdropMat.uniforms.uTime.value = now * 0.001;
   backdropMat.uniforms.uPar.value.set(yaw * 0.014, pitch * 0.014);
+
+  /* Adaptive quality. The backdrop runs noise and a derivative-AA grid over
+     every pixel of a retina fullscreen quad, every frame — beautiful, and the
+     first thing to cost frames on an integrated GPU or a phone. Rather than
+     pick between "pretty" and "smooth" for everyone, measure and decide per
+     device: drop the grid and the second noise octave when frames are being
+     missed, restore them once there is headroom. Hysteresis so it cannot
+     oscillate. */
+  const fps = 1000 / window.__ENGINE.ema;
+  if (qualityHold > 0) qualityHold--;
+  else if (backdropMat.uniforms.uQuality.value > 0.5 && fps < 45) {
+    backdropMat.uniforms.uQuality.value = 0; qualityHold = 240;
+  } else if (backdropMat.uniforms.uQuality.value < 0.5 && fps > 57) {
+    backdropMat.uniforms.uQuality.value = 1; qualityHold = 240;
+  }
+
+  // how far the cluster is allowed to open, by how close the camera is
+  clusterSpread = zoom <= 1.5 ? 0 : Math.min((zoom - 1.5) * 0.016, 0.055);
 
   composer.render(dt);
 }
