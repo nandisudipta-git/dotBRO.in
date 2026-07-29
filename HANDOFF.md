@@ -44,6 +44,7 @@
 - Mod passphrase: same one the old feed admin used (Ron has it). Rotate with:
   `update private.admin_secret set hash = crypt('NEW-PASS', gen_salt('bf',10));`
 - The publishable key in the pages is meant to be public. The DB constraints are the security
+- **Analytics (2026-07-29):** `public.events` — first-party funnel only (landed → globe_touched → geo prompt/granted/denied → compose opened/abandoned → question_posted → reply viewed/posted → install pill events → session_end w/ dwell secs). **Write-only via the API** (INSERT policy, no SELECT — read it here or in the SQL editor). Anonymous session UUID, coarse device/browser, no IPs, no text, no third parties. Per-IP rate guard (`events_guard`, same hashed pattern), 90-day prune. Client: `track()` in index.html, fire-and-forget
 
 ## Working on it
 
