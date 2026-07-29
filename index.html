@@ -143,6 +143,13 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 /* Gate up = one question on screen, nothing else. The WebGL engine already
    skips these; this also covers the 2D fallback, which draws its own. */
 body.gated .albl,body.gated #tip,body.gated #leader,body.gated #hint{opacity:0 !important;}
+/* "Start a conversation" and the gate's "Post your own" are the same action.
+   Showing both made the first screen ask the same question twice. */
+body.gated .fab{opacity:0 !important;pointer-events:none;}
+/* in the feed the globe's own controls mean nothing — zoom, spin hint, the
+   topic legend. The compose button stays: it is the point. */
+body.feeding .botleft,body.feeding .zoomui,body.feeding #hint,
+body.feeding .albl,body.feeding #tip,body.feeding #leader{opacity:0 !important;pointer-events:none;}
 .albl{position:absolute;transform:translate(0,-50%);white-space:nowrap;
   font-size:12px;font-family:'Space Mono',ui-monospace,monospace;
   background:rgba(255,255,255,.92);color:#22303C;padding:4px 10px;border-radius:11px;
@@ -282,6 +289,60 @@ body.gated .albl,body.gated #tip,body.gated #leader,body.gated #hint{opacity:0 !
   opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;}
 #toast.on{opacity:1;transform:translate(-50%,0);}
 
+/* ══ THE FEED ══════════════════════════════════════════════════════════════
+   The globe is the identity; it is a bad index. 11 of 12 conversations sit on
+   one dot, so half of them were simply unreachable. This is the way in:
+   every conversation, ranked, one tap to answer. Same sheet, same data. */
+.viewtabs{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);
+  z-index:16;display:flex;gap:2px;padding:3px;border-radius:999px;pointer-events:auto;
+  background:rgba(13,22,30,.62);border:1px solid rgba(255,255,255,.16);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+.viewtabs button{font-family:inherit;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);background:none;border:none;border-radius:999px;padding:9px 18px;cursor:pointer;
+  min-height:38px;transition:color .2s ease,background .2s ease;}
+.viewtabs button:hover{color:var(--paper);}
+.viewtabs button[aria-selected=true]{background:rgba(255,255,255,.14);color:var(--paper);}
+.viewtabs button:focus-visible{outline:2px solid var(--paper);outline-offset:2px;}
+body.gated .viewtabs{opacity:0;pointer-events:none;}
+
+#feed{position:fixed;inset:0;z-index:12;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:76px 18px calc(120px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(180deg,rgba(9,14,20,.90) 0%,rgba(9,14,20,.97) 22%,rgba(9,14,20,.99) 100%);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  display:none;opacity:0;transition:opacity .28s ease;}
+#feed.on{display:block;opacity:1;}
+.feedwrap{max-width:660px;margin:0 auto;}
+.feedhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.feedhead h2{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:1px;color:var(--paper);font-weight:400;}
+.feedsort{display:flex;gap:4px;}
+.feedsort button{font-family:inherit;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);background:none;border:1px solid rgba(255,255,255,.16);border-radius:999px;
+  padding:7px 13px;cursor:pointer;min-height:34px;transition:all .18s ease;}
+.feedsort button[aria-pressed=true]{color:#0B131B;background:var(--paper);border-color:var(--paper);}
+.feedsort button:focus-visible{outline:2px solid var(--paper);outline-offset:2px;}
+
+/* a row is a whole button: 44px+ target, keyboard reachable, no nested controls */
+.frow{display:block;width:100%;text-align:left;background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.09);border-left:3px solid var(--fc,#888);
+  border-radius:13px;padding:15px 17px;margin-bottom:9px;cursor:pointer;font-family:inherit;
+  transition:background .18s ease,border-color .18s ease,transform .18s ease;}
+.frow:hover{background:rgba(255,255,255,.075);border-color:rgba(255,255,255,.2);border-left-color:var(--fc,#888);}
+.frow:active{transform:scale(.995);}
+.frow:focus-visible{outline:2px solid var(--paper);outline-offset:2px;}
+.frow .fq{font-size:1.02rem;line-height:1.45;color:var(--paper);margin-bottom:9px;word-wrap:break-word;}
+.frow .fmeta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  font-size:.68rem;letter-spacing:.05em;color:var(--dim);}
+.frow .fcat{text-transform:uppercase;letter-spacing:.12em;color:var(--fc,#888);font-size:.62rem;}
+.frow .fdot{opacity:.4;}
+.fpill{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;
+  font-size:.66rem;letter-spacing:.06em;background:rgba(255,255,255,.09);color:var(--paper);white-space:nowrap;}
+.fpill.none{background:none;color:var(--dim);border:1px dashed rgba(255,255,255,.2);}
+.feedempty{padding:38px 8px;text-align:center;color:var(--dim);font-size:.9rem;line-height:1.6;}
+@media(max-width:640px){
+  #feed{padding:70px 12px calc(120px + env(safe-area-inset-bottom,0px));}
+  .frow .fq{font-size:.97rem;}
+}
+
 /* ── reduced motion ───────────────────────────────────────────────────────
    This page is motion-heavy on purpose: the globe turns, nodes breathe, the
    live dot throbs. Someone who has asked their OS for less motion gets the
@@ -304,6 +365,25 @@ body.gated .albl,body.gated #tip,body.gated #leader,body.gated #hint{opacity:0 !
 <body>
 <canvas id="c" role="img" aria-label="A globe of live conversations. Use the arrow keys to spin it, plus and minus to zoom, and the Start a conversation button to add yours."></canvas>
 <div id="labels" aria-hidden="true"></div>
+
+<div class="viewtabs" role="tablist" aria-label="How to browse">
+  <button id="tabGlobe" role="tab" aria-selected="true" aria-controls="feed">Globe</button>
+  <button id="tabFeed"  role="tab" aria-selected="false" aria-controls="feed">Feed</button>
+</div>
+<section id="feed" role="tabpanel" aria-labelledby="tabFeed" hidden>
+  <div class="feedwrap">
+    <div class="feedhead">
+      <h2 id="feedTitle">Every conversation</h2>
+      <div class="feedsort" role="group" aria-label="Order">
+        <button id="sortHot"    aria-pressed="true">Most answered</button>
+        <button id="sortNew"    aria-pressed="false">Newest</button>
+        <button id="sortUnans"  aria-pressed="false">Needs an answer</button>
+      </div>
+    </div>
+    <div id="feedList"></div>
+  </div>
+</section>
+
 <div id="grain" aria-hidden="true"></div>
 <div id="netmsg"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1594,6 +1674,7 @@ function dismissGate(){
 }
 function armGate(){
   const gAnswer=$('#gateAnswer'),gQ=$('#hookQ'),gMeta=$('#hookMeta'),gSub=$('#hookSub');
+  newestQId=pickHookId();          // relatable, not merely newest — see pickHookId
   if(newestQId&&S.q.has(newestQId)){
     const q=S.q.get(newestQId);
     let t=q.body.trim();if(t.length>92)t=t.slice(0,90)+'…';
@@ -1617,6 +1698,107 @@ $('#gateAnswer').onclick=()=>{
 };
 $('#gatePost').onclick=()=>{dismissGate();endIntro();captureGeo();openSheet('#compose');};
 $('#gateSpectate').onclick=()=>{dismissGate();endIntro();forceHint();};
+
+/* ─── taste: what this visitor keeps opening ───────────────────────────────
+   Stays on the device — a small tally in localStorage, never sent anywhere,
+   no account, no server-side profile. It exists so the first question someone
+   meets is one they can relate to, instead of whatever happened to be posted
+   last. Nothing here identifies a person; clearing site data resets it. */
+const TASTE_KEY='dotbro_taste';
+function taste(){try{return JSON.parse(localStorage.getItem(TASTE_KEY))||{}}catch(_){return {}}}
+function noteTaste(cat){
+  if(!cat)return;
+  const t=taste();t[cat]=(t[cat]||0)+1;
+  try{localStorage.setItem(TASTE_KEY,JSON.stringify(t))}catch(_){}
+}
+function topTaste(){
+  const t=taste();let best=null,n=0;
+  for(const k in t)if(t[k]>n){n=t[k];best=k;}
+  return best;
+}
+/* Pick the question that opens the space. Preference order:
+   1. unseen, already answered by a human, in a category this visitor likes
+   2. unseen and already answered by a human   (a live conversation beats a monologue)
+   3. any unseen question
+   4. anything at all — they have seen everything, so rotate
+   "Already answered" is the only quality signal that costs nobody anything:
+   if a stranger bothered to reply, it was worth replying to. */
+const SEEN_KEY='dotbro_seen_hooks';
+function seenHooks(){try{return JSON.parse(localStorage.getItem(SEEN_KEY))||[]}catch(_){return []}}
+function pickHookId(){
+  const all=[...S.q.values()];
+  if(!all.length)return null;
+  const seen=new Set(seenHooks()), liked=topTaste();
+  const answered=q=>(S.replies.get(q.id)||[]).length>0;
+  const pools=[
+    all.filter(q=>!seen.has(q.id)&&answered(q)&&liked&&q.category===liked),
+    all.filter(q=>!seen.has(q.id)&&answered(q)),
+    all.filter(q=>!seen.has(q.id)),
+    all,
+  ];
+  const pool=pools.find(p=>p.length)||all;
+  const q=pool[Math.floor(Math.random()*pool.length)];
+  try{localStorage.setItem(SEEN_KEY,JSON.stringify([...seen,q.id].slice(-40)))}catch(_){}
+  return q.id;
+}
+
+/* ─── the feed ─────────────────────────────────────────────────────────────
+   Everything the globe cannot show. Same questions, same sheet — just an
+   index that does not depend on where anyone happened to be standing. */
+let feedSort='hot', feedOn=false;
+const feedEl=$('#feed'), feedList=$('#feedList');
+function nReplies(id){return (S.replies.get(id)||[]).length}
+function feedRows(){
+  const rows=[...S.q.values()];
+  if(feedSort==='new') rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  else if(feedSort==='unanswered')
+    rows.sort((a,b)=>(nReplies(a.id)-nReplies(b.id))||(new Date(b.created_at)-new Date(a.created_at)));
+  else rows.sort((a,b)=>(nReplies(b.id)-nReplies(a.id))||(new Date(b.created_at)-new Date(a.created_at)));
+  return rows;
+}
+function renderFeed(){
+  if(!feedOn)return;
+  const rows=feedRows();
+  if(!rows.length){
+    feedList.innerHTML='<div class="feedempty">Nothing here yet.<br>Be the first to leave a conversation unfinished.</div>';
+    return;
+  }
+  feedList.innerHTML=rows.map(q=>{
+    const c=CATS[q.category]?CATS[q.category].col:CATS.random.col;
+    const n=nReplies(q.id);
+    const pill=n?`<span class="fpill">${n} ${n===1?'answer':'answers'}</span>`
+                :`<span class="fpill none">no answer yet</span>`;
+    return `<button class="frow" data-id="${esc(q.id)}" style="--fc:rgb(${c[0]},${c[1]},${c[2]})">
+      <div class="fq">${esc(q.body)}</div>
+      <div class="fmeta"><span class="fcat">${esc(q.category)}</span>
+        <span class="fdot">·</span><span>${esc(q.name)}</span>
+        <span class="fdot">·</span><span>${ago(q.created_at)}</span>
+        ${pill}</div>
+    </button>`;
+  }).join('');
+  feedList.querySelectorAll('.frow').forEach(b=>{
+    b.onclick=()=>openQ(b.dataset.id);        // openQ records the taste
+  });
+}
+function setView(which){
+  feedOn = which==='feed';
+  feedEl.classList.toggle('on',feedOn);
+  feedEl.hidden=!feedOn;
+  document.body.classList.toggle('feeding',feedOn);
+  $('#tabFeed').setAttribute('aria-selected',String(feedOn));
+  $('#tabGlobe').setAttribute('aria-selected',String(!feedOn));
+  if(feedOn){renderFeed();feedEl.scrollTop=0;}
+}
+$('#tabGlobe').onclick=()=>setView('globe');
+$('#tabFeed').onclick =()=>setView('feed');
+[['#sortHot','hot'],['#sortNew','new'],['#sortUnans','unanswered']].forEach(([sel,mode])=>{
+  $(sel).onclick=()=>{
+    feedSort=mode;
+    [['#sortHot','hot'],['#sortNew','new'],['#sortUnans','unanswered']].forEach(([s,m])=>
+      $(s).setAttribute('aria-pressed',String(m===mode)));
+    renderFeed();
+  };
+});
 
 /* ─── connect now: one real address, one tap, and a copy fallback for
        browsers with no mail client wired up ─── */
@@ -1790,13 +1972,17 @@ function flyToNode(id){
        t0:performance.now(),dur:900};
   if(zoomT<1.5)zoomT=1.5;
 }
-function openQ(id){closeAll();S.openId=id;activeKind=null;flyToNode(id);openSheet('#qsheet');renderQ();}
+function openQ(id){
+  const q=qOf(id); if(q)noteTaste(q.category);   // whichever surface it came from
+  closeAll();S.openId=id;activeKind=null;flyToNode(id);openSheet('#qsheet');renderQ();
+}
 
 function pushReply(r){const arr=S.replies.get(r.question_id)||[];
   if(arr.some(x=>x.id===r.id))return;arr.push(r);
   arr.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
   S.replies.set(r.question_id,arr);
-  if(S.openId===r.question_id)renderQ();}
+  if(S.openId===r.question_id)renderQ();
+  renderFeed();}                              // answer counts + "hot" order stay live
 
 /* ─── presence: live head-count. Shown only when at least 2 are here —
        "1 here now" reads as an empty room, silence reads better. ─── */
@@ -1852,7 +2038,7 @@ async function loadLive(){
   }
   try{
     await loadLive();
-    db.onQuestion(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,true)}});
+    db.onQuestion(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,true);renderFeed();}});
     db.onReply(pushReply);
     startPresence();
     const shared=new URLSearchParams(location.search).get('q');
@@ -1870,6 +2056,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=2"></script>
+<script type="module" src="/alge-engine.js?v=3"></script>
 </body>
 </html>
