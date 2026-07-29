@@ -730,14 +730,16 @@ const db=!LIVE?null:{
 
 /* ─── same 6 categories + colors as feed.html ─── */
 const CATS={
-  'ai & future':    {col:[155,135,255]},
-  'build & startup':{col:[232,163,61]},
-  'study & gyaan':  {col:[200,212,0]},
-  'life':           {col:[176,186,196]},
-  'meet people':    {col:[63,167,150]},
-  'random':         {col:[220,80,70]},
+  'ai & future':    {col:[155,135,255],emo:'🤖'},
+  'build & startup':{col:[232,163,61],emo:'🚀'},
+  'study & gyaan':  {col:[200,212,0],emo:'📚'},
+  'life':           {col:[176,186,196],emo:'🌱'},
+  'meet people':    {col:[63,167,150],emo:'🤝'},
+  'random':         {col:[220,80,70],emo:'🎲'},
 };
 const CATKEYS=Object.keys(CATS);
+/* one voice for category names everywhere: emoji + name */
+const catLabel=k=>(CATS[k]&&CATS[k].emo?CATS[k].emo+' ':'')+k;
 
 const KIND_META={
   answer:  {icon:'&#9998;', label:'Answer',  placeholder:'What would you say back?'},
@@ -828,6 +830,7 @@ const legendBox=$('#legend');
 const legendEls={};
 const filterToggle=document.getElementById('filterToggle');
 filterToggle.onclick=()=>{
+  if(S.filter){setFilter(null);return;}   // the chip reads "life ×" — the × must mean it
   const open=legendBox.hidden;
   legendBox.hidden=!open;
   filterToggle.setAttribute('aria-expanded',open?'true':'false');
@@ -841,7 +844,7 @@ function setFilter(k){
   }
   filterToggle.classList.toggle('filtered',!!S.filter);
   filterToggle.innerHTML=S.filter
-    ? esc(S.filter)+' &times;'
+    ? esc(catLabel(S.filter))+' &times;'
     : 'filter by topic <span aria-hidden="true">&#9662;</span>';
   if(S.filter)legendBox.hidden=false,filterToggle.setAttribute('aria-expanded','true');
 }
@@ -849,7 +852,7 @@ CATKEYS.forEach(k=>{
   const [r,g,b]=CATS[k].col;
   const el=document.createElement('button'); el.className='lg'; el.type='button';
   el.setAttribute('aria-pressed','false');
-  el.innerHTML=`<span class="sw" style="background:rgb(${r},${g},${b})" aria-hidden="true"></span>${k}`;
+  el.innerHTML=`<span class="sw" style="background:rgb(${r},${g},${b})" aria-hidden="true"></span>${esc(catLabel(k))}`;
   el.onclick=()=>setFilter(S.filter===k?null:k);
   legendEls[k]=el;
   legendBox.appendChild(el);
@@ -1334,7 +1337,7 @@ function updateCallout(){
     _tipStamp=stamp;
     const q=qOf(p.id);
     tipCat.style.color=`rgb(${r},${g},${b})`;
-    tipCat.textContent=p.cat;
+    tipCat.textContent=catLabel(p.cat);
     tipQ.textContent=p.text.slice(0,120);
     tipM.textContent=(q?q.name+' · ':'')+ago(p.createdAt||p.ts)+' · '+
       (rs.length?rs.length+(rs.length>1?' voices':' voice'):'still unfinished')+
@@ -2034,7 +2037,7 @@ function renderFeed(){
                 :`<span class="fpill none">no answer yet</span>`;
     return `<button class="frow" data-id="${esc(q.id)}" style="--fc:rgb(${c[0]},${c[1]},${c[2]})">
       <div class="fq">${esc(q.body)}</div>
-      <div class="fmeta"><span class="fcat">${esc(q.category)}</span>
+      <div class="fmeta"><span class="fcat">${esc(catLabel(q.category))}</span>
         <span class="fdot">·</span><span>${esc(q.name)}</span>
         <span class="fdot">·</span><span>${ago(q.created_at)}</span>
         ${pill}</div>
@@ -2130,7 +2133,7 @@ function captureGeo(ok,fail){
 
 const catsEl=$('#cats');
 CATKEYS.forEach(k=>{const [r,g,b]=CATS[k].col;
-  const c=document.createElement('button');c.className='chip';c.textContent=k;
+  const c=document.createElement('button');c.className='chip';c.textContent=catLabel(k);
   c.onclick=()=>{S.cat=k;[...catsEl.children].forEach(x=>{x.classList.remove('on');x.style.background='';x.style.borderColor=''});
     c.classList.add('on');c.style.background=`rgb(${r},${g},${b})`;c.style.borderColor=`rgb(${r},${g},${b})`};
   catsEl.appendChild(c);
@@ -2310,7 +2313,7 @@ function siblingsHtml(q){
       const n=nReplies(s.id);
       return `<button class="scard" data-sid="${esc(s.id)}" style="--sc:rgb(${c[0]},${c[1]},${c[2]})">
         <span class="sq">${esc(s.body.length>84?s.body.slice(0,83)+'…':s.body)}</span>
-        <span class="smeta"><span class="scat">${esc(s.category)}</span> · ${esc(s.name)}
+        <span class="smeta"><span class="scat">${esc(catLabel(s.category))}</span> · ${esc(s.name)}
           · ${n?`${n} ${n===1?'answer':'answers'}`:'no answer yet'}</span>
       </button>`;
     }).join('')+`</div>`;
@@ -2367,7 +2370,7 @@ function renderQ(){
       : `<div class="r rmeta">no one has continued this yet — be the first.</div>`);
 
   $('#qview').innerHTML =
-    `<div class="qcat" style="color:rgb(${r},${g},${b})">${esc(q.category)}</div>`+
+    `<div class="qcat" style="color:rgb(${r},${g},${b})">${esc(catLabel(q.category))}</div>`+
     `<div class="qbody">${esc(q.body)}</div>`+
     `<div class="qmeta">${esc(q.name)} · ${ago(q.created_at)}${IS_DEMO?'':' · '+(q.lat==null?'in orbit · belongs to everyone':'from '+fmtLoc(q.lat,q.lon))}`+
       (IS_DEMO?'':` · <button type="button" class="linkbtn" id="shareQ">copy link</button> · <button type="button" class="linkbtn" id="reportQ">report</button>`)+`</div>`+
@@ -2555,7 +2558,7 @@ function maybeOfferInstall(){
 function hideInstallPill(){if(installPill){installPill.remove();installPill=null;}}
 
 /* ─── bridge for the WebGL engine (module scripts cannot see const/let here) ─── */
-window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)};
+window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,catLabel,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)};
 
 /* ─── boot ─── */
 async function loadLive(){
@@ -2648,6 +2651,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=22"></script>
+<script type="module" src="/alge-engine.js?v=23"></script>
 </body>
 </html>

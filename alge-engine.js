@@ -14,6 +14,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 const APP = window.APP;
 if (!APP) throw new Error('bridge missing');
 const S = APP.S, CATS = APP.CATS, IS_DEMO = APP.IS_DEMO;
+const catLabel = APP.catLabel || (k => k);
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* The entry gate (index.html) owns the first screen: one real question and
@@ -748,7 +749,7 @@ function updateCallout() {
   if (_tipStamp !== stamp) {
     _tipStamp = stamp;
     const q = APP.qOf(n.id);
-    tipCat.style.color = `rgb(${r},${g},${b})`; tipCat.textContent = n.cat;
+    tipCat.style.color = `rgb(${r},${g},${b})`; tipCat.textContent = catLabel(n.cat);
     tipQ.textContent = n.text.slice(0, 120);
     tipM.textContent = (q ? q.name + ' · ' : '') + APP.ago(n.createdAt || n.ts) + ' · ' +
       (rs.length ? rs.length + (rs.length > 1 ? ' voices' : ' voice') : 'still unfinished') +
