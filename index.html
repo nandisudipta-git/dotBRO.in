@@ -94,8 +94,9 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;
    Now a horizontal chip row above the FAB, scrollable if it must be. */
 @media(max-width:640px){
   /* the live counters are the eye-candy — on a phone they were dim 12px text
-     lost against the globe. Chips give them a floor to stand on. */
-  .topright{padding:calc(12px + env(safe-area-inset-top,0px)) 12px 8px;display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+     lost against the globe, and then hidden BEHIND the centred GLOBE/FEED
+     toggle. Chips give them a floor; the top offset drops them below it. */
+  .topright{padding:calc(64px + env(safe-area-inset-top,0px)) 12px 8px;display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
   .topright .count{background:rgba(13,22,30,.6);border:1px solid var(--hair);border-radius:99px;padding:5px 11px;font-size:11px;color:#cfdbe6;}
   .topright .count b{color:#fff;}
   .topright #hereRow{margin-top:0!important;}
@@ -684,6 +685,37 @@ const SUPABASE_KEY='sb_publishable_qaGLnY9bUZ3nhveVw-64xg_kDuJLfHt';
 const SB_OK=typeof supabase!=='undefined'&&supabase&&typeof supabase.createClient==='function';
 const LIVE=!IS_DEMO&&SB_OK;
 const sb=LIVE?supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+/* ─── first-party analytics: the validation funnel, nothing more.
+       Anonymous session id, coarse device/browser class, no IPs (the server
+       never stores one), no text, no third parties. The events table is
+       write-only through the API — a visitor can leave a breadcrumb, nobody
+       can read the trail. Every call is fire-and-forget: analytics must never
+       cost a frame or block a post. ─── */
+const SES=(()=>{try{let s=sessionStorage.getItem('dotbro_ses');
+  if(!s){s=crypto.randomUUID();sessionStorage.setItem('dotbro_ses',s);}return s;}catch(_){return 'no-storage';}})();
+const DEVICE=matchMedia('(pointer:coarse)').matches?'phone':'desktop';
+const BROWSER=(u=>/edg\//i.test(u)?'edge':/firefox|fxios/i.test(u)?'firefox'
+  :/chrome|crios/i.test(u)?'chrome':/safari/i.test(u)?'safari':'other')(navigator.userAgent);
+const sesT0=performance.now();
+function track(ev,props){
+  if(IS_DEMO||!LIVE)return;
+  try{sb.from('events').insert({session:SES,event:ev,props:props||null,device:DEVICE,browser:BROWSER})
+    .then(()=>{},()=>{});}catch(_){}
+}
+let _sesEnded=false;
+function endSession(){
+  if(_sesEnded||IS_DEMO||!SB_OK)return;_sesEnded=true;
+  try{fetch(SUPABASE_URL+'/rest/v1/events',{method:'POST',keepalive:true,
+    headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},
+    body:JSON.stringify({session:SES,event:'session_end',
+      props:{secs:Math.round((performance.now()-sesT0)/1000)},device:DEVICE,browser:BROWSER})}).catch(()=>{});}catch(_){}
+}
+addEventListener('pagehide',endSession);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')endSession();});
+let _touched=false;
+addEventListener('pointerdown',e=>{
+  if(!_touched&&e.target&&(e.target.id==='c'||e.target.id==='c3d')){_touched=true;track('globe_touched');}},true);
+
 const db=!LIVE?null:{
   listQuestions:()=>sb.from('questions').select('*').order('created_at',{ascending:false}).limit(300),
   listReplies:()=>sb.from('replies').select('*').order('created_at',{ascending:true}),
@@ -1809,6 +1841,7 @@ let lastFocus=null;
 function openSheet(id){
   lastFocus=document.activeElement;
   document.body.classList.add('sheeting');   // the globe's own chatter stands down
+  if(id==='#compose')track('compose_opened');
   const sh=$(id);sh.classList.add('open');scrim.classList.add('open');
   /* the element to focus is chosen INSIDE the timeout — openQ calls renderQ
      after openSheet, and grabbing a reference first meant focusing a node
@@ -1820,7 +1853,13 @@ function openSheet(id){
     if(f)f.focus();
   },60);
 }
-function closeAll(){document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
+let _justPosted=false;
+function closeAll(){
+  // a compose that closes still holding words is the funnel's most important
+  // signal — the moment someone almost spoke
+  if(document.querySelector('#compose.open')&&!_justPosted&&$('#body').value.trim().length>2)
+    track('compose_abandoned');
+  document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
   scrim.classList.remove('open');document.body.classList.remove('sheeting');S.openId=null;activeKind=null;
   // leave the hash clean, or the connect link goes inert (same hash = no event)
   if(location.hash==='#connect')history.replaceState(null,'',location.pathname+location.search);
@@ -2069,11 +2108,13 @@ syncAnon();
 function captureGeo(ok,fail){
   if(IS_DEMO||!navigator.geolocation){if(fail)fail();return;}
   if(S.geo){if(ok)ok();return;}
+  track('geo_prompt_shown');
   navigator.geolocation.getCurrentPosition(
     p=>{S.geo={lat:Math.round(p.coords.latitude*10)/10,lon:Math.round(p.coords.longitude*10)/10};
       localStorage.setItem('dotbro_geo',JSON.stringify(S.geo));
+      track('geo_granted');
       if(ok)ok();},
-    ()=>{if(fail)fail();},{timeout:8000,maximumAge:600000});
+    ()=>{track('geo_denied');if(fail)fail();},{timeout:8000,maximumAge:600000});
 }
 
 const catsEl=$('#cats');
@@ -2121,6 +2162,8 @@ $('#post').onclick=async()=>{
   if(error){toast("couldn't start it — check your connection and try again.");return}
   $('#body').value='';$('#count').textContent='0 / 500';
   toast('it\'s floating. someone will find it.');
+  track('question_posted',{placed:loc.lat!=null,cat:S.cat});
+  _justPosted=true;setTimeout(()=>{_justPosted=false;},500);
   engaged();                                     // posting definitely counts
   if(data){S.mine.add(data.id);localStorage.setItem('dotbro_mine',JSON.stringify([...S.mine]));
     if(!S.q.has(data.id)){S.q.set(data.id,data);addNode(data,true);}
@@ -2392,6 +2435,7 @@ async function submitAction(){
   if(btn){btn.disabled=false;btn.textContent=isMeet?'Reach out →':'Say it →';}
   if(error){ toast('could not send — check your connection and try again.'); return; }
   if(data) pushReply(data);
+  track('reply_posted',{kind:activeKind});
   activeKind=null;
   renderQ();
 }
@@ -2408,6 +2452,7 @@ function flyToNode(id){
 function openQ(id){
   const q=qOf(id); if(q)noteTaste(q.category);   // whichever surface it came from
   engaged();                                     // reading counts toward the install offer
+  track('reply_viewed');
   closeAll();S.openId=id;activeKind=null;flyToNode(id);openSheet('#qsheet');renderQ();
   if(S.mine.has(id))markSeen(id);
 }
@@ -2452,7 +2497,7 @@ let installEv=null;
 const STANDALONE=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEv=e;maybeOfferInstall();});
-addEventListener('appinstalled',()=>{localStorage.setItem('dotbro_installed','1');hideInstallPill();});
+addEventListener('appinstalled',()=>{localStorage.setItem('dotbro_installed','1');track('install_accepted');hideInstallPill();});
 let installPill=null;
 function engaged(){
   const n=(+localStorage.getItem('dotbro_engage')||0)+1;
@@ -2474,7 +2519,8 @@ function maybeOfferInstall(){
   installPill.querySelector('#installGo').style.cssText='background:none;border:0;color:#dfe9f2;font:11px/1.6 "Space Mono",monospace;letter-spacing:.08em;cursor:pointer;';
   installPill.querySelector('#installNo').style.cssText='background:none;border:0;color:#8a98a5;font-size:14px;cursor:pointer;padding:2px 8px;';
   document.body.appendChild(installPill);
-  installPill.querySelector('#installNo').onclick=()=>{localStorage.setItem('dotbro_install_no','1');hideInstallPill();};
+  track('install_pill_shown');
+  installPill.querySelector('#installNo').onclick=()=>{localStorage.setItem('dotbro_install_no','1');track('install_dismissed');hideInstallPill();};
   installPill.querySelector('#installGo').onclick=async()=>{
     if(installEv){
       const ev=installEv;installEv=null;hideInstallPill();
@@ -2505,6 +2551,7 @@ async function loadLive(){
 }
 (async function(){
   const saved=localStorage.getItem('dotbro_name');if(saved)$('#name').value=saved;
+  track('landed');
   resize();
   applyHash();
   initAdminTab();
@@ -2554,6 +2601,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=20"></script>
+<script type="module" src="/alge-engine.js?v=21"></script>
 </body>
 </html>
