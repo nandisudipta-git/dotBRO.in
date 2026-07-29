@@ -140,6 +140,9 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 #leaderDot{opacity:0;transition:opacity .15s ease;}
 
 #labels{position:fixed;inset:0;pointer-events:none;z-index:8;}
+/* Gate up = one question on screen, nothing else. The WebGL engine already
+   skips these; this also covers the 2D fallback, which draws its own. */
+body.gated .albl,body.gated #tip,body.gated #leader,body.gated #hint{opacity:0 !important;}
 .albl{position:absolute;transform:translate(0,-50%);white-space:nowrap;
   font-size:12px;font-family:'Space Mono',ui-monospace,monospace;
   background:rgba(255,255,255,.92);color:#22303C;padding:4px 10px;border-radius:11px;
@@ -1585,6 +1588,7 @@ $('#fab').onclick=()=>{closeAll();captureGeo();openSheet('#compose')};
 let newestQId=null;
 function dismissGate(){
   hookEl.classList.remove('gate');
+  document.body.classList.remove('gated');
   hookEl.classList.add('gone');
   setTimeout(()=>hookEl.style.display='none',900);
 }
@@ -1604,6 +1608,7 @@ function armGate(){
     gAnswer.style.display='none';
   }
   hookEl.classList.add('gate');
+  document.body.classList.add('gated');   // engine reads this and stays quiet
 }
 $('#gateAnswer').onclick=()=>{
   if(!newestQId)return;
@@ -1862,6 +1867,9 @@ async function loadLive(){
   addEventListener('online',()=>{loadLive().catch(()=>{})});
 })();
 </script>
-<script type="module" src="/alge-engine.js"></script>
+<!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
+     (heuristic caching on a query-less module URL) and the page silently runs
+     old code while index.html is new. Bump this AND VERSION in sw.js together. -->
+<script type="module" src="/alge-engine.js?v=2"></script>
 </body>
 </html>

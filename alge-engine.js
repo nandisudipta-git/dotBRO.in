@@ -16,6 +16,11 @@ if (!APP) throw new Error('bridge missing');
 const S = APP.S, CATS = APP.CATS, IS_DEMO = APP.IS_DEMO;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* The entry gate (index.html) owns the first screen: one real question and
+   three choices. While it is up the picture stays quiet — no floating labels,
+   no spotlight card — so nothing competes with that question. */
+const isGated = () => document.body.classList.contains('gated');
+
 /* ── renderer: if this fails, the 2D engine simply keeps running ── */
 let renderer;
 try {
@@ -30,8 +35,74 @@ renderer.domElement.style.cssText = 'position:fixed;inset:0;width:100%;height:10
 document.body.insertBefore(renderer.domElement, oldCanvas);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x232e38);
+scene.background = new THREE.Color(0x232e38);   // also the fallback if the backdrop fails
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
+
+/* ── mont-fort air ────────────────────────────────────────────────────────
+   The 2D engine drifted two soft mist banks behind the globe and the picture
+   never stood still. The WebGL port dropped that and left a flat fill, which
+   is what made the background read as dead. This is that air, rebuilt as one
+   fullscreen pass: four huge soft banks on long sine paths with different
+   periods, so the loop is never visible.
+
+   Drawn as a clip-space quad (position.xy passed straight through, z at the
+   far plane) rather than a skydome — it cannot be escaped by zoom or clipped
+   by the far plane, and costs one untextured fullscreen fill.
+
+   The vignette is the Apple-hero half of the brief: darken the surround so
+   the eye lands on one focal object instead of wandering the frame.
+
+   uMotion is 0 under prefers-reduced-motion — the air holds still. */
+const backdropMat = new THREE.ShaderMaterial({
+  depthTest: false, depthWrite: false,
+  uniforms: {
+    uRes:    { value: new THREE.Vector2(innerWidth, innerHeight) },
+    uTime:   { value: 0 },
+    uPar:    { value: new THREE.Vector2(0, 0) },
+    uMotion: { value: REDUCED ? 0 : 1 },
+  },
+  vertexShader: `
+    void main(){ gl_Position = vec4(position.xy, 1.0, 1.0); }
+  `,
+  fragmentShader: `
+    precision mediump float;
+    uniform vec2 uRes; uniform float uTime; uniform vec2 uPar; uniform float uMotion;
+
+    float bank(vec2 p, vec2 c, float r, vec2 asp){
+      return smoothstep(r, 0.0, distance(p * asp, c * asp));
+    }
+
+    void main(){
+      vec2 uv  = gl_FragCoord.xy / uRes;
+      vec2 asp = vec2(uRes.x / uRes.y, 1.0);
+      vec2 p   = uv + uPar;                 // parallax: the air trails the drag
+      float t  = uTime * uMotion;
+
+      // deep slate floor lifting to the brand blue toward the top of frame
+      vec3 col = mix(vec3(0.047, 0.064, 0.082),
+                     vec3(0.137, 0.180, 0.220),
+                     smoothstep(0.0, 1.0, uv.y * 0.85 + 0.15));
+
+      col += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.20 + sin(t * 0.023) * 0.10,
+                                                      0.30 + cos(t * 0.017) * 0.05), 0.42, asp) * 0.085;
+      col += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.70 + sin(t * 0.031 + 2.1) * 0.14,
+                                                      0.75 + sin(t * 0.021 + 0.7) * 0.07), 0.46, asp) * 0.070;
+      col += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.90 + sin(t * 0.019 + 1.3) * 0.08,
+                                                      0.20 + cos(t * 0.027) * 0.06), 0.34, asp) * 0.055;
+      col += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.50 + sin(t * 0.013 + 4.2) * 0.12,
+                                                      0.55 + cos(t * 0.023 + 1.1) * 0.06), 0.38, asp) * 0.050;
+
+      float v = smoothstep(1.25, 0.30, length((uv - 0.5) * asp) * 1.30);
+      col *= mix(0.52, 1.0, v);
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+});
+const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), backdropMat);
+backdrop.frustumCulled = false;
+backdrop.renderOrder = -1;
+scene.add(backdrop);
 
 /* rig: pitch ⟶ yaw ⟶ (earth + nodes). Drag = yaw/pitch, exactly the old feel. */
 const pitchG = new THREE.Group(), yawG = new THREE.Group();
@@ -497,15 +568,21 @@ for (let i = 0; i < 4; i++) {
 let labelFrame = 0, labelPick = [];
 function stepLabels() {
   if (MASSIVE) return;
+  // While the entry gate is up the only thing on screen is one real person's
+  // question. Floating labels underneath it turned that into three competing
+  // texts stacked on the same pixels.
+  if (isGated()) { labelEls.forEach(el => el.style.opacity = '0'); return; }
   if (++labelFrame % 150 === 1) {
     const cand = [...sprites.values()]
       .filter(s => frontDot(s) > 0.35 && (!S.filter || S.filter === s.userData.node.cat))
       .sort((a, b) => frontDot(b) - frontDot(a));
     labelPick = [];
+    // 3, not 4, and spaced further apart — nodes bunch over one city, so the
+    // old 230×54 box still let labels land almost on top of each other.
     for (const s of cand) {
-      if (labelPick.length >= 4) break;
+      if (labelPick.length >= 3) break;
       const p = screenPos(s);
-      if (labelPick.some(o => Math.abs(o.p.x - p.x) < 230 && Math.abs(o.p.y - p.y) < 54)) continue;
+      if (labelPick.some(o => Math.abs(o.p.x - p.x) < 300 && Math.abs(o.p.y - p.y) < 92)) continue;
       labelPick.push({ s, p });
     }
   }
@@ -529,7 +606,11 @@ function stepLabels() {
 const nqEl = document.getElementById('nq');
 let known = 0, lastOpen = null, shown = -1;
 const clock = new THREE.Clock();
-window.__ENGINE = { ema: 16.7, fps: () => +(1000 / window.__ENGINE.ema).toFixed(1) };
+window.__ENGINE = { ema: 16.7, fps: () => +(1000 / window.__ENGINE.ema).toFixed(1),
+  bg: () => ({ inScene: scene.children.includes(backdrop), visible: backdrop.visible,
+               order: backdrop.renderOrder, culled: backdrop.frustumCulled,
+               prog: !!backdropMat.program, t: backdropMat.uniforms.uTime.value,
+               res: backdropMat.uniforms.uRes.value.toArray() }) };
 let _lastT = 0;
 function frame() {
   requestAnimationFrame(frame);
@@ -615,9 +696,18 @@ function frame() {
   }
 
   stepArcs(now);
-  if (!intro.active) updateSpot(now);
+  // The intro finishes on its own after ~5s, but the gate can still be up —
+  // that is how the "you might have missed" card ended up sitting across the
+  // hook question. Hold it off, and keep pushing the timer so it does not fire
+  // the instant someone chooses.
+  if (isGated()) { spot = null; spotNextAt = now + 4000; }
+  else if (!intro.active) updateSpot(now);
   updateCallout();
   stepLabels();
+
+  // the air: seconds for the sine paths, plus a light parallax off the drag
+  backdropMat.uniforms.uTime.value = now * 0.001;
+  backdropMat.uniforms.uPar.value.set(yaw * 0.014, pitch * 0.014);
 
   composer.render(dt);
 }
@@ -625,6 +715,7 @@ function frame() {
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+  backdropMat.uniforms.uRes.value.set(innerWidth, innerHeight);
 });
 renderer.setSize(innerWidth, innerHeight);
 composer.setSize(innerWidth, innerHeight);
