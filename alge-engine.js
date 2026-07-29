@@ -363,7 +363,21 @@ function spriteFor(n) {
   const q = !IS_DEMO && S.q.get(n.id);
   let d;
   if (q && q.lat != null && q.lon != null) d = ll2v(q.lat, q.lon);
-  else if (!IS_DEMO) d = homeDir.clone();
+  else if (!IS_DEMO) {
+    // No location given. Parking these on home was fine when every user was
+    // from that one campus; it stopped being fine the moment questions arrived
+    // from Kolkata. They still need to exist somewhere on a globe, so they sit
+    // high above home on a wide, obviously-not-a-place scatter, and the caption
+    // now reads "location not shared" rather than naming a town for them.
+    // The real fix is confirming the place at post time — the globe should not
+    // be guessing on someone's behalf at all.
+    d = homeDir.clone();
+    const u = Math.abs(d.y) < 0.94 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const a1 = new THREE.Vector3().crossVectors(d, u).normalize();
+    const a2 = new THREE.Vector3().crossVectors(d, a1).normalize();
+    const k = nid * 2.399963;                       // golden-angle, so they never stack
+    d.addScaledVector(a1, Math.cos(k) * 0.055).addScaledVector(a2, Math.sin(k) * 0.055);
+  }
   // Five of twelve conversations have no location — someone declined the prompt.
   // They used to fall through to the classic anchor, which is a CATEGORY
   // clustering position, not a place: questions asked in Mandi were drawn over
