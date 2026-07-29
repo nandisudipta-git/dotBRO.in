@@ -246,14 +246,24 @@ const earthMat = new THREE.ShaderMaterial({
    address" is not, and should not be.
 
    Skipped entirely when the device asks for reduced data. */
+/* Safari is excluded from the upgrade entirely, not just from the dispose.
+   The black square is only ever reported there, it is the one engine where this
+   swap cannot be watched from here, and a 2K Earth that always renders beats a
+   4K one that sometimes shows a hole. Revisit if it turns out to be the dispose
+   alone — the guard above may well be the whole fix. */
+const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 const saveData = navigator.connection && navigator.connection.saveData;
-if (!saveData) {
+if (!saveData && !isSafari) {
   loader.load(TEXBASE + 'earth_atmos_4096.jpg', t => {
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = MAXANISO;
-    const old = earthMat.uniforms.dayMap.value;
     earthMat.uniforms.dayMap.value = t;
-    if (old && old !== t) old.dispose();
+    // The old texture is deliberately NOT disposed. Disposing it the instant the
+    // uniform is reassigned frees a GPU texture that the driver may still have
+    // bound for a frame already in flight, and what you get back is a hard black
+    // patch on the sphere — a screen-centred square with clean edges, sitting on
+    // the Earth while everything around it renders correctly. It is one 2K
+    // texture; leaking it costs a few MB and costs nobody a broken planet.
   }, undefined, () => {/* 2K stays; the globe never depended on this */});
 }
 
