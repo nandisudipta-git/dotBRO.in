@@ -9,9 +9,23 @@
 > conversation sheet, admin passphrase now bcrypt-hashed in a `private` schema with a
 > 5-fails/15-min lockout, `parbro_register` revoked, and DB-side rate limits (BEFORE INSERT
 > triggers: questions 10/min·200/day, replies 30/min·600/day, reports 20/min·400/day).
-> Remaining known limits: the caps are global, not per-IP (PostgREST exposes no caller IP —
-> per-IP needs an edge function in front), and the `.limit(300)` / unbounded-replies fetch
-> items further down still stand.
+> **Update 2026-07-29 — the global-cap limitation below is CLOSED, and the reasoning that
+> left it open was wrong.** The caps are now **per-IP**, done entirely inside the existing
+> BEFORE INSERT triggers. "PostgREST exposes no caller IP" is false: `cf-connecting-ip` is
+> readable from `current_setting('request.headers')`. No edge function was needed.
+>
+> This mattered more than "known limit" made it sound. A global 200/day cap meant **any
+> stranger with curl could fill it and block every other human for the rest of the day** —
+> and the identical flaw in the admin lockout let them lock the moderator out at the same
+> time. Both are fixed; see HANDOFF.md for the shape.
+>
+> One trap worth recording: Supabase's own docs suggest
+> `split_part(x-forwarded-for, ',', 1)`. Tested against this project, a client can prepend
+> its own value (observed `"9.9.9.9,<real ip>"`), so that pattern reads attacker-controlled
+> data and yields a rate limiter that silently does nothing. `cf-connecting-ip` is the only
+> trustworthy source here — Cloudflare 403s any attempt to forge it.
+>
+> Still standing: the `.limit(300)` / unbounded-replies fetch items further down.
 
 The build is sound — it loads, it holds frame rate, it saves what people write, and it no
 longer dies when the network misbehaves. What it does not yet have is a way to deal with

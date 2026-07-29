@@ -112,8 +112,25 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;
   opacity:0;animation:hookIn 1.8s ease 1.2s forwards;}
 #hook .hk-sub{font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--dim);
   opacity:0;animation:hookIn 1.6s ease 2.2s forwards;}
+#hook .hk-meta{font-size:12px;letter-spacing:.06em;color:var(--dim);max-width:34ch;
+  opacity:0;animation:hookIn 1.6s ease 1.9s forwards;}
 @keyframes hookIn{to{opacity:1}}
 #hook.gone{transition:opacity .9s ease;opacity:0;}
+/* the gate: three real choices, not a form. #hook is click-through by default
+   (the poetic intro line shouldn't block the globe) but while .gate is on,
+   it owns the screen — no spinning/tapping past it until a choice is made. */
+#hook.gate{pointer-events:auto;}
+.gate-actions{display:none;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px;
+  opacity:0;animation:hookIn 1.4s ease 2.6s forwards;}
+#hook.gate .gate-actions{display:flex;}
+.gate-btn{font-family:'Bebas Neue',sans-serif;letter-spacing:1.6px;font-size:.98rem;
+  background:rgba(11,19,27,.6);color:#FFFFFF;border:1px solid rgba(255,255,255,.4);
+  border-radius:999px;padding:12px 24px;cursor:pointer;backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);transition:transform .15s,background .2s,border-color .2s;}
+.gate-btn:hover{background:rgba(11,19,27,.85);border-color:rgba(255,255,255,.75);transform:scale(1.03);}
+.gate-btn:active{transform:scale(.96);}
+.gate-btn.ghost{background:rgba(255,255,255,.08);}
+@media(max-width:640px){.gate-actions{flex-direction:column;width:100%;max-width:280px;}.gate-btn{width:100%;}}
 .hud,.fab{transition:opacity 1.2s ease;}
 body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
 
@@ -261,6 +278,24 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
   text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.35);
   opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;}
 #toast.on{opacity:1;transform:translate(-50%,0);}
+
+/* ── reduced motion ───────────────────────────────────────────────────────
+   This page is motion-heavy on purpose: the globe turns, nodes breathe, the
+   live dot throbs. Someone who has asked their OS for less motion gets the
+   same space, still — content arrives at its final state instead of animating
+   into it. The globe's own idle motion is stopped in alge-engine.js; this
+   covers the DOM layer. Entrance animations become instant rather than
+   removed, or the elements they reveal would never become visible. */
+@media (prefers-reduced-motion: reduce){
+  .pulse{animation:none;}
+  #hook .hk-dot,#hook .hk-q,#hook .hk-meta,#hook .hk-sub,.gate-actions{
+    animation-duration:.01ms;animation-delay:0s;opacity:1;}
+  .sheet.open{animation:none;}
+  .albl,#tip,#hint,#toast,#hook.gone{transition-duration:.01ms;}
+  .fab,.gate-btn{transition:none;}
+  .fab:hover{transform:translateX(-50%);}
+  .gate-btn:hover,.gate-btn:active{transform:none;}
+}
 </style>
 </head>
 <body>
@@ -289,7 +324,17 @@ body:not(.arrived) .hud,body:not(.arrived) .fab{opacity:0;pointer-events:none;}
   <button id="filterToggle" aria-expanded="false" aria-controls="legend">filter by topic <span aria-hidden="true">&#9662;</span></button>
   <div class="legend" id="legend" hidden></div>
 </div>
-<div id="hook"><span class="hk-dot" aria-hidden="true"></span><div class="hk-q">What conversation are you leaving unfinished?</div><div class="hk-sub">float it &mdash; it finds its people</div></div>
+<div id="hook">
+  <span class="hk-dot" aria-hidden="true"></span>
+  <div class="hk-q" id="hookQ">What conversation are you leaving unfinished?</div>
+  <div class="hk-meta" id="hookMeta"></div>
+  <div class="hk-sub" id="hookSub">someone real is asking &mdash; answer, ask your own, or just look around</div>
+  <div class="gate-actions" id="gateActions">
+    <button type="button" class="gate-btn" id="gateAnswer">Answer it &rarr;</button>
+    <button type="button" class="gate-btn ghost" id="gatePost">Post your own &rarr;</button>
+    <button type="button" class="gate-btn ghost" id="gateSpectate">Just look around</button>
+  </div>
+</div>
 <div id="hint" role="status">drag to spin &nbsp;&middot;&nbsp; tap a dot to read &nbsp;&middot;&nbsp; scroll to zoom</div>
 
 <svg id="leader"><path id="leaderHalo" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="2.6"/><path id="leaderPath" fill="none" stroke="rgba(28,46,62,0.6)" stroke-width="1"/><circle id="leaderDot" r="2.5" fill="rgba(28,46,62,0.5)"/></svg>
@@ -436,24 +481,22 @@ const CATS={
 const CATKEYS=Object.keys(CATS);
 
 const KIND_META={
-  answer:  {icon:'&#9998;', label:'Answer',  placeholder:'Write your answer…'},
-  debate:  {icon:'&#9876;', label:'Debate',  placeholder:'State your counter-position…'},
+  answer:  {icon:'&#9998;', label:'Answer',  placeholder:'What would you say back?'},
+  debate:  {icon:'&#9876;', label:'Debate',  placeholder:'Where do you disagree?'},
   discuss: {icon:'&#9993;', label:'Continue', placeholder:'Continue the conversation…'},
   meet:    {icon:'&#9734;', label:'Meet',    placeholder:'Say why you want to meet… (optional)'},
 };
 const KIND_ORDER=['answer','debate','discuss','meet'];
 let activeKind=null;
 
-/* ─── synthetic cohort question bank (demo only) ─── */
-const Q_BANK={
-'ai & future':["Prof, will our degree still matter when AI can do the coursework?","What should we learn now that AI can't take from us?","Which AI claim from lectures aged the worst?","If you restarted research today, would you pick AI?","What's the most overhyped AI idea this semester?","How do we stay employable in an AI-first decade?","Which human skill compounds fastest against AI?","What would you automate first about this course?"],
-'build & startup':["Why did your favorite student startup actually fail?","What's the real reason campus ideas die after demo day?","Would you invest in a student team? What convinces you?","What did the syllabus never teach about building?","Which classmate's idea deserved funding but got ignored?","How do we find a co-founder before the cohort scatters?","What's a business hiding inside this campus?","When is dropping out actually rational?"],
-'study & gyaan':["What questions are left to ask our prof?","Why does school teach what to learn, never how?","Which topic did we memorize but never understand?","What would you remove from the curriculum tomorrow?","What's the one lecture you wish you could re-attend?","Which book changed how you think, not what you know?","What did the toppers understand that we didn't?","What's worth learning that has no exam?"],
-'life':["What do you wish you'd asked before the cohort ends?","Which habit from hostel life should we keep forever?","What are we all pretending is fine when it isn't?","What will we regret not doing this year?","Who did you never thank properly here?","What does everyone misunderstand about you?","Which fear did campus quietly cure?","What's a conversation you keep postponing?"],
-'meet people':["Who here is building something and needs hands?","Which senior should every junior actually meet?","Who do you know that thinks completely unlike you?","Who's quietly brilliant and never speaks in class?","Which prof is worth a chai beyond the classroom?","Who wants to co-work sundays after we graduate?","Who did you meet once and never follow up with?","Who's solving the same problem as you, unaware?"],
-'random':["What's the best question you've ever been asked?","What would you do with a free year, no judgment?","Which rule here exists for no reason?","What's your unpopular opinion about this campus?","What's the weirdest thing that taught you the most?","If the campus had a black box, what would it record?","What tiny thing here will you miss the most?","What question would you float anonymously right now?"]};
-const NAMES=['Aarav','Ishita','Rohan','Priya','Kabir','Ananya','Dev','Meera','Arjun','Sana','Vikram','Tara','Nikhil','Zoya','Aditya','the .bro team'];
-const REPLY_BANK=["Been thinking the same since first year.","Asked my prof this once — the answer surprised me.","This deserves a whole session, not a comment.","Strong disagree — the premise is off.","Let's take this offline, I have notes.","Someone in the 2024 batch solved exactly this.","I'd flip the question: why do we assume it at all?","Reading group on this, Sunday?","The honest answer is nobody knows yet.","This one kept me up last night too."];
+/* ─── load-test placeholder content (?n= perf mode only) ───────────────────
+   Deliberately generic — no invented questions, no fake human names. A real
+   visitor never sees this; it exists only to stress-test globe rendering at
+   scale. (Removed 2026-07-29: the old Q_BANK synthesized fake student Q&A
+   with fake names — that impersonated real people and doesn't belong here,
+   even hidden behind a URL flag.) */
+const NAMES=['Test'];
+const REPLY_BANK=['(test reply)'];
 function hi(x){x^=x>>>16;x=Math.imul(x,0x45d9f3b);x^=x>>>16;x=Math.imul(x,0x45d9f3b);x^=x>>>16;return x>>>0;}
 
 /* ─── state ─── */
@@ -756,13 +799,12 @@ function generateDemo(N){
     while(i>=bounds[ci])ci++;
     const cat=CATKEYS[Math.min(ci,5)], h=hi(i+0x9e37);
     const y=1-(i/(N-1||1))*2, rad=Math.sqrt(Math.max(0,1-y*y)), th=GOLDEN*i;
-    const bank=Q_BANK[cat];
     const nr=(h%10<4)?((h>>>4)%4)+((h%100<6)?3:0):0;
     let na=0;for(let j=0;j<nr;j++)if(hi(h+j*97)%4===0)na++;
     const node={
       id:i, cat, col:CATS[cat].col, h,
       dx:Math.cos(th)*rad, dy:y, dz:Math.sin(th)*rad,
-      text:bank[h%bank.length], nameStr:NAMES[(h>>>8)%NAMES.length],
+      text:'Test node #'+i+' ('+cat+')', nameStr:NAMES[(h>>>8)%NAMES.length],
       ts:now-(h%(45*86400000)), nr, na,
       px:0,py:0,pz:0,pscale:1, la:0,
     };
@@ -807,11 +849,12 @@ function endIntro(){
   // no explanation, is a bounce trigger and reads as surveillance. The prompt now
   // happens only when someone chooses to start a conversation — and the compose
   // sheet says why, before the browser asks.
-  hookEl.classList.add('gone');setTimeout(()=>hookEl.style.display='none',1000);
+  // #hook itself is no longer hidden here — it's now the entry gate (real
+  // question, Answer/Post/Spectate) and stays up until the visitor chooses.
+  // See armGate()/dismissGate() near boot, below.
   setTimeout(maybeHint,1400);
 }
-if(REDUCED){intro.done=true;document.body.classList.add('arrived');
-  setTimeout(()=>{hookEl.classList.add('gone');setTimeout(()=>hookEl.style.display='none',1000);},3400);}
+if(REDUCED){intro.done=true;document.body.classList.add('arrived');}
 
 function physics(){
   const nodes=S.arr, n=nodes.length;
@@ -1295,7 +1338,7 @@ function drawYouEdges(){
 function drawYouNode(now){
   if(!YOU.ok)return;
   const depth=1-Math.min(1,Math.max(0,(YOU.pz+R)/(2*R)));
-  const pulse=1+0.12*Math.sin(now*0.0025);
+  const pulse=REDUCED?1:1+0.12*Math.sin(now*0.0025);
   ctx.save();
   ctx.globalAlpha=0.95*Math.max(0.5,depth);
   ctx.fillStyle='#FFFFFF';ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.lineWidth=1.4;
@@ -1399,7 +1442,7 @@ function drawSpot(now){
   if(!spot||hover)return;
   const p=spot.node;if(p.pz>0)return;
   const age=(now-spot.born)/1000;
-  const pulse=1+0.25*Math.sin(age*4);
+  const pulse=REDUCED?1:1+0.25*Math.sin(age*4);
   const base=IS_MASSIVE?5:nodeR(p)*p.pscale+5;
   ctx.strokeStyle='rgba(230,0,0,0.75)';ctx.lineWidth=1.8;
   ctx.beginPath();ctx.arc(p.px,p.py,base*pulse,0,7);ctx.stroke();
@@ -1529,8 +1572,46 @@ function maybeHint(){
   setTimeout(dismissHint,7000);
 }
 function dismissHint(){hintEl.classList.remove('on');}
+function forceHint(){                       // "spectate" asked to be shown around — skip the caps
+  hintShown=true;hintEl.classList.add('on');setTimeout(dismissHint,9000);
+}
 canvas.addEventListener('pointerdown',dismissHint,{once:false});
 $('#fab').onclick=()=>{closeAll();captureGeo();openSheet('#compose')};
+
+/* ─── the gate: first thing a visitor meets is a real question, not a form.
+   Three real choices — answer it, ask your own, or just watch (which starts
+   the tutorial). Armed once real data has loaded; skipped for the ?n=
+   perf-demo, a shared /?q= link (already has intent), or a dead connection. */
+let newestQId=null;
+function dismissGate(){
+  hookEl.classList.remove('gate');
+  hookEl.classList.add('gone');
+  setTimeout(()=>hookEl.style.display='none',900);
+}
+function armGate(){
+  const gAnswer=$('#gateAnswer'),gQ=$('#hookQ'),gMeta=$('#hookMeta'),gSub=$('#hookSub');
+  if(newestQId&&S.q.has(newestQId)){
+    const q=S.q.get(newestQId);
+    let t=q.body.trim();if(t.length>92)t=t.slice(0,90)+'…';
+    gQ.textContent=t;
+    gMeta.textContent='asked by '+q.name;
+    gSub.textContent='someone real is asking — answer, ask your own, or just look around';
+    gAnswer.style.display='';
+  }else{
+    gQ.textContent='What conversation are you leaving unfinished?';
+    gMeta.textContent='';
+    gSub.textContent='be the first to ask — or just look around';
+    gAnswer.style.display='none';
+  }
+  hookEl.classList.add('gate');
+}
+$('#gateAnswer').onclick=()=>{
+  if(!newestQId)return;
+  dismissGate();endIntro();openQ(newestQId);activeKind='answer';renderQ();
+  setTimeout(()=>{const el=$('#pText');if(el)el.focus();},650);
+};
+$('#gatePost').onclick=()=>{dismissGate();endIntro();captureGeo();openSheet('#compose');};
+$('#gateSpectate').onclick=()=>{dismissGate();endIntro();forceHint();};
 
 /* ─── connect now: one real address, one tap, and a copy fallback for
        browsers with no mail client wired up ─── */
@@ -1742,6 +1823,7 @@ async function loadLive(){
   const qs=qres.data||[], rs=rres.data||[];
   S.replies.clear();
   rs.forEach(r=>{const a=S.replies.get(r.question_id)||[];a.push(r);S.replies.set(r.question_id,a)});
+  if(qs.length)newestQId=qs[0].id;          // qs is newest-first — this feeds the gate
   qs.slice().reverse().forEach(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,false)}});
   netup();
 }
@@ -1753,12 +1835,14 @@ async function loadLive(){
     generateDemo(DEMO_N);
     resize();
     draw();
+    dismissGate();                          // perf/stress tool, not a real visit — skip the gate
     return;
   }
   draw();                                   // the globe turns even if the data is late
   if(!SB_OK){
     netdown("couldn't load the live space — the globe is here, but nothing can be posted.",
       ()=>location.reload());
+    dismissGate();
     return;
   }
   try{
@@ -1767,11 +1851,13 @@ async function loadLive(){
     db.onReply(pushReply);
     startPresence();
     const shared=new URLSearchParams(location.search).get('q');
-    if(shared&&S.q.has(shared)){endIntro();setTimeout(()=>openQ(shared),600);}
+    if(shared&&S.q.has(shared)){dismissGate();endIntro();setTimeout(()=>openQ(shared),600);}
+    else{armGate();}
   }catch(err){
     // an empty globe with no explanation reads as "nobody is here" — say the truth
     netdown("can't reach the space right now — showing nothing until it's back.",
       ()=>{netup();loadLive().catch(()=>netdown('still no connection.',null));});
+    dismissGate();
   }
   addEventListener('online',()=>{loadLive().catch(()=>{})});
 })();

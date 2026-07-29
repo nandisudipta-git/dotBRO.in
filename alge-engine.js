@@ -584,12 +584,16 @@ function frame() {
       const base = nodeScale(n);
       const grow = Math.min(1, (now - sp.userData.born) / 650);
       const dim = S.filter && S.filter !== n.cat;
-      const pulse = (spot === sp) ? 1 + 0.22 * Math.sin(now * 0.004) : 1;
-      const breathe = 1 + 0.05 * Math.sin(now * 0.0012 + sp.userData.ph);
+      // Perpetual idle motion — breathing, bobbing, the spot throb — is the whole
+      // reason this reads as alive, and the exact thing a vestibular disorder can't
+      // tolerate. Under prefers-reduced-motion the nodes hold still at their true
+      // size and position; grow-in, hover, dim and filtering all still respond.
+      const pulse = (spot === sp && !REDUCED) ? 1 + 0.22 * Math.sin(now * 0.004) : 1;
+      const breathe = REDUCED ? 1 : 1 + 0.05 * Math.sin(now * 0.0012 + sp.userData.ph);
       sp.scale.setScalar(base * grow * pulse * breathe * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
       sp.material.opacity += ((dim ? 0.12 : 1) - sp.material.opacity) * 0.15;
       // the float: each conversation bobs gently on its shell
-      const r = ORBIT + BOB * Math.sin(now * 0.0009 + sp.userData.ph * 6) * grow;
+      const r = ORBIT + (REDUCED ? 0 : BOB * Math.sin(now * 0.0009 + sp.userData.ph * 6) * grow);
       sp.position.copy(sp.userData.dir).multiplyScalar(r);
       if (tpos) {
         tpos.array[ti * 6 + 3] = sp.position.x;

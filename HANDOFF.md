@@ -37,8 +37,10 @@
 
 - Tables: `questions`, `replies`, `reports` (reports have **no public read** — admin RPC only)
 - RLS: insert + read only. Nobody edits/deletes via the API
-- Rate limits **in the DB** (BEFORE INSERT): questions 10/min·200/day, replies 30/min·600/day, reports 20/min·400/day. Global caps, not per-IP (PostgREST has no caller IP — per-IP needs an edge function in front)
-- Admin: `admin_verify` / `admin_delete_question` / `admin_delete_reply` / `admin_reports` — all gate through `private.admin_check`: **bcrypt hash** in `private.admin_secret`, 5 fails / 15 min lockout
+- Rate limits **in the DB** (BEFORE INSERT), **per-IP since 2026-07-29**: questions 5/min·40/day, replies 15/min·120/day, reports 10/min·60/day per visitor, plus a much higher global backstop (120/min·2000/day questions) for a distributed flood. Before this the caps were global, which meant any stranger could hit the cap with curl and block *everyone* for a day
+- **The IP comes from `cf-connecting-ip`, never `x-forwarded-for`.** Verified against this project: a client can prepend its own value to `x-forwarded-for` (observed `"9.9.9.9,<real ip>"`), so the `split_part(x-forwarded-for, ',', 1)` pattern in Supabase's own docs reads attacker-controlled data and gives a rate limiter that does nothing. Forging `cf-connecting-ip` is refused by Cloudflare with a 403 before it reaches PostgREST
+- Per-IP state lives in `private.rl_hits` as a **salted SHA-256, never a raw IP**, pruned after 2 days, never joined to a question or reply (P5). Both checks **fail open** — no IP means per-IP is skipped and only the global backstop applies, so a bug here can't take the site down
+- Admin: `admin_verify` / `admin_delete_question` / `admin_delete_reply` / `admin_reports` — all gate through `private.admin_check`: **bcrypt hash** in `private.admin_secret`, 5 fails / 15 min lockout **per IP** (was global until 2026-07-29 — meaning any stranger could fail 5 times and lock *you* out of moderation, on a loop, forever). A correct passphrase clears that IP's failures; a global backstop at 100 fails/15 min still catches a distributed brute force
 - Mod passphrase: same one the old feed admin used (Ron has it). Rotate with:
   `update private.admin_secret set hash = crypt('NEW-PASS', gen_salt('bf',10));`
 - The publishable key in the pages is meant to be public. The DB constraints are the security
@@ -59,7 +61,7 @@ Always cache-bust (`?v=1`, bump each reload) — Chrome serves stale builds sile
 2. **Growth loop is built, not used** — every conversation has "copy link" (`/?q=<id>` lands newcomers inside it). The Reddit/Quora play is posting links, which is Ron's move, not code
 3. Dated fetches: questions `.limit(300)`, replies fetched unbounded → paginate before ~300 questions
 4. Supabase free tier pauses when idle → first visitor after a quiet week sees the "can't reach" banner
-5. Per-IP rate limits need an edge function in front of writes (only matters if a real flood comes)
+5. ~~Per-IP rate limits need an edge function in front of writes~~ — **done 2026-07-29, and no edge function was needed.** `cf-connecting-ip` is readable straight from `current_setting('request.headers')` inside the trigger
 6. Vercel remnants: old project IDs in DEPLOY.md are archive-only; GitHub Pages is the truth
 
 ## Decisions already made (don't relitigate)
