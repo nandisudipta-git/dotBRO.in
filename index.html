@@ -355,6 +355,19 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
 .fpill.none{background:none;color:var(--dim);border:1px dashed rgba(255,255,255,.2);}
 .feedempty{padding:38px 8px;text-align:center;color:var(--dim);font-size:.9rem;line-height:1.6;}
 
+/* cluster badge: one marker per place, carrying how many conversations are there */
+.cbadge{position:absolute;left:0;top:0;min-width:30px;height:30px;padding:0 8px;
+  border-radius:999px;border:1.5px solid rgba(255,255,255,.85);
+  background:rgba(11,19,27,.82);color:#fff;cursor:pointer;
+  font-family:'Space Mono',ui-monospace,monospace;font-size:12px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 4px rgba(11,19,27,.35),0 6px 18px rgba(0,0,0,.4);
+  opacity:0;transition:opacity .35s ease,transform .18s cubic-bezier(.2,.9,.25,1),background .18s;
+  will-change:transform,opacity;}
+.cbadge:hover{background:rgba(230,0,0,.85);border-color:#fff;}
+.cbadge:focus-visible{outline:2px solid #fff;outline-offset:3px;}
+@media (prefers-reduced-motion: reduce){.cbadge{transition:opacity .35s ease;}}
+
 /* the launch: a posted question leaves as an orb and lands as a ripple */
 .orb{position:fixed;left:0;top:0;z-index:80;pointer-events:none;will-change:transform,opacity;
   display:flex;align-items:center;justify-content:center;
@@ -2362,6 +2375,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=12"></script>
+<script type="module" src="/alge-engine.js?v=13"></script>
 </body>
 </html>

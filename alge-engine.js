@@ -675,6 +675,66 @@ function updateSpot(now) {
 }
 
 /* ── ambient labels: DOM pills, crisper than any canvas text ── */
+/* ── cluster badges ────────────────────────────────────────────────────────
+   Seven conversations share one campus, so from any normal distance they are a
+   single smear of light and none of them can be picked out — colour and spread
+   both lose to additive blending at that scale.
+
+   So a place with more than one conversation stops pretending to be several
+   dots and becomes one marker carrying a count. Tapping it opens that place's
+   stack, where every conversation is listed and reachable. Once you dive in far
+   enough for the cluster to genuinely separate, the badge stands down and the
+   individual dots take over — the same threshold the fan-out uses, so the two
+   behaviours hand off to each other instead of fighting.
+
+   Badges live in the DOM rather than the scene: they must stay legible at any
+   zoom, and text in WebGL at this size is a fight for no benefit. */
+const badgeBox = document.createElement('div');
+badgeBox.id = 'badges';
+badgeBox.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9;';
+document.body.appendChild(badgeBox);
+const badgeEls = [];
+function placeKey(n) {
+  const q = S.q.get(n.id);
+  if (!q || q.lat == null || q.lon == null) return 'unplaced';
+  return q.lat.toFixed(1) + ',' + q.lon.toFixed(1);
+}
+function stepBadges() {
+  const expanded = clusterSpread > 0.006;          // dots have separated; stand down
+  if (MASSIVE || isGated() || document.body.classList.contains('sheeting') ||
+      document.body.classList.contains('feeding') || expanded) {
+    badgeEls.forEach(b => b.style.opacity = '0');
+    return;
+  }
+  const groups = new Map();
+  for (const [n, sp] of sprites) {
+    if (S.filter && S.filter !== n.cat) continue;
+    const k = placeKey(n);
+    let g = groups.get(k);
+    if (!g) { g = { n: 0, x: 0, y: 0, front: false, first: n }; groups.set(k, g); }
+    const p = screenPos(sp);
+    g.n++; g.x += p.x; g.y += p.y; g.front = g.front || p.front;
+  }
+  const multi = [...groups.values()].filter(g => g.n > 1 && g.front)
+    .sort((a, b) => b.n - a.n).slice(0, 6);
+  while (badgeEls.length < multi.length) {
+    const el = document.createElement('button');
+    el.className = 'cbadge';
+    el.style.pointerEvents = 'auto';
+    badgeBox.appendChild(el); badgeEls.push(el);
+  }
+  badgeEls.forEach((el, i) => {
+    const g = multi[i];
+    if (!g) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; return; }
+    el.textContent = String(g.n);
+    el.setAttribute('aria-label', g.n + ' conversations here — open them');
+    el.style.transform = `translate(${g.x / g.n}px,${g.y / g.n}px) translate(-50%,-50%)`;
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'auto';
+    el.onclick = () => { if (window.openQ) window.openQ(g.first.id); };
+  });
+}
+
 const labelBox = document.getElementById('labels');
 const labelEls = [];
 for (let i = 0; i < 4; i++) {
@@ -831,6 +891,7 @@ function frame() {
   else if (!intro.active) updateSpot(now);
   updateCallout();
   stepLabels();
+  stepBadges();
 
   // the air: seconds for the sine paths, plus a light parallax off the drag
   backdropMat.uniforms.uTime.value = now * 0.001;
