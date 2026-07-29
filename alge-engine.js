@@ -259,10 +259,15 @@ function nodeTexture([r, g, b]) {
   gr.addColorStop(0.3, `rgba(${r},${g},${b},0.28)`);
   gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
   c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
+  // White core = the conversation itself; coloured ring = which corner of life
+  // it belongs to. The core used to be big enough that additive blending plus
+  // bloom fused a cluster into one white blob, taking the colour — the only
+  // thing telling two neighbours apart — with it. Smaller core, heavier ring:
+  // the category survives being stacked.
   c.fillStyle = '#fff';
-  c.beginPath(); c.arc(64, 64, 11, 0, 7); c.fill();
-  c.lineWidth = 5; c.strokeStyle = `rgb(${r},${g},${b})`;
-  c.beginPath(); c.arc(64, 64, 15, 0, 7); c.stroke();
+  c.beginPath(); c.arc(64, 64, 7, 0, 7); c.fill();
+  c.lineWidth = 8; c.strokeStyle = `rgb(${r},${g},${b})`;
+  c.beginPath(); c.arc(64, 64, 16, 0, 7); c.stroke();
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }

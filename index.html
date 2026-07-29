@@ -366,6 +366,28 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
    into it. The globe's own idle motion is stopped in alge-engine.js; this
    covers the DOM layer. Entrance animations become instant rather than
    removed, or the elements they reveal would never become visible. */
+/* ══ Safari: no backdrop-filter over the WebGL canvas ═══════════════════════
+   Safari composites backdrop-filter against the WebGL surface unreliably and
+   paints solid black blocks where the blurred element should be — seen twice
+   in recordings, once as a flash behind an opening conversation and once as a
+   persistent black panel. It is not reproducible in Chrome, so rather than
+   chase it, every blurred overlay drops the blur on Safari and carries a solid
+   background instead. Purely decorative loss; the layout is identical.
+   `-webkit-hyphens` is Safari-only, which is what scopes this. */
+@supports (-webkit-hyphens: none){
+  .scrim,.sheet,#feed,.viewtabs,.fab,.gate-btn,#hint,.lg,#filterToggle,
+  .zoomui button,#netmsg,.albl,#tip{
+    backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
+  }
+  #feed{background:#0A1017;}
+  .viewtabs{background:rgba(13,22,30,.94);}
+  .fab{background:rgba(11,19,27,.92);}
+  .gate-btn{background:rgba(11,19,27,.88);}
+  #hint{background:rgba(13,22,30,.92);}
+  .zoomui button{background:rgba(20,30,40,.9);}
+  #filterToggle,.lg{background:rgba(13,22,30,.92);}
+}
+
 @media (prefers-reduced-motion: reduce){
   .pulse{animation:none;}
   #hook .hk-dot,#hook .hk-q,#hook .hk-meta,#hook .hk-sub,.gate-actions{
@@ -2104,6 +2126,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=6"></script>
+<script type="module" src="/alge-engine.js?v=7"></script>
 </body>
 </html>
