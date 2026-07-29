@@ -606,8 +606,8 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js" crossorigin="anonymous"></script>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.min.js",
@@ -718,7 +718,9 @@ addEventListener('pointerdown',e=>{
 
 const db=!LIVE?null:{
   listQuestions:()=>sb.from('questions').select('*').order('created_at',{ascending:false}).limit(300),
-  listReplies:()=>sb.from('replies').select('*').order('created_at',{ascending:true}),
+  listReplyCounts:()=>sb.from('reply_counts').select('*'),
+  threadReplies:id=>sb.from('replies').select('*').eq('question_id',id).order('created_at',{ascending:true}).limit(500),
+  getQuestion:id=>sb.from('questions').select('*').eq('id',id).maybeSingle(),
   addQuestion:(name,body,category,lat,lon)=>sb.from('questions').insert({name,body,category,lat,lon}).select().single(),
   addReply:(question_id,name,body,kind)=>sb.from('replies').insert({question_id,name,body,kind}).select().single(),
   addReport:(question_id,reason)=>sb.from('reports').insert({question_id,reason}),
@@ -757,7 +759,11 @@ const REPLY_BANK=['(test reply)'];
 function hi(x){x^=x>>>16;x=Math.imul(x,0x45d9f3b);x^=x>>>16;x=Math.imul(x,0x45d9f3b);x^=x>>>16;return x>>>0;}
 
 /* ─── state ─── */
-const S={q:new Map(),replies:new Map(),nodes:new Map(),arr:[],openId:null,cat:'random',filter:null,
+/* S.replies holds only threads that were actually OPENED (plus realtime
+   arrivals into them). Totals live in S.rcount / per-kind in S.rkinds, loaded
+   from the reply_counts view — the page stopped downloading every reply row
+   in the database just to draw dot sizes. */
+const S={q:new Map(),replies:new Map(),rcount:new Map(),rkinds:new Map(),nodes:new Map(),arr:[],openId:null,cat:'random',filter:null,
   anon:localStorage.getItem('dotbro_anon')==='1',
   geo:(()=>{try{return JSON.parse(localStorage.getItem('dotbro_geo'))}catch(_){return null}})(),
   mine:new Set((()=>{try{return JSON.parse(localStorage.getItem('dotbro_mine'))||[]}catch(_){return []}})())};
@@ -798,8 +804,13 @@ function repliesOf(id){
   _rCacheId=id;_rCache=out;return out;
 }
 function kindCounts(id){
-  const rs=repliesOf(id);const c={answer:0,debate:0,discuss:0,meet:0};
-  rs.forEach(r=>{const k=c[r.kind]!==undefined?r.kind:'discuss';c[k]++;});return c;
+  const c={answer:0,debate:0,discuss:0,meet:0};
+  if(!IS_DEMO&&!S.replies.has(id)){          // thread not loaded — the counts view knows
+    const k=S.rkinds.get(id)||{};
+    for(const kk in k){c[c[kk]!==undefined?kk:'discuss']+=k[kk];}
+    return c;
+  }
+  repliesOf(id).forEach(r=>{const k=c[r.kind]!==undefined?r.kind:'discuss';c[k]++;});return c;
 }
 
 /* ─── legend + deep links ───────────────────────────────────────────────────
@@ -1089,7 +1100,7 @@ function makeNode(id,text,cat,createdAt,incoming,lat,lon){
   };
 }
 function nodeR(n){
-  const nr=IS_DEMO?n.nr:(S.replies.get(n.id)||[]).length;
+  const nr=IS_DEMO?n.nr:nReplies(n.id);
   if(IS_MASSIVE)return 1.4+(nr?0.9:0);
   if(IS_STATIC)return Math.min(2.6+Math.sqrt(nr)*1.2,5);
   const density=Math.min(1,S.arr.length/90);
@@ -1270,7 +1281,7 @@ function pickSpot(now){
     if(p.pz>-R*0.2)continue;
     if(S.filter&&S.filter!==p.cat)continue;
     if(spotRecent.includes(p.id))continue;
-    const nr=IS_DEMO?p.nr:(S.replies.get(p.id)||[]).length;
+    const nr=IS_DEMO?p.nr:nReplies(p.id);
     const ageDays=(Date.now()-p.ts)/86400000;
     const score=(nr===0?1.6:0)+Math.min(ageDays/45,1)+Math.random()*0.4;
     if(score>bestScore){bestScore=score;best=p;}
@@ -1702,7 +1713,7 @@ function drawFull(now){
     const dim=S.filter&&S.filter!==p.cat;
     const depth=1-Math.min(1,Math.max(0,(p.pz+R)/(2*R)));
     const t=p.born?Math.min(1,(now-p.born)/650):1, grow=1-Math.pow(1-t,3);
-    const nr=IS_DEMO?p.nr:(S.replies.get(p.id)||[]).length;
+    const nr=IS_DEMO?p.nr:nReplies(p.id);
     const rad=nodeR(p)*p.pscale*grow*(0.7+depth*0.4);
     const a=(0.5+depth*0.5)*(dim?0.15:1);
 
@@ -1982,7 +1993,7 @@ function pickHookId(){
   const all=[...S.q.values()];
   if(!all.length)return null;
   const seen=new Set(seenHooks()), liked=topTaste();
-  const answered=q=>(S.replies.get(q.id)||[]).length>0;
+  const answered=q=>nReplies(q.id)>0;
   const pools=[
     all.filter(q=>!seen.has(q.id)&&answered(q)&&liked&&q.category===liked),
     all.filter(q=>!seen.has(q.id)&&answered(q)),
@@ -2000,7 +2011,7 @@ function pickHookId(){
    index that does not depend on where anyone happened to be standing. */
 let feedSort='hot', feedOn=false;
 const feedEl=$('#feed'), feedList=$('#feedList');
-function nReplies(id){return (S.replies.get(id)||[]).length}
+function nReplies(id){return S.replies.has(id)?S.replies.get(id).length:(S.rcount.get(id)||0)}
 function feedRows(){
   const rows=[...S.q.values()];
   if(feedSort==='new') rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
@@ -2351,7 +2362,9 @@ function renderQ(){
 
   const repliesHtml = rs.length
     ? rs.map(x=>`<div class="r"><div class="rmeta"><span class="rk">${(KIND_META[x.kind]?KIND_META[x.kind].label:'continue').toUpperCase()}</span> · <b>${esc(x.name)}</b> · ${ago(x.created_at)}</div><div class="rbody">${esc(x.body)}</div></div>`).join('')
-    : `<div class="r rmeta">no one has continued this yet — be the first.</div>`;
+    : (!IS_DEMO&&!S.replies.has(S.openId)&&nReplies(S.openId)>0
+      ? `<div class="r rmeta">fetching the thread…</div>`
+      : `<div class="r rmeta">no one has continued this yet — be the first.</div>`);
 
   $('#qview').innerHTML =
     `<div class="qcat" style="color:rgb(${r},${g},${b})">${esc(q.category)}</div>`+
@@ -2454,17 +2467,24 @@ function openQ(id){
   engaged();                                     // reading counts toward the install offer
   track('reply_viewed');
   closeAll();S.openId=id;activeKind=null;flyToNode(id);openSheet('#qsheet');renderQ();
+  loadThread(id);                                // counts painted already; words follow
   if(S.mine.has(id))markSeen(id);
 }
 
 /* which of MY questions' replies I have already seen — the whole memory
    behind "N new answers". Counts only; nothing identifying. */
 function seenMap(){try{return JSON.parse(localStorage.getItem('dotbro_seen')||'{}')}catch(_){return{}}}
-function markSeen(id){const m=seenMap();m[id]=(S.replies.get(id)||[]).length;localStorage.setItem('dotbro_seen',JSON.stringify(m));}
-function pushReply(r){const arr=S.replies.get(r.question_id)||[];
-  if(arr.some(x=>x.id===r.id))return;arr.push(r);
-  arr.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-  S.replies.set(r.question_id,arr);
+function markSeen(id){const m=seenMap();m[id]=nReplies(id);localStorage.setItem('dotbro_seen',JSON.stringify(m));}
+function pushReply(r){
+  if(S.replies.has(r.question_id)){            // thread loaded: it is the truth
+    const arr=S.replies.get(r.question_id);
+    if(arr.some(x=>x.id===r.id))return;arr.push(r);
+    arr.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    S.rcount.set(r.question_id,arr.length);
+  }else{                                       // not loaded: keep the counts honest
+    S.rcount.set(r.question_id,(S.rcount.get(r.question_id)||0)+1);
+    const k=S.rkinds.get(r.question_id)||{};k[r.kind]=(k[r.kind]||0)+1;S.rkinds.set(r.question_id,k);
+  }
   if(S.openId===r.question_id){renderQ();markSeen(r.question_id);}
   else if(!IS_DEMO&&S.mine.has(r.question_id))
     toastAction('someone answered your question — tap to read',()=>openQ(r.question_id),7000);
@@ -2539,15 +2559,28 @@ window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)
 
 /* ─── boot ─── */
 async function loadLive(){
-  const [qres,rres]=await Promise.all([db.listQuestions(),db.listReplies()]);
+  const [qres,cres]=await Promise.all([db.listQuestions(),db.listReplyCounts()]);
   if(qres.error)throw qres.error;
-  if(rres.error)throw rres.error;
-  const qs=qres.data||[], rs=rres.data||[];
-  S.replies.clear();
-  rs.forEach(r=>{const a=S.replies.get(r.question_id)||[];a.push(r);S.replies.set(r.question_id,a)});
+  if(cres.error)throw cres.error;
+  const qs=qres.data||[], cs=cres.data||[];
+  S.rcount.clear();S.rkinds.clear();
+  cs.forEach(c=>{S.rcount.set(c.question_id,(S.rcount.get(c.question_id)||0)+c.n);
+    const k=S.rkinds.get(c.question_id)||{};k[c.kind]=(k[c.kind]||0)+c.n;S.rkinds.set(c.question_id,k);});
   if(qs.length)newestQId=qs[0].id;          // qs is newest-first — this feeds the gate
   qs.slice().reverse().forEach(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,false)}});
   netup();
+}
+/* a thread is fetched the moment someone opens it — counts render instantly,
+   words follow in the same breath */
+async function loadThread(id){
+  if(IS_DEMO||!db||S.replies.has(id))return;
+  try{
+    const {data,error}=await db.threadReplies(id);
+    if(error||!data)return;
+    S.replies.set(id,data);
+    S.rcount.set(id,data.length);            // the thread is the truth now
+    if(S.openId===id)renderQ();
+  }catch(_){}
 }
 (async function(){
   const saved=localStorage.getItem('dotbro_name');if(saved)$('#name').value=saved;
@@ -2569,38 +2602,52 @@ async function loadLive(){
     dismissGate();
     return;
   }
-  try{
-    await loadLive();
+  /* subscriptions + presence live OUTSIDE the first-load try: a failed first
+     load then a successful retry used to reconnect the data but never the
+     live stream — new questions and replies silently stopped arriving */
+  let liveWired=false;
+  function wireLive(){
+    if(liveWired||!db)return;liveWired=true;
     db.onQuestion(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,true);renderFeed();}});
     db.onReply(pushReply);
     startPresence();
+  }
+  try{
+    await loadLive();
+    wireLive();
     /* answers that arrived while this person was away */
     if(S.mine.size){
       const m=seenMap();let fresh=0,target=null;
-      for(const id of S.mine){const n=(S.replies.get(id)||[]).length;if(n>(m[id]||0)){fresh+=n-(m[id]||0);target=id;}}
+      for(const id of S.mine){const n=nReplies(id);if(n>(m[id]||0)){fresh+=n-(m[id]||0);target=id;}}
       if(fresh)toastAction(`${fresh} new ${fresh===1?'answer':'answers'} on your questions — tap to read`,()=>openQ(target),9000);
     }
     const shared=new URLSearchParams(location.search).get('q');
     if(shared&&S.q.has(shared)){dismissGate();endIntro();setTimeout(()=>openQ(shared),600);}
     else if(shared){
-      // the link points at a conversation we can't see (past the fetch window
-      // or deleted) — say so instead of silently showing the gate
+      /* a share link must outlive the newest-300 window — fetch that ONE
+         question directly. Only a genuinely deleted conversation gets the
+         apology. */
       dismissGate();endIntro();
-      toast("that conversation isn't on the globe any more — but the space is live.",6000);
+      try{
+        const {data}=await db.getQuestion(shared);
+        if(data){S.q.set(data.id,data);addNode(data,false);setTimeout(()=>openQ(data.id),600);}
+        else toast("that conversation isn't on the globe any more — but the space is live.",6000);
+      }catch(_){toast("that conversation isn't reachable right now.",6000);}
     }
     else if(!document.querySelector('.sheet.open')){armGate();}   // a #connect landing already owns the screen
   }catch(err){
     // an empty globe with no explanation reads as "nobody is here" — say the truth
     netdown("can't reach the space right now — showing nothing until it's back.",
-      ()=>{netup();loadLive().catch(()=>netdown('still no connection.',null));});
+      ()=>{netup();loadLive().then(()=>{wireLive();renderFeed();})
+        .catch(()=>netdown('still no connection.',null));});
     dismissGate();
   }
-  addEventListener('online',()=>{loadLive().catch(()=>{})});
+  addEventListener('online',()=>{loadLive().then(()=>{wireLive();renderFeed();}).catch(()=>{})});
 })();
 </script>
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=21"></script>
+<script type="module" src="/alge-engine.js?v=22"></script>
 </body>
 </html>

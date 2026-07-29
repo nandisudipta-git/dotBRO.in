@@ -479,7 +479,8 @@ function spriteFor(n) {
   return sp;
 }
 function nodeScale(n) {
-  const nr = IS_DEMO ? (n.nr || 0) : (S.replies.get(n.id) || []).length;
+  const nr = IS_DEMO ? (n.nr || 0)
+    : S.replies.has(n.id) ? S.replies.get(n.id).length : ((S.rcount && S.rcount.get(n.id)) || 0);
   return 0.082 + Math.min(Math.sqrt(nr) * 0.028, 0.08);
 }
 
@@ -868,7 +869,9 @@ function stepLabels() {
        the camera. Everything else stays quiet until hovered or opened — the
        globe was starting to read as a page of captions, and a label you have
        to reach for is worth more than three you have to ignore. */
-    const nr = s => IS_DEMO ? (s.userData.node.nr || 0) : (S.replies.get(s.userData.node.id) || []).length;
+    const nr = s => { const id = s.userData.node.id;
+      return IS_DEMO ? (s.userData.node.nr || 0)
+        : S.replies.has(id) ? S.replies.get(id).length : ((S.rcount && S.rcount.get(id)) || 0); };
     const cand = [...sprites.values()]
       .filter(s => frontDot(s) > 0.35 && (!S.filter || S.filter === s.userData.node.cat))
       .sort((a, b) => nr(b) - nr(a) || frontDot(b) - frontDot(a));

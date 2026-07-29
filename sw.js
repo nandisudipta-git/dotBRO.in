@@ -1,6 +1,6 @@
 /* dotBro service worker — app shell cached, live data never.
    Bump VERSION to invalidate after a deploy. */
-const VERSION = 'dotbro-v21';
+const VERSION = 'dotbro-v22';
 const SHELL = ['/', '/index.html', '/about.html', '/alge-engine.js', '/manifest.webmanifest',
                '/assets/icon-192.png', '/assets/icon-512.png', '/assets/favicon-red.png'];
 self.addEventListener('install', e => {
@@ -14,22 +14,27 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;                     // posts go straight through
   if (url.hostname.endsWith('supabase.co')) return;           // live data: never cached
-  // network-first for the shell (fresh deploys win), cache as offline fallback
+  // The engine is requested as /alge-engine.js?v=N — without ignoreSearch a
+  // cold offline start missed the cached copy and lost the WebGL globe.
+  const looseMatch = url.pathname === '/' || url.pathname === '/alge-engine.js';
+  // network-first for the shell (fresh deploys win), cache as offline fallback.
+  // ONLY 200s get cached: one transient 500 stored here used to be replayed
+  // as the "offline fallback" until the next VERSION bump.
   if (url.origin === location.origin) {
     e.respondWith(
       fetch(e.request).then(r => {
-        const copy = r.clone();
-        caches.open(VERSION).then(c => c.put(e.request, copy));
+        if (r.ok) { const copy = r.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); }
         return r;
-      }).catch(() => caches.match(e.request, { ignoreSearch: url.pathname === '/' }))
+      }).catch(() => caches.match(e.request, { ignoreSearch: looseMatch }))
     );
     return;
   }
-  // CDN assets (three.js, textures, supabase-js): cache-first — they are versioned URLs
+  // CDN assets (three.js, textures, supabase-js): cache-first — they are
+  // versioned URLs. Opaque responses (no-cors) can't be inspected, so they're
+  // cached as-is; everything else must be a 200.
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(r => {
-      const copy = r.clone();
-      caches.open(VERSION).then(c => c.put(e.request, copy));
+      if (r.ok || r.type === 'opaque') { const copy = r.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); }
       return r;
     }))
   );
