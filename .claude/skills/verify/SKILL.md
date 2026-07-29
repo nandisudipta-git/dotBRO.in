@@ -44,4 +44,4 @@ these pages aggressively and will silently serve the previous build.
 - PWA: manifest.webmanifest + sw.js (network-first shell, CDN cache-first, supabase never cached).
   Bump `VERSION` in sw.js when a deploy must invalidate cached shells. Camera fit is aspect-aware
   (`baseDist()` in alge-engine.js) — globe fills ~87% of the narrow axis at any aspect ratio.
-- **Deploy:** live site is Vercel (confirmed via `curl -sI https://dotbro.in` → `server: Vercel`), deployed via Vercel file-upload API — NOT git push, NOT GitHub Pages (old DEPLOY.md in ../www.dotbro.in is stale). See ../dotbro-in-PROJECT.md build log.
+- **Deploy:** live site is GitHub Pages again (re-confirmed 2026-07-29: `curl -sI https://dotbro.in` → `server: GitHub.com`) — `git push origin main` to `nandisudipta-git/dotBRO.in` IS the deploy. A parallel copy exists on Vercel (project `dotbro`, team `team_6J97o78JsI4a5AMCneFh3GlM`) but DNS does not point there. ALWAYS re-check the `server:` header before deploying — this line has flipped twice.
