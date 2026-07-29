@@ -39,6 +39,13 @@ try {
    flips, the 2D canvas keeps painting on top and nothing is lost. */
 const oldCanvas = document.getElementById('c');
 renderer.domElement.id = 'c3d';
+/* the 2D canvas carried the app's only screen-reader description and keyboard
+   hints — hiding it removed them for every WebGL visitor. Carry them over. */
+renderer.domElement.setAttribute('role', 'img');
+renderer.domElement.setAttribute('aria-label',
+  document.getElementById('c')?.getAttribute('aria-label') ||
+  'A globe of live conversations. Use the arrow keys to spin it, plus and minus to zoom.');
+renderer.domElement.tabIndex = 0;
 renderer.domElement.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;cursor:grab;touch-action:none;display:block;';
 document.body.insertBefore(renderer.domElement, oldCanvas);
 
@@ -456,6 +463,10 @@ function spriteFor(n) {
   // frame loop. Honest and tight from orbit, separable once you are close.
   sp.userData.t1 = t1; sp.userData.t2 = t2; sp.userData.jx = jx; sp.userData.jy = jy;
   sp.userData.born = performance.now();
+  // a genuinely new conversation (own post or live from someone else) makes
+  // an entrance; everything loaded from history simply exists
+  if (!IS_DEMO && n.incoming && performance.now() - n.born < 4000 && !REDUCED)
+    sp.userData.arrive = { t0: performance.now(), dur: 1600 };
   nodeGroup.add(sp); sprites.set(n, sp);
   return sp;
 }
@@ -641,7 +652,8 @@ if (zin) zin.onclick = () => { zoomT = Math.min(7, zoomT * 1.45); lastInteract =
 if (zout) zout.onclick = () => { zoomT = Math.max(0.5, zoomT / 1.45); lastInteract = performance.now(); };
 addEventListener('keydown', e => {
   if (document.querySelector('.sheet.open')) return;
-  if (/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  const ae = document.activeElement;
+  if (ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) return;
   const st = 0.07;
   if (e.key === 'ArrowLeft') yaw -= st; else if (e.key === 'ArrowRight') yaw += st;
   else if (e.key === 'ArrowUp') pitch = Math.max(-1.3, pitch - st);
@@ -783,13 +795,18 @@ function stepBadges() {
   const expanded = clusterSpread > 0.006;          // dots have separated; stand down
   if (MASSIVE || isGated() || document.body.classList.contains('sheeting') ||
       document.body.classList.contains('feeding') || expanded) {
-    badgeEls.forEach(b => b.style.opacity = '0');
+    // fully retire them: an invisible button was still swallowing taps and
+    // still sitting in the Tab order
+    badgeEls.forEach(b => { b.style.opacity = '0'; b.style.pointerEvents = 'none'; b.style.visibility = 'hidden'; });
     return;
   }
   const groups = new Map();
   for (const [n, sp] of sprites) {
     if (S.filter && S.filter !== n.cat) continue;
     const k = placeKey(n);
+    // the unplaced scatter is not a place — a centroid badge over it would
+    // point at nowhere and open an arbitrary question
+    if (k === 'unplaced') continue;
     let g = groups.get(k);
     if (!g) { g = { n: 0, x: 0, y: 0, front: false, first: n }; groups.set(k, g); }
     const p = screenPos(sp);
@@ -805,7 +822,8 @@ function stepBadges() {
   }
   badgeEls.forEach((el, i) => {
     const g = multi[i];
-    if (!g) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; return; }
+    if (!g) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; el.style.visibility = 'hidden'; return; }
+    el.style.visibility = 'visible';
     // No number. A digit on a globe reads as a map pin — the wrong object for a
     // living world, and two of them collided the moment two places sat close
     // together. Size carries the same information without a label: a heavier
@@ -982,10 +1000,35 @@ function frame() {
       // size and position; grow-in, hover, dim and filtering all still respond.
       const pulse = (spot === sp && !REDUCED) ? 1 + 0.22 * Math.sin(now * 0.004) : 1;
       const breathe = REDUCED ? 1 : 1 + 0.05 * Math.sin(now * 0.0012 + sp.userData.ph);
-      sp.scale.setScalar(base * grow * pulse * breathe * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
-      sp.material.opacity += ((dim ? 0.12 : 1) - sp.material.opacity) * 0.15;
       // the float: each conversation bobs gently on its shell
-      const r = ORBIT + (REDUCED ? 0 : BOB * Math.sin(now * 0.0009 + sp.userData.ph * 6) * grow);
+      let r = ORBIT + (REDUCED ? 0 : BOB * Math.sin(now * 0.0009 + sp.userData.ph * 6) * grow);
+      let extra = 1;
+      /* ── arrival: a new conversation travels in from above, lands with a
+         ripple, and its topic neighbours notice. Category stands in for the
+         semantic graph for now — the user experience won't change when true
+         similarity replaces it. Reduced-motion arrives in place. ── */
+      const A = sp.userData.arrive;
+      if (A) {
+        const k = Math.min(1, (now - A.t0) / A.dur);
+        const e = 1 - Math.pow(1 - k, 3);
+        r = ORBIT * (2.4 - 1.4 * e);
+        extra = 1 + (1 - e) * 1.4;                 // brighter while travelling
+        if (k >= 1) {
+          sp.userData.arrive = null;
+          sp.userData.ripple = { t0: now };
+          for (const [n2, sp2] of sprites)
+            if (sp2 !== sp && n2.cat === n.cat && !sp2.userData.arrive)
+              sp2.userData.react = { t0: now };
+        }
+      }
+      const RIP = sp.userData.ripple;
+      if (RIP) { const k = (now - RIP.t0) / 900;
+        if (k >= 1) sp.userData.ripple = null; else extra *= 1 + 0.5 * Math.sin(Math.PI * k); }
+      const RE = sp.userData.react;
+      if (RE) { const k = (now - RE.t0) / 1100;
+        if (k >= 1) sp.userData.react = null; else extra *= 1 + 0.16 * Math.sin(Math.PI * k); }
+      sp.scale.setScalar(base * grow * pulse * breathe * extra * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
+      sp.material.opacity += ((dim ? 0.12 : 1) - sp.material.opacity) * 0.15;
       sp.position.copy(sp.userData.dir).multiplyScalar(r);
       // Every question here comes from one campus, so from orbit they are one
       // dot and nothing can be picked out. As you dive in, the cluster opens:

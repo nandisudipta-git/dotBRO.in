@@ -1,14 +1,20 @@
 {
+  "id": "/",
   "name": "dotBro — the alge",
   "short_name": "dotBro",
   "description": "Float the question you never got to ask. It finds its people.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#232e38",
   "theme_color": "#232e38",
   "icons": [
     { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/assets/og-main.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "The alge — a living globe of conversations" }
   ]
 }

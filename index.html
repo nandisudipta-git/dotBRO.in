@@ -13,6 +13,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#232e38">
 <link rel="apple-touch-icon" href="/assets/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -610,10 +611,23 @@ const ago=ts=>{const s=Math.floor((Date.now()-new Date(ts))/1e3);if(s<60)return'
 /* ─── quiet feedback: a toast, never a blocking alert() ─── */
 const toastEl=document.getElementById('toast');let toastT=null;
 function toast(msg,ms){
+  toastAct=null;toastEl.style.cursor='';
   toastEl.textContent=msg;toastEl.classList.add('on');
   if(toastT)clearTimeout(toastT);
   toastT=setTimeout(()=>toastEl.classList.remove('on'),ms||3200);
 }
+/* a toast that goes somewhere when tapped — the whole in-app notification layer */
+let toastAct=null;
+function toastAction(msg,fn,ms){
+  toast(msg,ms||6000);
+  toastAct=fn;toastEl.style.cursor='pointer';
+}
+toastEl.addEventListener('click',()=>{
+  if(!toastAct)return;
+  const f=toastAct;toastAct=null;
+  toastEl.style.cursor='';toastEl.classList.remove('on');
+  f();
+});
 const netEl=document.getElementById('netmsg');
 function netdown(msg,retry){
   netEl.innerHTML='';
@@ -745,7 +759,9 @@ function kindCounts(id){
    (/alge.html#life, #build-startup, …) — the slug form of a category name.
    This is the behaviour feed.html used to own; it lives here now. */
 const slugOf=k=>k.replace(/\s*&\s*/g,'-').replace(/\s+/g,'-');
-const CAT_BY_SLUG={};CATKEYS.forEach(k=>{CAT_BY_SLUG[slugOf(k)]=k;});
+/* null prototype: with a plain {}, visiting /#constructor looked the key up
+   the prototype chain, assigned a FUNCTION as the filter and hid every dot */
+const CAT_BY_SLUG=Object.create(null);CATKEYS.forEach(k=>{CAT_BY_SLUG[slugOf(k)]=k;});
 CAT_BY_SLUG['study-gyan']='study & gyaan';   // older links used the short spelling
 CAT_BY_SLUG['ai']='ai & future';
 
@@ -781,7 +797,7 @@ CATKEYS.forEach(k=>{
 });
 function applyHash(){
   const h=decodeURIComponent(location.hash.replace(/^#/,'')).toLowerCase().trim();
-  if(h==='connect'){openSheet('#connect');return;}
+  if(h==='connect'){dismissGate();openSheet('#connect');return;}   // the gate under the scrim was unreachable
   if(h==='admin'){initAdminTab();return;}      // reveal the door, don't clear the filter
   setFilter(CAT_BY_SLUG[h]||null);
 }
@@ -1099,7 +1115,8 @@ function endIntro(){
   // See armGate()/dismissGate() near boot, below.
   setTimeout(maybeHint,1400);
 }
-if(REDUCED){intro.done=true;document.body.classList.add('arrived');}
+if(REDUCED){intro.done=true;document.body.classList.add('arrived');
+  setTimeout(maybeHint,1400);}   // skipping the intro must not mean never learning the controls
 
 function physics(){
   const nodes=S.arr, n=nodes.length;
@@ -1319,8 +1336,11 @@ function drawLabels(){
     ctx.fillStyle='#22303C';
     ctx.textAlign=alignRight?'right':'left';
     ctx.fillText(label,tx,ty+0.5);
-    ctx.restore();
   }
+  /* ONE restore for the one save — restoring inside the loop popped the font
+     back to default after the first label, so labels 2..4 drew in 10px serif
+     overflowing pills measured for Space Mono */
+  if(styled)ctx.restore();
 }
 
 /* ─── real Earth: landmasses as a dot lattice, sampled from Natural Earth (110m) ─── */
@@ -1774,11 +1794,20 @@ function openSheet(id){
   lastFocus=document.activeElement;
   document.body.classList.add('sheeting');   // the globe's own chatter stands down
   const sh=$(id);sh.classList.add('open');scrim.classList.add('open');
-  const f=sh.querySelector('textarea,input:not([disabled]),button:not([data-close])')||sh.querySelector('[data-close]');
-  if(f)setTimeout(()=>f.focus(),60);
+  /* the element to focus is chosen INSIDE the timeout — openQ calls renderQ
+     after openSheet, and grabbing a reference first meant focusing a node
+     that innerHTML had already detached. Every second open landed nowhere. */
+  setTimeout(()=>{
+    if(!sh.classList.contains('open'))return;
+    if(sh.contains(document.activeElement))return;   // renderQ already placed focus
+    const f=sh.querySelector('textarea,input:not([disabled]),button:not([data-close])')||sh.querySelector('[data-close]');
+    if(f)f.focus();
+  },60);
 }
 function closeAll(){document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
   scrim.classList.remove('open');document.body.classList.remove('sheeting');S.openId=null;activeKind=null;
+  // leave the hash clean, or the connect link goes inert (same hash = no event)
+  if(location.hash==='#connect')history.replaceState(null,'',location.pathname+location.search);
   if(lastFocus&&lastFocus.focus){lastFocus.focus();lastFocus=null;}}
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeAll);
 scrim.onclick=closeAll;
@@ -1798,7 +1827,7 @@ addEventListener('keydown',e=>{
 /* ─── keyboard drives the globe: arrows spin, +/- zoom ─── */
 addEventListener('keydown',e=>{
   if(document.querySelector('.sheet.open'))return;                 // dialog owns the keys
-  if(/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName))return;
+  if(document.activeElement&&/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName))return;
   const step=0.07;let used=true;
   switch(e.key){
     case 'ArrowLeft': velY=-step*0.09;rotY-=step;break;
@@ -1969,6 +1998,7 @@ $('#tabFeed').onclick =()=>setView('feed');
    noticed instead of waiting for someone to remember to look. */
 const ADMIN_KEY='dotbro_admin_pass';
 async function initAdminTab(){
+  if(initAdminTab._did)return;initAdminTab._did=true;   // /#admin used to run this twice → two RPCs
   const pass=(()=>{try{return sessionStorage.getItem(ADMIN_KEY)}catch(_){return null}})();
   if(location.hash!=='#admin' && !pass) return;      // invisible to everyone else
   const tab=$('#tabAdmin');
@@ -2061,6 +2091,7 @@ $('#post').onclick=async()=>{
   if(error){toast("couldn't start it — check your connection and try again.");return}
   $('#body').value='';$('#count').textContent='0 / 500';
   toast('it\'s floating. someone will find it.');
+  engaged();                                     // posting definitely counts
   if(data){S.mine.add(data.id);localStorage.setItem('dotbro_mine',JSON.stringify([...S.mine]));
     if(!S.q.has(data.id)){S.q.set(data.id,data);addNode(data,true);}
     const n=S.nodes.get(data.id);
@@ -2232,7 +2263,13 @@ function renderQ(){
   }).join('');
 
   const isMeet=activeKind==='meet';
-  const anonHtml=`<label class="anonline"><input type="checkbox" id="pAnon"${anonNow?' checked':''}> stay anonymous</label>`;
+  /* unchecking "anonymous" with no known name used to silently post as
+     anonymous anyway — the choice was offered, then ignored. Now the name
+     field is right there. Its value is set AFTER render (esc() is not
+     attribute-safe) and preserved across rebuilds like the draft. */
+  const _pn=$('#pName'); const nameDraft=_pn?_pn.value:(localStorage.getItem('dotbro_name')||'');
+  const anonHtml=`<label class="anonline"><input type="checkbox" id="pAnon"${anonNow?' checked':''}> stay anonymous</label>`+
+    `<input id="pName" type="text" maxlength="40" placeholder="your name" aria-label="Your name" style="display:${anonNow?'none':'inline-block'};background:rgba(255,255,255,.06);border:1px solid var(--hair);border-radius:6px;color:#dfe9f2;font:12px 'Space Mono',monospace;padding:4px 8px;margin-left:8px;max-width:130px;">`;
   const composeHtml = activeKind ? (
     isMeet
     ? `<div class="p-input open"><input id="pText" type="text" maxlength="200" aria-label="Why you want to meet" placeholder="${KIND_META.meet.placeholder}">${anonHtml}<button class="btn" id="pSubmit">Reach out →</button></div>`
@@ -2257,6 +2294,10 @@ function renderQ(){
   const nt=$('#pText');
   if(nt&&draft)nt.value=draft;
   if(nt&&caret){nt.focus();try{nt.setSelectionRange(caret[0],caret[1]);}catch(_){}}
+  const npn=$('#pName');
+  if(npn){npn.value=nameDraft;
+    const pa=$('#pAnon');
+    if(pa)pa.addEventListener('change',e=>{npn.style.display=e.target.checked?'none':'inline-block';});}
   const nw=$('#reportWhy');
   if(nw&&whyDraft)nw.value=whyDraft;
   if(repWasOpen){const rb=$('#reportBox');if(rb)rb.classList.add('open');}
@@ -2311,7 +2352,9 @@ async function submitAction(){
   if(!rateOk('reply',8,60000)){toast('slow down a moment — too many in a row.');return}
   const anonChk=$('#pAnon');
   const anon=anonChk?anonChk.checked:S.anon;
-  const name=anon?'anonymous':(($('#name').value.trim())||localStorage.getItem('dotbro_name')||'anonymous');
+  const typedName=($('#pName')?$('#pName').value.trim():'');
+  const name=anon?'anonymous':(typedName||($('#name').value.trim())||localStorage.getItem('dotbro_name')||'anonymous');
+  if(!anon&&typedName)localStorage.setItem('dotbro_name',typedName);
   const btn=$('#pSubmit'); if(btn){btn.disabled=true;btn.textContent='Sending…';}
   let data=null,error=null;
   try{({data,error}=await db.addReply(id,name,finalBody,activeKind));}
@@ -2326,7 +2369,7 @@ async function submitAction(){
 let fly=null;
 function flyToNode(id){
   const n=nodeOf(id);if(!n)return;
-  const a=n.anchor||{x:n.dx,y:n.dy,z:n.dz};if(!a)return;
+  const a=n.anchor||{x:n.dx,y:n.dy,z:n.dz};if(a.x==null)return;   // `!a` could never fire — the fallback literal is always truthy
   fly={ty:Math.atan2(a.x,a.z)+Math.PI,
        tx:Math.asin(Math.max(-1,Math.min(1,-a.y))),
        t0:performance.now(),dur:900};
@@ -2334,14 +2377,22 @@ function flyToNode(id){
 }
 function openQ(id){
   const q=qOf(id); if(q)noteTaste(q.category);   // whichever surface it came from
+  engaged();                                     // reading counts toward the install offer
   closeAll();S.openId=id;activeKind=null;flyToNode(id);openSheet('#qsheet');renderQ();
+  if(S.mine.has(id))markSeen(id);
 }
 
+/* which of MY questions' replies I have already seen — the whole memory
+   behind "N new answers". Counts only; nothing identifying. */
+function seenMap(){try{return JSON.parse(localStorage.getItem('dotbro_seen')||'{}')}catch(_){return{}}}
+function markSeen(id){const m=seenMap();m[id]=(S.replies.get(id)||[]).length;localStorage.setItem('dotbro_seen',JSON.stringify(m));}
 function pushReply(r){const arr=S.replies.get(r.question_id)||[];
   if(arr.some(x=>x.id===r.id))return;arr.push(r);
   arr.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
   S.replies.set(r.question_id,arr);
-  if(S.openId===r.question_id)renderQ();
+  if(S.openId===r.question_id){renderQ();markSeen(r.question_id);}
+  else if(!IS_DEMO&&S.mine.has(r.question_id))
+    toastAction('someone answered your question — tap to read',()=>openQ(r.question_id),7000);
   renderFeed();}                              // answer counts + "hot" order stay live
 
 /* ─── presence: live head-count. Shown only when at least 2 are here —
@@ -2362,6 +2413,50 @@ function startPresence(){
 /* ─── PWA: installable, shell works offline; live data always live ─── */
 if('serviceWorker' in navigator&&location.protocol==='https:')
   addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+
+/* ─── install: the browser's offer is captured and SPENT at a good moment,
+       never thrown at someone who just arrived. The pill appears after two
+       meaningful acts (reading or posting). iOS never fires the event, so it
+       gets honest instructions instead. Dismissing it is remembered. ─── */
+let installEv=null;
+const STANDALONE=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEv=e;maybeOfferInstall();});
+addEventListener('appinstalled',()=>{localStorage.setItem('dotbro_installed','1');hideInstallPill();});
+let installPill=null;
+function engaged(){
+  const n=(+localStorage.getItem('dotbro_engage')||0)+1;
+  localStorage.setItem('dotbro_engage',n);
+  if(n>=2)maybeOfferInstall();
+}
+function maybeOfferInstall(){
+  if(STANDALONE||IS_DEMO)return;
+  if(localStorage.getItem('dotbro_installed')||localStorage.getItem('dotbro_install_no'))return;
+  if((+localStorage.getItem('dotbro_engage')||0)<2)return;
+  if(!installEv&&!IOS)return;                        // nothing real to offer
+  if(installPill)return;
+  installPill=document.createElement('div');
+  installPill.id='installPill';
+  installPill.innerHTML=
+    `<button type="button" id="installGo">⊕ keep the alge on your ${IOS?'phone':'screen'}</button>`+
+    `<button type="button" id="installNo" aria-label="No thanks">×</button>`;
+  installPill.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;display:flex;gap:2px;align-items:center;background:rgba(20,28,36,.92);border:1px solid var(--hair);border-radius:99px;padding:4px 6px 4px 14px;backdrop-filter:none;';
+  installPill.querySelector('#installGo').style.cssText='background:none;border:0;color:#dfe9f2;font:11px/1.6 "Space Mono",monospace;letter-spacing:.08em;cursor:pointer;';
+  installPill.querySelector('#installNo').style.cssText='background:none;border:0;color:#8a98a5;font-size:14px;cursor:pointer;padding:2px 8px;';
+  document.body.appendChild(installPill);
+  installPill.querySelector('#installNo').onclick=()=>{localStorage.setItem('dotbro_install_no','1');hideInstallPill();};
+  installPill.querySelector('#installGo').onclick=async()=>{
+    if(installEv){
+      const ev=installEv;installEv=null;hideInstallPill();
+      try{await ev.prompt();}catch(_){}
+    }else{
+      // iOS: there is no API — say the honest steps
+      toast(IOS?'in Safari: tap Share, then "Add to Home Screen"':'use your browser menu: "Install app"',6000);
+      hideInstallPill();localStorage.setItem('dotbro_install_no','1');
+    }
+  };
+}
+function hideInstallPill(){if(installPill){installPill.remove();installPill=null;}}
 
 /* ─── bridge for the WebGL engine (module scripts cannot see const/let here) ─── */
 window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)};
@@ -2402,9 +2497,21 @@ async function loadLive(){
     db.onQuestion(q=>{if(!S.q.has(q.id)){S.q.set(q.id,q);addNode(q,true);renderFeed();}});
     db.onReply(pushReply);
     startPresence();
+    /* answers that arrived while this person was away */
+    if(S.mine.size){
+      const m=seenMap();let fresh=0,target=null;
+      for(const id of S.mine){const n=(S.replies.get(id)||[]).length;if(n>(m[id]||0)){fresh+=n-(m[id]||0);target=id;}}
+      if(fresh)toastAction(`${fresh} new ${fresh===1?'answer':'answers'} on your questions — tap to read`,()=>openQ(target),9000);
+    }
     const shared=new URLSearchParams(location.search).get('q');
     if(shared&&S.q.has(shared)){dismissGate();endIntro();setTimeout(()=>openQ(shared),600);}
-    else{armGate();}
+    else if(shared){
+      // the link points at a conversation we can't see (past the fetch window
+      // or deleted) — say so instead of silently showing the gate
+      dismissGate();endIntro();
+      toast("that conversation isn't on the globe any more — but the space is live.",6000);
+    }
+    else if(!document.querySelector('.sheet.open')){armGate();}   // a #connect landing already owns the screen
   }catch(err){
     // an empty globe with no explanation reads as "nobody is here" — say the truth
     netdown("can't reach the space right now — showing nothing until it's back.",
@@ -2417,6 +2524,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=18"></script>
+<script type="module" src="/alge-engine.js?v=19"></script>
 </body>
 </html>
