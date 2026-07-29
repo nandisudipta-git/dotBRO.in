@@ -33,9 +33,11 @@ try {
      being missed. This is why it felt heavy on a machine that should fly. */
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
 } catch (_) { throw new Error('no webgl — 2D fallback stays live'); }
-window.__3D = true;
+/* NOTE: window.__3D is set at the BOTTOM of this module, not here. Setting it
+   early meant any throw during the rest of init left both engines dead — the
+   2D loop had stood down and this one never reached frame(). Until the flag
+   flips, the 2D canvas keeps painting on top and nothing is lost. */
 const oldCanvas = document.getElementById('c');
-oldCanvas.style.display = 'none';
 renderer.domElement.id = 'c3d';
 renderer.domElement.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;cursor:grab;touch-action:none;display:block;';
 document.body.insertBefore(renderer.domElement, oldCanvas);
@@ -549,7 +551,7 @@ composer.addPass(new OutputPass());
 const home = faceAngles(homeDir);
 let yaw = home.yaw - 2.2, pitch = 0.35, vyaw = 0, vpitch = 0;
 let zoomT = 1, zoom = REDUCED ? 1 : 0.55;
-let dragging = false, lx = 0, ly = 0, lastInteract = 0, flyTo = null;
+let dragging = false, tapOk = false, lx = 0, ly = 0, lastInteract = 0, flyTo = null;
 const ptrs = new Map(); let pinchD0 = 0, pinchZ0 = 1, pinching = false;
 /* ── aspect-aware fit: the globe must FIT the frame on any screen ──
    A fixed camera distance framed desktop only — on a portrait phone the
@@ -576,7 +578,7 @@ cvs.addEventListener('pointerdown', e => {
   if (ptrs.size === 2) {
     const a = [...ptrs.values()];
     pinchD0 = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); pinchZ0 = zoomT; pinching = true; dragging = false;
-  } else { dragging = true; lx = e.clientX; ly = e.clientY; flyTo = null; }
+  } else { dragging = true; tapOk = ptrs.size === 1; lx = e.clientX; ly = e.clientY; flyTo = null; }
   lastInteract = performance.now();
   if (intro.active) finishIntro();
   if (window.dismissHint) window.dismissHint();
@@ -585,11 +587,33 @@ cvs.addEventListener('pointerdown', e => {
 cvs.addEventListener('pointerup', e => {
   ptrs.delete(e.pointerId);
   if (ptrs.size < 2) pinching = false;
+  if (ptrs.size === 1) {
+    // pinch ended but a finger is still down: hand it the drag. Without this
+    // the remaining finger was dead until lifted. It cannot tap, though — it
+    // was part of a pinch, not a press.
+    const rest = [...ptrs.values()][0];
+    dragging = true; tapOk = false; lx = rest.x; ly = rest.y;
+    return;
+  }
   if (!dragging) return; dragging = false;
   const dx = e.clientX - lx, dy = e.clientY - ly;
-  if (Math.abs(dx) + Math.abs(dy) < 6 && hover) window.openQ(hover.userData.node.id);
+  if (!tapOk || Math.abs(dx) + Math.abs(dy) >= 6) return;
+  if (isGated() || document.querySelector('.sheet.open')) return;
+  // A tap opens what is under the finger NOW. The old code trusted `hover`,
+  // which only pointermove refreshes — on touch that meant the first tap did
+  // nothing and every later tap opened the PREVIOUS dot.
+  const hit = pickAt(e.clientX, e.clientY);
+  if (hit) window.openQ(hit.userData.node.id);
 });
 cvs.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinching = false; dragging = false; });
+cvs.addEventListener('lostpointercapture', e => {
+  // alt-tab, system gestures, context menus can eat the pointer without a
+  // pointerup — without this the globe kept following a released mouse forever
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinching = false;
+  if (!ptrs.size) dragging = false;
+});
+addEventListener('blur', () => { ptrs.clear(); pinching = false; dragging = false; });
 cvs.addEventListener('pointermove', e => {
   if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pinching && ptrs.size >= 2) {
@@ -647,6 +671,17 @@ function flyToNode(id) {
 
 /* ── hover + tip + spotlight — same DOM elements the 2D engine used ── */
 const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2(9, 9);
+const _pickNDC = new THREE.Vector2();
+/* one picking path for taps and mouse hover — fresh matrices, same filter */
+function pickAt(cx, cy) {
+  if (MASSIVE) return null;
+  _pickNDC.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1);
+  camera.updateMatrixWorld();
+  raycaster.setFromCamera(_pickNDC, camera);
+  const hits = raycaster.intersectObjects([...sprites.values()], false)
+    .filter(h => frontDot(h.object) > 0.12 && (!S.filter || S.filter === h.object.userData.node.cat));
+  return hits.length ? hits[0].object : null;
+}
 let hover = null, spot = null, spotNextAt = 4000; const spotRecent = [];
 const tip = document.getElementById('tip'),
   tipCat = tip.querySelector('.tc'), tipQ = tip.querySelector('.tq'), tipM = tip.querySelector('.tm'),
@@ -842,10 +877,56 @@ window.__ENGINE = { ema: 16.7, fps: () => +(1000 / window.__ENGINE.ema).toFixed(
                prog: !!backdropMat.program, t: backdropMat.uniforms.uTime.value,
                res: backdropMat.uniforms.uRes.value.toArray() }) };
 let _lastT = 0;
+// returning to the tab restarts timing cleanly instead of measuring the gap
+document.addEventListener('visibilitychange', () => { if (!document.hidden) _lastT = 0; });
+let vsyncEst = 0, frameN = 0;   // best sustained fps seen — the display's real ceiling
+/* one knob for quality: shader detail + render resolution together.
+   EffectComposer caches its own pixel ratio — renderer.setPixelRatio alone
+   changed NOTHING about the render targets, so the old "shed pixels" step
+   saved zero GPU work. composer.setPixelRatio is the half that counts. */
+const _dbs = new THREE.Vector2();
+function syncRes() {
+  renderer.getDrawingBufferSize(_dbs);
+  backdropMat.uniforms.uRes.value.copy(_dbs);
+}
+function setQuality(q) {
+  backdropMat.uniforms.uQuality.value = q;
+  const pr = Math.min(devicePixelRatio || 1, q ? 1.5 : 1.15);
+  renderer.setPixelRatio(pr);
+  composer.setPixelRatio(pr);
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  syncRes();
+}
+/* ── context loss: the GPU can take the context away (sleep/wake, driver
+   reset, backgrounding). preventDefault says "I want it back"; if it does not
+   come back within 4s, hand the picture back to the 2D engine instead of
+   rendering black forever. ── */
+let contextLost = false, lostAt = 0, engineDead = false;
+renderer.domElement.addEventListener('webglcontextlost', e => {
+  e.preventDefault(); contextLost = true; lostAt = performance.now();
+});
+renderer.domElement.addEventListener('webglcontextrestored', () => { contextLost = false; });
+function bailTo2D() {
+  engineDead = true;
+  try { renderer.dispose(); } catch (_) {}
+  try { renderer.domElement.remove(); } catch (_) {}
+  oldCanvas.style.display = 'block';
+  window.__3D = false;
+  if (window.__restart2D) window.__restart2D();
+}
+
 function frame() {
+  if (engineDead) return;
   requestAnimationFrame(frame);
+  if (contextLost) {
+    if (performance.now() - lostAt > 4000) bailTo2D();
+    return;
+  }
   const now = performance.now(), dt = Math.min(clock.getDelta(), 0.05);
-  if (_lastT) window.__ENGINE.ema = window.__ENGINE.ema * 0.9 + (now - _lastT) * 0.1;
+  // clamp the sample: one backgrounded minute used to inject 60000ms into the
+  // EMA and trigger a bogus quality drop on the first frame back
+  if (_lastT) window.__ENGINE.ema = window.__ENGINE.ema * 0.9 + Math.min(now - _lastT, 100) * 0.1;
   _lastT = now;
 
   // adopt new nodes from the data layer (posts, realtime, initial load)
@@ -930,8 +1011,8 @@ function frame() {
     const hits = raycaster.intersectObjects([...sprites.values()], false)
       .filter(h => frontDot(h.object) > 0.12 && (!S.filter || S.filter === h.object.userData.node.cat));
     hover = hits.length ? hits[0].object : null;
-    cvs.style.cursor = hover ? 'pointer' : (dragging ? 'grabbing' : 'grab');
   }
+  cvs.style.cursor = dragging ? 'grabbing' : (hover ? 'pointer' : 'grab');
 
   stepArcs(now);
   // The intro finishes on its own after ~5s, but the gate can still be up —
@@ -956,16 +1037,16 @@ function frame() {
      missed, restore them once there is headroom. Hysteresis so it cannot
      oscillate. */
   const fps = 1000 / window.__ENGINE.ema;
+  frameN++;
+  if (fps > vsyncEst) vsyncEst = Math.min(fps, 165);
+  /* thresholds are relative to the display's own ceiling — an absolute
+     "restore above 57" latched quality at 0 forever on every 50Hz panel and
+     every low-power 30fps cap. Warmup skips the noisy first seconds. */
   if (qualityHold > 0) qualityHold--;
-  else if (backdropMat.uniforms.uQuality.value > 0.5 && fps < 45) {
-    backdropMat.uniforms.uQuality.value = 0; qualityHold = 240;
-    // shed pixels too — cheaper than any shader change, and reversible
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.15));
-    composer.setSize(innerWidth, innerHeight);
-  } else if (backdropMat.uniforms.uQuality.value < 0.5 && fps > 57) {
-    backdropMat.uniforms.uQuality.value = 1; qualityHold = 240;
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
-    composer.setSize(innerWidth, innerHeight);
+  else if (frameN > 120) {
+    const q = backdropMat.uniforms.uQuality.value;
+    if (q > 0.5 && fps < Math.min(45, vsyncEst * 0.72)) { setQuality(0); qualityHold = 240; }
+    else if (q < 0.5 && (fps > 57 || fps > vsyncEst * 0.9)) { setQuality(1); qualityHold = 240; }
   }
 
   // how far the cluster is allowed to open, by how close the camera is
@@ -976,9 +1057,12 @@ function frame() {
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
-  backdropMat.uniforms.uRes.value.set(innerWidth, innerHeight);
+  // re-applies the current quality tier AND re-reads devicePixelRatio — a
+  // window dragged between a retina and a 1x display keeps a correct buffer
+  setQuality(backdropMat.uniforms.uQuality.value);
 });
-renderer.setSize(innerWidth, innerHeight);
-composer.setSize(innerWidth, innerHeight);
+setQuality(1);
+/* init survived end to end — only NOW does the 2D engine stand down */
+window.__3D = true;
+oldCanvas.style.display = 'none';
 frame();

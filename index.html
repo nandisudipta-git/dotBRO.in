@@ -553,7 +553,8 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
       <button class="btn" id="post">Say it →</button>
     </div>
     <p class="honest">Anyone can read this, and it can't be unsent. If you allow location,
-    only your rough area (~11&nbsp;km) is used — to place your dot on the globe.</p>
+    only your rough area (~11&nbsp;km) is used — to place your dot on the globe.
+    If you decline, your dot floats without a place — we never guess one for you.</p>
   </div>
 </div>
 
@@ -1694,8 +1695,13 @@ function drawSpot(now){
   ctx.beginPath();ctx.arc(p.px,p.py,base*pulse+6,0,7);ctx.stroke();
 }
 
+/* the WebGL engine calls this if it loses its GPU context for good — the
+   fallback is a fallback again, not a one-way door */
+let __2dLive=false;
+window.__restart2D=()=>{if(window.__3D||__2dLive)return;resize();requestAnimationFrame(draw);};
 function draw(){
-  if(window.__3D)return;              // the WebGL engine has taken over — this loop is the no-WebGL fallback
+  if(window.__3D){__2dLive=false;return;} // the WebGL engine has taken over — this loop is the no-WebGL fallback
+  __2dLive=true;
   const now=performance.now();
   ctx.fillStyle=BGGRAD||'#46525C';ctx.fillRect(0,0,W,H);
   drawGrid(now);
@@ -1822,7 +1828,7 @@ function forceHint(){                       // "spectate" asked to be shown arou
   hintShown=true;hintEl.classList.add('on');setTimeout(dismissHint,9000);
 }
 canvas.addEventListener('pointerdown',dismissHint,{once:false});
-$('#fab').onclick=()=>{closeAll();captureGeo();openSheet('#compose')};
+$('#fab').onclick=()=>{closeAll();openSheet('#compose');};
 
 /* ─── the gate: first thing a visitor meets is a real question, not a form.
    Three real choices — answer it, ask your own, or just watch (which starts
@@ -1859,7 +1865,7 @@ $('#gateAnswer').onclick=()=>{
   dismissGate();endIntro();openQ(newestQId);activeKind='answer';renderQ();
   setTimeout(()=>{const el=$('#pText');if(el)el.focus();},650);
 };
-$('#gatePost').onclick=()=>{dismissGate();endIntro();captureGeo();openSheet('#compose');};
+$('#gatePost').onclick=()=>{dismissGate();endIntro();openSheet('#compose');};
 $('#gateSpectate').onclick=()=>{dismissGate();endIntro();forceHint();};
 
 /* ─── taste: what this visitor keeps opening ───────────────────────────────
@@ -2030,6 +2036,10 @@ CATKEYS.forEach(k=>{const [r,g,b]=CATS[k].col;
   catsEl.appendChild(c);
   if(k===S.cat)setTimeout(()=>c.onclick(),0);});
 $('#body').addEventListener('input',e=>$('#count').textContent=`${e.target.value.length} / 500`);
+/* Location permission fires on the FIRST KEYSTROKE, not on opening the sheet.
+   By then the disclosure above the textarea has been on screen and read —
+   the browser prompt arrives with its "why" already answered. */
+$('#body').addEventListener('input',captureGeo,{once:true});
 $('#post').onclick=async()=>{
   if(IS_DEMO){toast('demo data — read only. Remove ?n= from the URL to go live.');return}
   if(!db){toast("can't reach the space right now — your words wouldn't be saved.");return}
@@ -2039,7 +2049,11 @@ $('#post').onclick=async()=>{
   if(!rateOk('post',3,60000)){toast('easy — a few seconds between conversations.');return}
   const btn=$('#post');btn.disabled=true;btn.textContent='Sending…';
   if(!S.anon)localStorage.setItem('dotbro_name',name);
-  const loc=S.geo||{lat:31.8,lon:77.0};
+  /* No location means NO LOCATION. This used to fall back to 31.8/77.0, which
+     fmtLoc happily resolved to "IIT Mandi" — captioning a stranger in Lagos as
+     standing in Himachal. Null is honest: the dot floats on the shared scatter
+     and the panel reads "location not shared". */
+  const loc=S.geo||{lat:null,lon:null};
   let data=null,error=null;
   try{({data,error}=await db.addQuestion(name,body,S.cat,loc.lat,loc.lon));}
   catch(err){error=err;}
@@ -2194,6 +2208,16 @@ function wireSiblings(){
 
 function renderQ(){
   const q=qOf(S.openId); if(!q) return;
+  /* This function rebuilds the sheet with innerHTML — which used to destroy
+     whatever the visitor was TYPING whenever they switched kind or a live
+     reply arrived. Capture the draft, the caret, the anon choice and the
+     report box first; put them back after. Words are never collateral. */
+  const _t=$('#pText');
+  const draft=_t?_t.value:'';
+  const caret=(_t&&document.activeElement===_t)?[_t.selectionStart,_t.selectionEnd]:null;
+  const _a=$('#pAnon'); const anonNow=_a?_a.checked:S.anon;
+  const _w=$('#reportWhy'); const whyDraft=_w?_w.value:'';
+  const repWasOpen=!!document.querySelector('#reportBox.open');
   const [r,g,b]=CATS[q.category]?CATS[q.category].col:CATS.random.col;
   const rs=repliesOf(S.openId).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
   const counts=kindCounts(S.openId);
@@ -2208,7 +2232,7 @@ function renderQ(){
   }).join('');
 
   const isMeet=activeKind==='meet';
-  const anonHtml=`<label class="anonline"><input type="checkbox" id="pAnon"${S.anon?' checked':''}> stay anonymous</label>`;
+  const anonHtml=`<label class="anonline"><input type="checkbox" id="pAnon"${anonNow?' checked':''}> stay anonymous</label>`;
   const composeHtml = activeKind ? (
     isMeet
     ? `<div class="p-input open"><input id="pText" type="text" maxlength="200" aria-label="Why you want to meet" placeholder="${KIND_META.meet.placeholder}">${anonHtml}<button class="btn" id="pSubmit">Reach out →</button></div>`
@@ -2230,6 +2254,12 @@ function renderQ(){
     `<div class="replies">${repliesHtml}</div>`+
     siblingsHtml(q);
   wireSiblings();
+  const nt=$('#pText');
+  if(nt&&draft)nt.value=draft;
+  if(nt&&caret){nt.focus();try{nt.setSelectionRange(caret[0],caret[1]);}catch(_){}}
+  const nw=$('#reportWhy');
+  if(nw&&whyDraft)nw.value=whyDraft;
+  if(repWasOpen){const rb=$('#reportBox');if(rb)rb.classList.add('open');}
 
   $('#pActions').querySelectorAll('.p-btn').forEach(btn=>{
     btn.onclick=()=>{
@@ -2247,7 +2277,9 @@ function renderQ(){
     if(!db){toast("can't reach the space right now.");return;}
     if(!rateOk('report',3,60000)){toast('already sent — a human will look.');return;}
     repGo.disabled=true;
-    const {error}=await db.addReport(S.openId,$('#reportWhy').value.trim()||null);
+    let error=null;
+    try{({error}=await db.addReport(S.openId,$('#reportWhy').value.trim()||null));}
+    catch(err){error=err;}
     repGo.disabled=false;
     if(error){toast('could not send the report — try again.');return;}
     repBox.classList.remove('open');
@@ -2284,7 +2316,7 @@ async function submitAction(){
   let data=null,error=null;
   try{({data,error}=await db.addReply(id,name,finalBody,activeKind));}
   catch(err){error=err;}
-  if(btn) btn.disabled=false;
+  if(btn){btn.disabled=false;btn.textContent=isMeet?'Reach out →':'Say it →';}
   if(error){ toast('could not send — check your connection and try again.'); return; }
   if(data) pushReply(data);
   activeKind=null;
@@ -2385,6 +2417,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=17"></script>
+<script type="module" src="/alge-engine.js?v=18"></script>
 </body>
 </html>
