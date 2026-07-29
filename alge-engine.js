@@ -246,14 +246,12 @@ const earthMat = new THREE.ShaderMaterial({
    address" is not, and should not be.
 
    Skipped entirely when the device asks for reduced data. */
-/* Safari is excluded from the upgrade entirely, not just from the dispose.
-   The black square is only ever reported there, it is the one engine where this
-   swap cannot be watched from here, and a 2K Earth that always renders beats a
-   4K one that sometimes shows a hole. Revisit if it turns out to be the dispose
-   alone — the guard above may well be the whole fix. */
-const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+/* Safari gets the sharper Earth again. It was held back for one deploy while the
+   black square was still unexplained; Ron confirmed it is gone with the dispose
+   removed, so the dispose was the whole cause and the browser was never at
+   fault. Every engine gets 4K. */
 const saveData = navigator.connection && navigator.connection.saveData;
-if (!saveData && !isSafari) {
+if (!saveData) {
   loader.load(TEXBASE + 'earth_atmos_4096.jpg', t => {
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = MAXANISO;
@@ -313,8 +311,35 @@ function starField(n, size, spread) {
 const starsFar = starField(900, 0.055, 34), starsNear = starField(220, 0.1, 22);
 scene.add(starsFar, starsNear);
 
+/* Each category gets its own SHAPE, not just its own colour. Six coloured dots
+   at the same size are six identical round blobs once bloom has had its way with
+   them — and colour alone is the classic accessibility failure anyway, useless
+   to anyone colour-blind and useless to everyone at small sizes. Form survives
+   both. The white core stays circular throughout: that is the conversation
+   itself, constant, and the ring around it is what kind of conversation it is. */
+const SHAPE = {
+  'ai & future':     'hex',
+  'build & startup': 'square',
+  'study & gyaan':   'triangle',
+  'life':            'circle',
+  'meet people':     'diamond',
+  'random':          'ring',
+};
+function strokeShape(c, kind, cx, cy, rad) {
+  c.beginPath();
+  if (kind === 'circle' || kind === 'ring') { c.arc(cx, cy, rad, 0, 7); c.closePath(); c.stroke(); return; }
+  const sides = kind === 'triangle' ? 3 : kind === 'square' ? 4 : kind === 'diamond' ? 4 : 6;
+  const turn  = kind === 'diamond' ? 0 : kind === 'square' ? Math.PI / 4 : -Math.PI / 2;
+  for (let i = 0; i < sides; i++) {
+    const a = turn + i * (Math.PI * 2 / sides);
+    const x = cx + Math.cos(a) * rad, y = cy + Math.sin(a) * rad;
+    i ? c.lineTo(x, y) : c.moveTo(x, y);
+  }
+  c.closePath(); c.stroke();
+}
+
 /* ── node sprites: white core + category glow, additive → real bloom ── */
-function nodeTexture([r, g, b]) {
+function nodeTexture([r, g, b], kind) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128;
   const c = cv.getContext('2d');
   let gr = c.createRadialGradient(64, 64, 0, 64, 64, 64);
@@ -330,13 +355,17 @@ function nodeTexture([r, g, b]) {
   c.fillStyle = '#fff';
   c.beginPath(); c.arc(64, 64, 7, 0, 7); c.fill();
   c.lineWidth = 8; c.strokeStyle = `rgb(${r},${g},${b})`;
-  c.beginPath(); c.arc(64, 64, 16, 0, 7); c.stroke();
+  c.lineJoin = 'round';
+  strokeShape(c, kind || 'circle', 64, 64, 17);
+  // 'random' is the only one that reads as a plain dot, so it gets a second
+  // outline to stay distinguishable from 'life' rather than being its twin
+  if (kind === 'ring') { c.lineWidth = 3; c.beginPath(); c.arc(64, 64, 27, 0, 7); c.stroke(); }
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 const MATS = {};
 for (const k in CATS) MATS[k] = new THREE.SpriteMaterial({
-  map: nodeTexture(CATS[k].col), transparent: true,
+  map: nodeTexture(CATS[k].col, SHAPE[k]), transparent: true,
   blending: THREE.AdditiveBlending, depthWrite: false,
 });
 
