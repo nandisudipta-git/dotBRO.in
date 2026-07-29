@@ -771,7 +771,13 @@ function stepBadges() {
   badgeEls.forEach((el, i) => {
     const g = multi[i];
     if (!g) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; return; }
-    el.textContent = String(g.n);
+    // No number. A digit on a globe reads as a map pin — the wrong object for a
+    // living world, and two of them collided the moment two places sat close
+    // together. Size carries the same information without a label: a heavier
+    // place is simply a bigger, brighter halo. The count still exists for screen
+    // readers, where a number is genuinely the clearest thing to say.
+    const size = Math.min(26 + g.n * 5, 62);
+    el.style.width = el.style.height = size + 'px';
     el.setAttribute('aria-label', g.n + ' conversations here — open them');
     el.style.transform = `translate(${g.x / g.n}px,${g.y / g.n}px) translate(-50%,-50%)`;
     el.style.opacity = '1';
