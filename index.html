@@ -437,6 +437,16 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
   .zoomui button,#netmsg,.albl,#tip{
     backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
   }
+  /* Second attempt at the black panel. Removing backdrop-filter was not enough,
+     so this removes the rest of what forces a separate compositing layer over
+     the WebGL canvas: the large soft box-shadow, and the rounded overflow clip
+     wrapping a scrollable child. Flat, opaque, no shadow — it cannot be
+     composited wrongly if there is nothing to composite. */
+  .sheet{box-shadow:none !important;background:#FAFBFD !important;
+         border:1px solid rgba(0,0,0,.22) !important;}
+  .thanks{box-shadow:none !important;background:#FAFBFD !important;
+          border:1px solid rgba(0,0,0,.22) !important;}
+  .scrim{background:rgba(8,13,19,.72) !important;}
   #feed{background:#0A1017;}
   .viewtabs{background:rgba(13,22,30,.94);}
   .fab{background:rgba(11,19,27,.92);}
@@ -2375,6 +2385,6 @@ async function loadLive(){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=13"></script>
+<script type="module" src="/alge-engine.js?v=14"></script>
 </body>
 </html>

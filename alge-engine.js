@@ -25,7 +25,13 @@ const isGated = () => document.body.classList.contains('gated');
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  /* Pixel ratio is the single biggest lever on this scene, and it was pinned at
+     2 — on a retina display that is four times the fragments of 1x, every one
+     of them running the backdrop, the Earth shader and a bloom pass. 1.5 costs
+     about 44% less than 2 and the difference is genuinely hard to see on a
+     globe made of soft light; it drops again to 1.15 when frames are still
+     being missed. This is why it felt heavy on a machine that should fly. */
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
 } catch (_) { throw new Error('no webgl — 2D fallback stays live'); }
 window.__3D = true;
 const oldCanvas = document.getElementById('c');
@@ -908,8 +914,13 @@ function frame() {
   if (qualityHold > 0) qualityHold--;
   else if (backdropMat.uniforms.uQuality.value > 0.5 && fps < 45) {
     backdropMat.uniforms.uQuality.value = 0; qualityHold = 240;
+    // shed pixels too — cheaper than any shader change, and reversible
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.15));
+    composer.setSize(innerWidth, innerHeight);
   } else if (backdropMat.uniforms.uQuality.value < 0.5 && fps > 57) {
     backdropMat.uniforms.uQuality.value = 1; qualityHold = 240;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+    composer.setSize(innerWidth, innerHeight);
   }
 
   // how far the cluster is allowed to open, by how close the camera is
