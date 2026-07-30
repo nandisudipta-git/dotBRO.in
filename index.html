@@ -1271,6 +1271,22 @@ canvas.addEventListener('wheel',e=>{e.preventDefault();lastInteract=performance.
   zoomT=Math.max(0.5,Math.min(7,zoomT*Math.exp(-e.deltaY*0.0016)));},{passive:false});
 document.getElementById('zin').onclick=()=>{lastInteract=performance.now();zoomT=Math.min(7,zoomT*1.45);};
 document.getElementById('zout').onclick=()=>{lastInteract=performance.now();zoomT=Math.max(0.5,zoomT/1.45);};
+/* Trackpad pinch = globe zoom no matter what the pointer is over. The canvas
+   already claims wheel events, but a pinch that starts over the HUD, the gate
+   or the FAB fell through to the browser's page scale — which drags the fixed
+   chrome off-screen. Chrome delivers pinch as ctrl+wheel; Safari as gesture*. */
+const pinchZoom=f=>{
+  if(window.__3D&&window.__ZOOM3D){window.__ZOOM3D(f);return;}
+  lastInteract=performance.now();zoomT=Math.max(0.5,Math.min(7,zoomT*f));};
+addEventListener('wheel',e=>{
+  if(!e.ctrlKey)return;
+  e.preventDefault();e.stopPropagation();
+  pinchZoom(Math.exp(-e.deltaY*0.012));
+},{passive:false,capture:true});
+let gPrev=1;
+addEventListener('gesturestart',e=>{e.preventDefault();gPrev=1;},{passive:false});
+addEventListener('gesturechange',e=>{e.preventDefault();pinchZoom(e.scale/gPrev);gPrev=e.scale;},{passive:false});
+addEventListener('gestureend',e=>e.preventDefault(),{passive:false});
 ['pointerdown','wheel','keydown'].forEach(ev=>addEventListener(ev,()=>{if(intro.active)endIntro();},{passive:true}));
 
 /* ─── spotlight: resurface an old / unanswered question the user likely missed ─── */
@@ -2651,6 +2667,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=23"></script>
+<script type="module" src="/alge-engine.js?v=24"></script>
 </body>
 </html>

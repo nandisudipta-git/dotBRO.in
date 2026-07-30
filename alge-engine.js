@@ -660,6 +660,12 @@ cvs.addEventListener('wheel', e => {
   zoomT = THREE.MathUtils.clamp(zoomT * Math.exp(-e.deltaY * 0.0016), 0.5, 7);
   if (intro.active) finishIntro();
 }, { passive: false });
+/* the classic script's window-level pinch handler routes here while __3D is up */
+window.__ZOOM3D = f => {
+  zoomT = THREE.MathUtils.clamp(zoomT * f, 0.5, 7);
+  lastInteract = performance.now();
+  if (intro.active) finishIntro();
+};
 const zin = document.getElementById('zin'), zout = document.getElementById('zout');
 if (zin) zin.onclick = () => { zoomT = Math.min(7, zoomT * 1.45); lastInteract = performance.now(); };
 if (zout) zout.onclick = () => { zoomT = Math.max(0.5, zoomT / 1.45); lastInteract = performance.now(); };
