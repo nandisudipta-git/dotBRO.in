@@ -418,6 +418,7 @@ function rebuildTethers() {
   yawG.add(surfDots);
 }
 const sprites = new Map();                       // node → sprite
+const clusterN = new Map();                      // co-location bucket → arrivals so far
 const hash = x => { x ^= x >>> 16; x = Math.imul(x, 0x45d9f3b); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
 let nid = 0;
 function spriteFor(n) {
@@ -461,7 +462,16 @@ function spriteFor(n) {
   const up = Math.abs(d.y) < 0.94 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
   const t1 = new THREE.Vector3().crossVectors(d, up).normalize();
   const t2 = new THREE.Vector3().crossVectors(d, t1).normalize();
-  const jx = (hash(i * 3 + 1) - 0.5), jy = (hash(i * 3 + 2) - 0.5);
+  /* Random jitter made a saturated place read as a splat — the same cohort's
+     questions landed wherever the hash fell, overlapping in pairs while empty
+     gaps sat next to them. Now co-located posts take a golden-angle rosette:
+     first arrival on the true spot, the k-th at sqrt(k) radius, evenly wound.
+     Same footprint, but the cluster opens into a sunflower instead of noise —
+     and the layout is deterministic, so it survives reloads unchanged. */
+  const key = Math.round(d.x * 150) + ',' + Math.round(d.y * 150) + ',' + Math.round(d.z * 150);
+  const k = clusterN.get(key) || 0; clusterN.set(key, k + 1);
+  const ang = k * 2.39996323, rr = k ? 0.17 * Math.sqrt(k) : 0;
+  const jx = Math.cos(ang) * rr, jy = Math.sin(ang) * rr;
   d.addScaledVector(t1, jx * 0.009).addScaledVector(t2, jy * 0.009).normalize();
   // own material clone per sprite — 21 live nodes, and it buys per-node dimming
   const sp = new THREE.Sprite(MATS[CATS[n.cat] ? n.cat : 'random'].clone());
@@ -657,14 +667,16 @@ cvs.addEventListener('pointermove', e => {
 cvs.addEventListener('pointerleave', () => { hover = null; });
 cvs.addEventListener('wheel', e => {
   e.preventDefault(); lastInteract = performance.now();
-  zoomT = THREE.MathUtils.clamp(zoomT * Math.exp(-e.deltaY * 0.0016), 0.5, 7);
+  // end the intro BEFORE applying the zoom — finishIntro resets zoomT to 1,
+  // so the old order silently ate the user's first scroll
   if (intro.active) finishIntro();
+  zoomT = THREE.MathUtils.clamp(zoomT * Math.exp(-e.deltaY * 0.0016), 0.5, 7);
 }, { passive: false });
 /* the classic script's window-level pinch handler routes here while __3D is up */
 window.__ZOOM3D = f => {
+  if (intro.active) finishIntro();   // resets zoomT — must run before, not after
   zoomT = THREE.MathUtils.clamp(zoomT * f, 0.5, 7);
   lastInteract = performance.now();
-  if (intro.active) finishIntro();
 };
 const zin = document.getElementById('zin'), zout = document.getElementById('zout');
 if (zin) zin.onclick = () => { zoomT = Math.min(7, zoomT * 1.45); lastInteract = performance.now(); };
@@ -1053,7 +1065,11 @@ function frame() {
       const RE = sp.userData.react;
       if (RE) { const k = (now - RE.t0) / 1100;
         if (k >= 1) sp.userData.react = null; else extra *= 1 + 0.16 * Math.sin(Math.PI * k); }
-      sp.scale.setScalar(base * grow * pulse * breathe * extra * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
+      // diving in used to blow every sprite up with the camera — a saturated
+      // place became a wall of overlapping glows. Close up, the dots yield
+      // some of that growth back so the opened rosette has air between rings.
+      const zshrink = Math.max(0.5, Math.min(1, 1 / Math.sqrt(Math.max(zoom, 1))));
+      sp.scale.setScalar(base * grow * pulse * breathe * extra * zshrink * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
       sp.material.opacity += ((dim ? 0.12 : 1) - sp.material.opacity) * 0.15;
       sp.position.copy(dirNow).multiplyScalar(r);
       // Every question here comes from one campus, so from orbit they are one
@@ -1121,7 +1137,10 @@ function frame() {
   }
 
   // how far the cluster is allowed to open, by how close the camera is
-  clusterSpread = zoom <= 1.5 ? 0 : Math.min((zoom - 1.5) * 0.016, 0.055);
+  /* 0.055 was smaller than one sprite (~0.09 world units) — the cluster
+     "opened" into the same fused blob. The spread has to clear several sprite
+     widths before the rosette can actually read as a rosette. */
+  clusterSpread = zoom <= 1.5 ? 0 : Math.min((zoom - 1.5) * 0.09, 0.32);
 
   composer.render(dt);
 }

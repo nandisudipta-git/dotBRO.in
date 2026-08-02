@@ -89,7 +89,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;
   background:none;border:none;font-family:inherit;padding:6px 10px 6px 6px;border-radius:999px;text-align:left;}
 .lg:hover,.lg.on{color:var(--paper);}
 .lg.on{background:rgba(255,255,255,.1);}
-.lg .sw{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.25);}
+.lg .sw{width:13px;height:13px;flex-shrink:0;display:block;}
 /* mobile: filtering used to be impossible (legend was display:none).
    Now a horizontal chip row above the FAB, scrollable if it must be. */
 @media(max-width:640px){
@@ -848,11 +848,29 @@ function setFilter(k){
     : 'filter by topic <span aria-hidden="true">&#9662;</span>';
   if(S.filter)legendBox.hidden=false,filterToggle.setAttribute('aria-expanded','true');
 }
+/* the swatch draws the category's actual globe shape (same mapping as SHAPE
+   in alge-engine.js), not a bare colour dot — the filter should look like
+   what you're filtering */
+const LEGEND_SHAPE={'ai & future':'hex','build & startup':'square','study & gyaan':'triangle',
+  'life':'circle','meet people':'diamond','random':'ring'};
+function shapeSVG(k){
+  const [r,g,b]=CATS[k].col,col=`rgb(${r},${g},${b})`,kind=LEGEND_SHAPE[k]||'circle';
+  let body='';
+  if(kind==='circle')body=`<circle cx="14" cy="14" r="9" fill="none" stroke="${col}" stroke-width="3.6"/>`;
+  else if(kind==='ring')body=`<circle cx="14" cy="14" r="7.5" fill="none" stroke="${col}" stroke-width="3.2"/><circle cx="14" cy="14" r="12" fill="none" stroke="${col}" stroke-width="1.5"/>`;
+  else{
+    const sides=kind==='triangle'?3:kind==='hex'?6:4;
+    const turn=kind==='diamond'?0:kind==='square'?Math.PI/4:-Math.PI/2;
+    const pts=Array.from({length:sides},(_,i)=>{const a=turn+i*2*Math.PI/sides;
+      return (14+Math.cos(a)*9.5).toFixed(1)+','+(14+Math.sin(a)*9.5).toFixed(1);}).join(' ');
+    body=`<polygon points="${pts}" fill="none" stroke="${col}" stroke-width="3.6" stroke-linejoin="round"/>`;
+  }
+  return `<svg class="sw" viewBox="0 0 28 28" aria-hidden="true">${body}<circle cx="14" cy="14" r="2.6" fill="#fff"/></svg>`;
+}
 CATKEYS.forEach(k=>{
-  const [r,g,b]=CATS[k].col;
   const el=document.createElement('button'); el.className='lg'; el.type='button';
   el.setAttribute('aria-pressed','false');
-  el.innerHTML=`<span class="sw" style="background:rgb(${r},${g},${b})" aria-hidden="true"></span>${esc(catLabel(k))}`;
+  el.innerHTML=`${shapeSVG(k)}${esc(catLabel(k))}`;
   el.onclick=()=>setFilter(S.filter===k?null:k);
   legendEls[k]=el;
   legendBox.appendChild(el);
@@ -2667,6 +2685,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=24"></script>
+<script type="module" src="/alge-engine.js?v=27"></script>
 </body>
 </html>
