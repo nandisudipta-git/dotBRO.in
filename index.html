@@ -583,6 +583,14 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
       <datalist id="citylist"></datalist>
       <span class="cityhint" id="cityHint"></span>
     </div>
+    <!-- the only thing this site has ever asked to keep. Off by default, one
+         tap to open, and the address is write-only the moment it lands. -->
+    <div class="cityrow" id="notifyRow">
+      <button type="button" class="placeopt" id="notifyToggle" aria-pressed="false">📧 email me when someone answers</button>
+      <input id="notifyEmail" type="email" autocomplete="email" spellcheck="false" hidden
+             placeholder="you@example.com" aria-label="Your email, for answer notifications">
+      <span class="cityhint" id="notifyHint"></span>
+    </div>
     <div class="crow">
       <span class="cnt" id="count">0 / 500</span>
       <button class="btn" id="post">Say it →</button>
@@ -740,6 +748,9 @@ const db=!LIVE?null:{
   addQuestion:(name,body,category,lat,lon)=>sb.from('questions').insert({name,body,category,lat,lon}).select().single(),
   addReply:(question_id,name,body,kind)=>sb.from('replies').insert({question_id,name,body,kind}).select().single(),
   addReport:(question_id,reason)=>sb.from('reports').insert({question_id,reason}),
+  // the only door to notify_subs — that table has RLS on and zero policies,
+  // so an address can be written and never read back by anyone but the sender
+  notifyMe:(qid,addr)=>sb.rpc('notify_subscribe',{qid,addr}),
   onQuestion:cb=>sb.channel('q_alge').on('postgres_changes',{event:'INSERT',schema:'public',table:'questions'},p=>cb(p.new)).subscribe(),
   onReply:cb=>sb.channel('r_alge').on('postgres_changes',{event:'INSERT',schema:'public',table:'replies'},p=>cb(p.new)).subscribe(),
 };
@@ -2247,6 +2258,33 @@ placeGeo.onclick=()=>{
   if(S.geo)placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;
 };
 syncPlace();
+
+/* "tell me when someone answers" — the one piece of contact this site keeps.
+   Off unless asked for, validated to the same shape the database enforces, and
+   checked BEFORE the question goes out: a malformed address that slipped
+   through would leave someone waiting for an email that could never arrive. */
+const EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
+let wantNotify=false;
+const notifyToggle=$('#notifyToggle'),notifyEmail=$('#notifyEmail'),notifyHint=$('#notifyHint');
+function notifyOk(){return EMAIL_RE.test(notifyEmail.value.trim().toLowerCase());}
+function syncNotify(){
+  notifyToggle.setAttribute('aria-pressed',String(wantNotify));
+  notifyEmail.hidden=!wantNotify;
+  const typed=notifyEmail.value.trim();
+  notifyHint.textContent=!wantNotify?'':(notifyOk()?'✓ only used for this conversation':(typed?'that address looks off':''));
+  notifyHint.classList.toggle('ok',wantNotify&&notifyOk());
+}
+notifyEmail.addEventListener('input',()=>{
+  syncNotify();
+  if(notifyOk())localStorage.setItem('dotbro_email',notifyEmail.value.trim().toLowerCase());
+});
+notifyToggle.onclick=()=>{
+  wantNotify=!wantNotify;
+  if(wantNotify&&!notifyEmail.value){const s=localStorage.getItem('dotbro_email');if(s)notifyEmail.value=s;}
+  syncNotify();
+  if(wantNotify){notifyEmail.focus();track('notify_opened');}
+};
+syncNotify();
 $('#post').onclick=async()=>{
   if(IS_DEMO){toast('demo data — read only. Remove ?n= from the URL to go live.');return}
   if(!db){toast("can't reach the space right now — your words wouldn't be saved.");return}
@@ -2263,6 +2301,10 @@ $('#post').onclick=async()=>{
   if(placeMode==='city'&&!cityPick){
     toast('pick a city from the list, or choose “no place” to let it orbit.');
     cityInput.focus();return;}
+  // same reasoning: they asked to be told, so a bad address is a stop, not a shrug
+  if(wantNotify&&!notifyOk()){
+    toast('that email address looks off — fix it, or switch the notification back off.');
+    notifyEmail.focus();return;}
   const loc=placeMode==='city'?{lat:cityPick.lat,lon:cityPick.lon}
            :placeMode==='geo'&&S.geo?S.geo
            :{lat:null,lon:null};
@@ -2276,6 +2318,16 @@ $('#post').onclick=async()=>{
   track('question_posted',{placed:loc.lat!=null,how:placeMode,cat:S.cat});
   _justPosted=true;setTimeout(()=>{_justPosted=false;},500);
   engaged();                                     // posting definitely counts
+  /* The subscription can only exist once the question does, so it happens
+     here rather than in the same call. If it fails the question still stands —
+     say so plainly instead of leaving them expecting mail. */
+  if(data&&wantNotify&&notifyOk()){
+    try{
+      const {error:nerr}=await db.notifyMe(data.id,notifyEmail.value.trim().toLowerCase());
+      if(nerr)toast("it's floating — but I couldn't set up the email. Try again from the conversation.");
+      else{track('notify_subscribed');wantNotify=false;syncNotify();}
+    }catch(_){toast("it's floating — but I couldn't set up the email.");}
+  }
   if(data){S.mine.add(data.id);localStorage.setItem('dotbro_mine',JSON.stringify([...S.mine]));
     if(!S.q.has(data.id)){S.q.set(data.id,data);addNode(data,true);}
     const n=S.nodes.get(data.id);
