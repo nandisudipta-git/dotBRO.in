@@ -226,6 +226,15 @@ body.sheeting .albl,body.sheeting #tip,body.sheeting #leader,body.sheeting #hint
 .placeopt{font-size:.72rem;letter-spacing:.03em;border:1px solid rgba(0,0,0,.14);background:none;
   border-radius:99px;padding:7px 12px;cursor:pointer;color:var(--dimink);font-family:inherit;}
 .placeopt[aria-pressed="true"]{background:#22303C;color:#fff;border-color:#22303C;}
+/* the city field only exists once "pick my city" is chosen — an empty text box
+   sitting under the composer reads as another thing you must fill in */
+.cityrow{display:flex;align-items:center;gap:9px;margin-top:9px;flex-wrap:wrap;}
+.cityrow[hidden]{display:none;}
+.cityrow input{font-family:inherit;font-size:.8rem;color:var(--ink);background:none;
+  border:1px solid rgba(0,0,0,.18);border-radius:8px;padding:8px 11px;min-width:220px;flex:1;}
+.cityrow input:focus{outline:none;border-color:#22303C;}
+.cityhint{font-size:.72rem;color:var(--dimink);}
+.cityhint.ok{color:#1a7f43;}
 .chip{font-size:.68rem;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(0,0,0,.12);background:none;
   color:var(--dimink);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .15s;font-family:inherit;}
 .chip.on{color:#1D1D1F;font-weight:700;border-color:transparent;}
@@ -565,14 +574,21 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
          Browser location is requested only if "attach" is chosen. -->
     <div class="placerow" role="radiogroup" aria-label="Where should this conversation live?">
       <button type="button" class="placeopt" id="placeFree" aria-pressed="true">✨ no place — it orbits, belongs to everyone</button>
-      <button type="button" class="placeopt" id="placeGeo" aria-pressed="false">🌍 attach my rough area (~11 km)</button>
+      <button type="button" class="placeopt" id="placeCity" aria-pressed="false">📍 pick my city</button>
+      <button type="button" class="placeopt" id="placeGeo" aria-pressed="false">🌍 use my rough area (~11 km)</button>
+    </div>
+    <div class="cityrow" id="cityRow" hidden>
+      <input id="cityInput" list="citylist" autocomplete="off" spellcheck="false"
+             placeholder="type a city — Kolkata, Delhi, London…" aria-label="Your city">
+      <datalist id="citylist"></datalist>
+      <span class="cityhint" id="cityHint"></span>
     </div>
     <div class="crow">
       <span class="cnt" id="count">0 / 500</span>
       <button class="btn" id="post">Say it →</button>
     </div>
     <p class="honest">Anyone can read this, and it can't be unsent. A place is only
-    attached if you choose it — and then only your rough area (~11&nbsp;km), never more.</p>
+    attached if you choose it — your city, or your rough area (~11&nbsp;km). Never more.</p>
   </div>
 </div>
 
@@ -2176,21 +2192,61 @@ $('#body').addEventListener('input',e=>$('#count').textContent=`${e.target.value
 /* The place is a choice made while posting, not a permission demanded at the
    door. Browser location is requested ONLY when "attach my rough area" is
    chosen — contextual, intentional, revocable by tapping the other option. */
-let wantPlace=false;
-const placeFree=$('#placeFree'),placeGeo=$('#placeGeo');
-function syncPlace(){
-  placeFree.setAttribute('aria-pressed',String(!wantPlace));
-  placeGeo.setAttribute('aria-pressed',String(wantPlace));
+/* Three ways to answer "where", not two. Half of everyone declined the browser
+   prompt — a scary system dialog for a rough dot — so the globe was carrying
+   32 conversations across 6 places. Typing your own city needs no permission,
+   no GPS, and is more accurate than desktop geolocation ever was: a person
+   knows their city, an IP lookup guesses it. Both paths round to the same
+   0.1°, so nothing in the data says which one you used. */
+let placeMode='orbit';                     // 'orbit' | 'city' | 'geo'
+let cityPick=null;                         // {name,lat,lon}
+const placeFree=$('#placeFree'),placeGeo=$('#placeGeo'),placeCity=$('#placeCity'),
+      cityRow=$('#cityRow'),cityInput=$('#cityInput'),cityHint=$('#cityHint');
+CITIES.forEach(([name])=>{const o=document.createElement('option');o.value=name;$('#citylist').appendChild(o);});
+function resolveCity(s){
+  const q=(s||'').trim().toLowerCase();
+  if(!q)return null;
+  let exact=null,pre=null;
+  for(const [name,la,lo] of CITIES){
+    const n=name.toLowerCase();
+    if(n===q){exact=[name,la,lo];break;}
+    if(!pre&&n.startsWith(q))pre=[name,la,lo];
+  }
+  const hit=exact||pre;
+  // same rounding as the GPS path — the stored place is a city, not a doorstep
+  return hit?{name:hit[0],lat:Math.round(hit[1]*10)/10,lon:Math.round(hit[2]*10)/10}:null;
 }
-placeFree.onclick=()=>{wantPlace=false;syncPlace();};
+function syncPlace(){
+  placeFree.setAttribute('aria-pressed',String(placeMode==='orbit'));
+  placeCity.setAttribute('aria-pressed',String(placeMode==='city'));
+  placeGeo.setAttribute('aria-pressed',String(placeMode==='geo'));
+  cityRow.hidden=placeMode!=='city';
+}
+function syncCityHint(){
+  cityPick=resolveCity(cityInput.value);
+  const typed=cityInput.value.trim();
+  cityHint.textContent=cityPick?`✓ ${cityPick.name}`:(typed?'not in the list yet':'');
+  cityHint.classList.toggle('ok',!!cityPick);
+  if(cityPick)localStorage.setItem('dotbro_city',cityPick.name);
+}
+cityInput.addEventListener('input',syncCityHint);
+placeFree.onclick=()=>{placeMode='orbit';syncPlace();};
+placeCity.onclick=()=>{
+  placeMode='city';syncPlace();
+  if(!cityInput.value){const saved=localStorage.getItem('dotbro_city');if(saved)cityInput.value=saved;}
+  syncCityHint();
+  cityInput.focus();
+  track('city_picker_opened');
+};
 placeGeo.onclick=()=>{
-  wantPlace=true;syncPlace();
+  placeMode='geo';syncPlace();
   captureGeo(
     ()=>{placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;},
-    ()=>{wantPlace=false;syncPlace();
-      toast('no location permission — it will orbit instead, which is also beautiful.');});
+    ()=>{placeMode='orbit';syncPlace();
+      toast('no location permission — pick your city instead, or let it orbit.');});
   if(S.geo)placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;
 };
+syncPlace();
 $('#post').onclick=async()=>{
   if(IS_DEMO){toast('demo data — read only. Remove ?n= from the URL to go live.');return}
   if(!db){toast("can't reach the space right now — your words wouldn't be saved.");return}
@@ -2202,7 +2258,14 @@ $('#post').onclick=async()=>{
   if(!S.anon)localStorage.setItem('dotbro_name',name);
   /* A place only if it was CHOSEN. Everything else orbits — a first-class
      kind of conversation, not missing data. */
-  const loc=(wantPlace&&S.geo)?S.geo:{lat:null,lon:null};
+  // "pick my city" with nothing resolved is an unfinished intent, not a vote
+  // for orbit — say so rather than silently dropping the place they wanted
+  if(placeMode==='city'&&!cityPick){
+    toast('pick a city from the list, or choose “no place” to let it orbit.');
+    cityInput.focus();return;}
+  const loc=placeMode==='city'?{lat:cityPick.lat,lon:cityPick.lon}
+           :placeMode==='geo'&&S.geo?S.geo
+           :{lat:null,lon:null};
   let data=null,error=null;
   try{({data,error}=await db.addQuestion(name,body,S.cat,loc.lat,loc.lon));}
   catch(err){error=err;}
@@ -2210,7 +2273,7 @@ $('#post').onclick=async()=>{
   if(error){toast("couldn't start it — check your connection and try again.");return}
   $('#body').value='';$('#count').textContent='0 / 500';
   toast('it\'s floating. someone will find it.');
-  track('question_posted',{placed:loc.lat!=null,cat:S.cat});
+  track('question_posted',{placed:loc.lat!=null,how:placeMode,cat:S.cat});
   _justPosted=true;setTimeout(()=>{_justPosted=false;},500);
   engaged();                                     // posting definitely counts
   if(data){S.mine.add(data.id);localStorage.setItem('dotbro_mine',JSON.stringify([...S.mine]));
