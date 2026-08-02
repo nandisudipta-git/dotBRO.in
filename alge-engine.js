@@ -304,6 +304,21 @@ const atmo = new THREE.Mesh(
 );
 scene.add(atmo);
 
+/* GL points with no map draw as SQUARES — on camera phones and at close zoom
+   the ground markers and stars read as little boxes. One shared soft round
+   texture fixes every Points material in the scene. */
+const roundDot = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+  const c = cv.getContext('2d');
+  const gr = c.createRadialGradient(16, 16, 0, 16, 16, 15);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.65, 'rgba(255,255,255,0.9)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = gr; c.beginPath(); c.arc(16, 16, 15, 0, 7); c.fill();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+
 /* ── stars: two depth bands, parallax against the drag ── */
 function starField(n, size, spread) {
   const pos = new Float32Array(n * 3);
@@ -314,7 +329,7 @@ function starField(n, size, spread) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   return new THREE.Points(g, new THREE.PointsMaterial({
-    color: 0xdfeaf4, size, sizeAttenuation: true,
+    color: 0xdfeaf4, size, sizeAttenuation: true, map: roundDot, alphaTest: 0.05,
     transparent: true, opacity: 0.85, depthWrite: false,
   }));
 }
@@ -413,7 +428,8 @@ function rebuildTethers() {
   const sg = new THREE.BufferGeometry();
   sg.setAttribute('position', new THREE.BufferAttribute(sp2, 3));
   surfDots = new THREE.Points(sg, new THREE.PointsMaterial({
-    color: 0xffffff, size: 0.014, transparent: true, opacity: 0.8, depthWrite: false,
+    color: 0xffffff, size: 0.014, map: roundDot, alphaTest: 0.05,
+    transparent: true, opacity: 0.8, depthWrite: false,
   }));
   yawG.add(surfDots);
 }
@@ -477,7 +493,7 @@ function spriteFor(n) {
   const sp = new THREE.Sprite(MATS[CATS[n.cat] ? n.cat : 'random'].clone());
   sp.position.copy(d).multiplyScalar(free ? FREE_R : ORBIT);
   sp.userData.node = n; sp.userData.dir = d; sp.userData.ph = hash(i * 7 + 5) * Math.PI * 2;
-  sp.userData.free = free;
+  sp.userData.free = free; sp.userData.ck = k;
   // kept so the cluster can OPEN as you dive into it — see spreadFor() in the
   // frame loop. Honest and tight from orbit, separable once you are close.
   sp.userData.t1 = t1; sp.userData.t2 = t2; sp.userData.jx = jx; sp.userData.jy = jy;
@@ -509,6 +525,7 @@ function buildMassive() {
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   massive = new THREE.Points(g, new THREE.PointsMaterial({
     size: 0.014, vertexColors: true, transparent: true, opacity: 0.95,
+    map: roundDot, alphaTest: 0.05,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
   yawG.add(massive);
@@ -823,7 +840,9 @@ function placeKey(n) {
   return q.lat.toFixed(1) + ',' + q.lon.toFixed(1);
 }
 function stepBadges() {
-  const expanded = clusterSpread > 0.006;          // dots have separated; stand down
+  // stand down only once the rosette has genuinely opened — with the wider
+  // spread curve, 0.006 meant the badge vanished while the dots still overlapped
+  const expanded = clusterSpread > 0.1;
   if (MASSIVE || isGated() || document.body.classList.contains('sheeting') ||
       document.body.classList.contains('feeding') || expanded) {
     // fully retire them: an invisible button was still swallowing taps and
@@ -1070,7 +1089,11 @@ function frame() {
       // some of that growth back so the opened rosette has air between rings.
       const zshrink = Math.max(0.5, Math.min(1, 1 / Math.sqrt(Math.max(zoom, 1))));
       sp.scale.setScalar(base * grow * pulse * breathe * extra * zshrink * (hover === sp ? 1.35 : 1) * (dim ? 0.55 : 1));
-      sp.material.opacity += ((dim ? 0.12 : 1) - sp.material.opacity) * 0.15;
+      // While a co-located stack is closed, everyone behind the first arrival
+      // steps back: from orbit a saturated place is ONE clean dot plus the
+      // count badge, not a pile of rings. They return as the rosette opens.
+      const packed = sp.userData.ck ? Math.max(0, 1 - clusterSpread / 0.06) : 0;
+      sp.material.opacity += ((dim ? 0.12 : 1) * (1 - 0.75 * packed) - sp.material.opacity) * 0.15;
       sp.position.copy(dirNow).multiplyScalar(r);
       // Every question here comes from one campus, so from orbit they are one
       // dot and nothing can be picked out. As you dive in, the cluster opens:
