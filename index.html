@@ -355,6 +355,13 @@ body.gated .plbl,body.sheeting .plbl,body.feeding .plbl{opacity:0 !important;}
   text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.35);
   opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;}
 #toast.on{opacity:1;transform:translate(-50%,0);}
+/* "N new answers — tap to read" could never be tapped: the toast is
+   pointer-events:none so a plain message cannot swallow taps meant for the
+   globe or the compose button underneath it, and .on only ever changed
+   opacity. Only an ACTIONABLE toast takes the tap back. */
+#toast.act{pointer-events:auto;cursor:pointer;}
+#toast.act::after{content:'';display:block;margin:7px auto 0;width:26px;height:2px;
+  border-radius:2px;background:rgba(255,255,255,.45);}
 
 /* ══ THE FEED ══════════════════════════════════════════════════════════════
    The globe is the identity; it is a bad index. 11 of 12 conversations sit on
@@ -725,21 +732,23 @@ const ago=ts=>{const s=Math.floor((Date.now()-new Date(ts))/1e3);if(s<60)return'
 /* ─── quiet feedback: a toast, never a blocking alert() ─── */
 const toastEl=document.getElementById('toast');let toastT=null;
 function toast(msg,ms){
-  toastAct=null;toastEl.style.cursor='';
+  toastAct=null;toastEl.style.cursor='';toastEl.classList.remove('act');
   toastEl.textContent=msg;toastEl.classList.add('on');
   if(toastT)clearTimeout(toastT);
-  toastT=setTimeout(()=>toastEl.classList.remove('on'),ms||3200);
+  // drop the action with the toast, so a faded-out message cannot still be tapped
+  toastT=setTimeout(()=>{toastEl.classList.remove('on','act');toastAct=null;},ms||3200);
 }
 /* a toast that goes somewhere when tapped — the whole in-app notification layer */
 let toastAct=null;
 function toastAction(msg,fn,ms){
   toast(msg,ms||6000);
   toastAct=fn;toastEl.style.cursor='pointer';
+  toastEl.classList.add('act');          // this is the line that makes it tappable
 }
 toastEl.addEventListener('click',()=>{
   if(!toastAct)return;
   const f=toastAct;toastAct=null;
-  toastEl.style.cursor='';toastEl.classList.remove('on');
+  toastEl.style.cursor='';toastEl.classList.remove('on','act');
   f();
 });
 const netEl=document.getElementById('netmsg');
