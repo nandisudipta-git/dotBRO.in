@@ -1,6 +1,6 @@
 /* dotBro service worker — app shell cached, live data never.
    Bump VERSION to invalidate after a deploy. */
-const VERSION = 'dotbro-v29';
+const VERSION = 'dotbro-v30';
 const SHELL = ['/', '/index.html', '/about.html', '/alge-engine.js', '/manifest.webmanifest',
                '/assets/icon-192.png', '/assets/icon-512.png', '/assets/favicon-red.png'];
 self.addEventListener('install', e => {
@@ -38,4 +38,38 @@ self.addEventListener('fetch', e => {
       return r;
     }))
   );
+});
+
+/* ── push: someone answered, and the tab is closed ─────────────────────────
+   Android/Chrome delivers this with no page running. iOS only ever gets here
+   if the app was added to the home screen — Apple's rule, not ours.
+   A push event MUST show a notification or Chrome shows its own "this site
+   was updated in the background", so every path below ends in showNotification. */
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = {}; }
+  const title = d.title || 'someone answered you';
+  e.waitUntil(self.registration.showNotification(title, {
+    body: d.body || 'tap to read it on the globe',
+    icon: '/assets/icon-192.png',
+    badge: '/assets/favicon-red.png',
+    tag: d.qid ? 'q-' + d.qid : 'dotbro',   // one question, one notification
+    renotify: true,
+    data: { url: d.qid ? '/?q=' + d.qid : '/' },
+  }));
+});
+
+/* Tapping it should land inside the conversation — and reuse a tab that is
+   already open on the site rather than stacking another one. */
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const target = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(ws => {
+    for (const w of ws) {
+      if (new URL(w.url).origin === location.origin && 'focus' in w) {
+        w.navigate(target); return w.focus();
+      }
+    }
+    return clients.openWindow(target);
+  }));
 });

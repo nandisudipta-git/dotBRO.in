@@ -547,15 +547,31 @@ const homeMark = markerSprite('#E60000', false);
 homeMark.position.copy(homeDir).multiplyScalar(1.005);
 yawG.add(homeMark);
 
-/* ── arcs: threads of light between conversations in the same topic ── */
-const ARCS = []; let arcNextAt = 0;
+/* ── arcs: a person who is in both conversations ─────────────────────────────
+   These used to pick a random node and a random node in the same topic. They
+   were beautiful and they meant nothing — a thread of light asserting a
+   relationship that did not exist, on a globe whose whole claim is that the
+   dots are real. Now an arc is drawn only where the data has one: the
+   conversation_links view pairs conversations that share a named person.
+
+   If nobody has yet spoken in two places, nothing is drawn. An empty sky is
+   the honest picture of a space where no threads have formed. */
+const ARCS = []; let arcNextAt = 0, arcCursor = 0;
 function spawnArc(now) {
-  const pool = [...sprites.values()];
-  if (pool.length < 2) return;
-  const a = pool[(Math.random() * pool.length) | 0];
-  const peers = pool.filter(s => s !== a && s.userData.node.cat === a.userData.node.cat);
-  const b = peers.length ? peers[(Math.random() * peers.length) | 0] : pool[(Math.random() * pool.length) | 0];
-  if (a === b) return;
+  const links = (window.APP && window.APP.S && window.APP.S.links) || [];
+  if (!links.length) return 'no links';
+  const byId = new Map();
+  for (const s of sprites.values()) byId.set(s.userData.node.id, s);
+  if (!byId.size) return 'no sprites';
+  /* walk the links in order rather than sampling: every real connection gets
+     its turn, instead of the same lucky pair reappearing all evening */
+  let a = null, b = null;
+  for (let i = 0; i < links.length; i++) {
+    const l = links[(arcCursor + i) % links.length];
+    const sa = byId.get(l.a), sb = byId.get(l.b);
+    if (sa && sb && sa !== sb) { a = sa; b = sb; arcCursor = (arcCursor + i + 1) % links.length; break; }
+  }
+  if (!a || !b) return 'no linked pair on screen';
   const N = 48, pts = new Float32Array((N + 1) * 3);
   const va = a.position.clone().normalize(), vb = b.position.clone().normalize();
   const q = new THREE.Quaternion(), tmp = new THREE.Vector3();
@@ -939,6 +955,8 @@ const nqEl = document.getElementById('nq');
 let known = 0, lastOpen = null, shown = -1;
 const clock = new THREE.Clock();
 window.__ENGINE = { ema: 16.7, fps: () => +(1000 / window.__ENGINE.ema).toFixed(1),
+  tier: () => tier, setTier: n => setTier(n),   // so a session can be inspected honestly
+  arcs: () => ARCS.length, spawnArc: () => spawnArc(performance.now()),
   bg: () => ({ inScene: scene.children.includes(backdrop), visible: backdrop.visible,
                order: backdrop.renderOrder, culled: backdrop.frustumCulled,
                prog: !!backdropMat.program, t: backdropMat.uniforms.uTime.value,
@@ -947,6 +965,7 @@ let _lastT = 0;
 // returning to the tab restarts timing cleanly instead of measuring the gap
 document.addEventListener('visibilitychange', () => { if (!document.hidden) _lastT = 0; });
 let vsyncEst = 0, frameN = 0;   // best sustained fps seen — the display's real ceiling
+let probeAt = 0, probeBackoff = 20000;   // when to next try climbing back up
 /* one knob for quality: shader detail + render resolution together.
    EffectComposer caches its own pixel ratio — renderer.setPixelRatio alone
    changed NOTHING about the render targets, so the old "shed pixels" step
@@ -956,15 +975,43 @@ function syncRes() {
   renderer.getDrawingBufferSize(_dbs);
   backdropMat.uniforms.uRes.value.copy(_dbs);
 }
-function setQuality(q) {
-  backdropMat.uniforms.uQuality.value = q;
-  const pr = Math.min(devicePixelRatio || 1, q ? 1.5 : 1.15);
+/* Three tiers, and the Earth's sharpness is no longer hostage to the effects
+   budget. Bloom is a BLUR — rendering it at a fraction of the screen is
+   invisible and is the single largest saving available on a phone GPU, so it
+   is small at every tier rather than something we trade away. What the tiers
+   actually give up, in order: the backdrop's second noise octave and grid,
+   then render scale. The planet is the last thing to soften, not the first. */
+const TIERS = [
+  { pr: 1.00, bloom: 0.35, backdrop: 0 },
+  { pr: 1.25, bloom: 0.45, backdrop: 0 },
+  { pr: 1.50, bloom: 0.50, backdrop: 1 },
+];
+let tier = 2;
+function applyTier() {
+  const t = TIERS[tier];
+  backdropMat.uniforms.uQuality.value = t.backdrop;
+  const pr = Math.min(devicePixelRatio || 1, t.pr);
   renderer.setPixelRatio(pr);
   composer.setPixelRatio(pr);
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
+  // composer.setSize just reset every pass to full size — put bloom back down
+  bloom.setSize(Math.max(64, Math.round(innerWidth * t.bloom)),
+                Math.max(64, Math.round(innerHeight * t.bloom)));
   syncRes();
 }
+function setTier(n) {
+  n = Math.max(0, Math.min(TIERS.length - 1, n));
+  if (n === tier) return;
+  tier = n; applyTier();
+}
+/* A phone should not have to fail its way down from the desktop tier. The
+   first seconds are when someone decides whether this is worth their time,
+   and what thrashing the render targets looks like is a stutter. */
+const COARSE = matchMedia('(pointer:coarse)').matches;
+const MODEST = (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
+               (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+tier = (COARSE || MODEST) ? 1 : 2;
 /* ── context loss: the GPU can take the context away (sleep/wake, driver
    reset, backgrounding). preventDefault says "I want it back"; if it does not
    come back within 4s, hand the picture back to the 2D engine instead of
@@ -1152,11 +1199,32 @@ function frame() {
   /* thresholds are relative to the display's own ceiling — an absolute
      "restore above 57" latched quality at 0 forever on every 50Hz panel and
      every low-power 30fps cap. Warmup skips the noisy first seconds. */
+  /* Never retune mid-gesture. Changing tier reallocates every render target,
+     and doing that while a finger is still on the glass IS the stutter people
+     reported "while zooming" — the zoom was not slow, it was being interrupted. */
+  const calm = now - lastInteract > 400;
   if (qualityHold > 0) qualityHold--;
-  else if (frameN > 120) {
-    const q = backdropMat.uniforms.uQuality.value;
-    if (q > 0.5 && fps < Math.min(45, vsyncEst * 0.72)) { setQuality(0); qualityHold = 240; }
-    else if (q < 0.5 && (fps > 57 || fps > vsyncEst * 0.9)) { setQuality(1); qualityHold = 240; }
+  else if (frameN > 120 && calm) {
+    const floor = Math.min(45, vsyncEst * 0.72);
+    if (fps < floor && tier > 0) {
+      setTier(tier - 1); qualityHold = 180;
+      probeAt = now + probeBackoff;
+      probeBackoff = Math.min(probeBackoff * 2, 180000);
+    } else if (tier < TIERS.length - 1 && now > probeAt && fps > floor * 1.25) {
+      /* The old rule needed 57fps to climb back from a floor it hit at 43, so
+         any phone that settled in between — most of them — was stuck degraded
+         for the rest of the session. That is the "faded map" people reported.
+
+         Climbing on a timer alone would only trade it for a stutter every few
+         minutes on a phone that genuinely cannot hold the higher tier, so the
+         attempt also needs real headroom at the CURRENT tier. A device sitting
+         at 50fps stays where it belongs; one that has found room to breathe —
+         a closed sheet, fewer dots on screen — goes back up and stays up. */
+      setTier(tier + 1); qualityHold = 180;
+      probeAt = now + probeBackoff;
+    } else if (tier === TIERS.length - 1 && fps > floor * 1.25) {
+      probeBackoff = 20000;            // comfortable at the top: forget the history
+    }
   }
 
   // how far the cluster is allowed to open, by how close the camera is
@@ -1172,9 +1240,9 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   // re-applies the current quality tier AND re-reads devicePixelRatio — a
   // window dragged between a retina and a 1x display keeps a correct buffer
-  setQuality(backdropMat.uniforms.uQuality.value);
+  applyTier();
 });
-setQuality(1);
+applyTier();
 /* init survived end to end — only NOW does the 2D engine stand down */
 window.__3D = true;
 oldCanvas.style.display = 'none';

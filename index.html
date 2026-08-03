@@ -591,6 +591,10 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
              placeholder="you@example.com" aria-label="Your email, for answer notifications">
       <span class="cityhint" id="notifyHint"></span>
     </div>
+    <div class="cityrow" id="pushRow" hidden>
+      <button type="button" class="placeopt" id="pushToggle" aria-pressed="false">🔔 buzz this phone instead</button>
+      <span class="cityhint" id="pushHint"></span>
+    </div>
     <div class="crow">
       <span class="cnt" id="count">0 / 500</span>
       <button class="btn" id="post">Say it →</button>
@@ -746,6 +750,8 @@ addEventListener('pointerdown',e=>{
 const db=!LIVE?null:{
   listQuestions:()=>sb.from('questions').select('*').order('created_at',{ascending:false}).limit(300),
   listReplyCounts:()=>sb.from('reply_counts').select('*'),
+  // pairs of conversations with a named person in common — what the arcs mean
+  listLinks:()=>sb.from('conversation_links').select('*').limit(400),
   threadReplies:id=>sb.from('replies').select('*').eq('question_id',id).order('created_at',{ascending:true}).limit(500),
   getQuestion:id=>sb.from('questions').select('*').eq('id',id).maybeSingle(),
   addQuestion:(name,body,category,lat,lon)=>sb.from('questions').insert({name,body,category,lat,lon}).select().single(),
@@ -754,6 +760,7 @@ const db=!LIVE?null:{
   // the only door to notify_subs — that table has RLS on and zero policies,
   // so an address can be written and never read back by anyone but the sender
   notifyMe:(qid,addr)=>sb.rpc('notify_subscribe',{qid,addr}),
+  pushMe:(qid,s)=>sb.rpc('push_subscribe',{qid,p_endpoint:s.endpoint,p_p256dh:s.p256dh,p_auth:s.auth}),
   onQuestion:cb=>sb.channel('q_alge').on('postgres_changes',{event:'INSERT',schema:'public',table:'questions'},p=>cb(p.new)).subscribe(),
   onReply:cb=>sb.channel('r_alge').on('postgres_changes',{event:'INSERT',schema:'public',table:'replies'},p=>cb(p.new)).subscribe(),
 };
@@ -803,7 +810,7 @@ function latLonDir(lat,lon){const la=lat*Math.PI/180,lo=lon*Math.PI/180;
   return {x:Math.cos(la)*Math.cos(lo),y:-Math.sin(la),z:Math.cos(la)*Math.sin(lo)};}
 /* city anchors for humane location labels — dense over India (the beachhead),
    sparse but global elsewhere. Nearest match within ~2.5°, else plain degrees. */
-const CITIES=[["IIT Mandi",31.78,76.99],["Shimla",31.1,77.17],["Chandigarh",30.73,76.78],["Delhi",28.61,77.21],["Jaipur",26.91,75.79],["Lucknow",26.85,80.95],["Mumbai",19.08,72.88],["Pune",18.52,73.86],["Ahmedabad",23.02,72.57],["Surat",21.17,72.83],["Indore",22.72,75.86],["Bhopal",23.26,77.41],["Nagpur",21.15,79.09],["Kolkata",22.57,88.36],["Patna",25.59,85.14],["Guwahati",26.14,91.74],["Bhubaneswar",20.3,85.82],["Hyderabad",17.39,78.49],["Bengaluru",12.97,77.59],["Chennai",13.08,80.27],["Kochi",9.93,76.27],["Coimbatore",11.02,76.97],["Visakhapatnam",17.69,83.22],["Goa",15.5,73.83],["Srinagar",34.08,74.8],["Dehradun",30.32,78.03],["Varanasi",25.32,82.99],["Kathmandu",27.72,85.32],["Colombo",6.93,79.85],["Dhaka",23.81,90.41],["Karachi",24.86,67.01],["Lahore",31.55,74.34],["Kabul",34.56,69.21],["Dubai",25.2,55.27],["Riyadh",24.71,46.68],["Tel Aviv",32.09,34.78],["Istanbul",41.01,28.98],["Cairo",30.04,31.24],["Nairobi",-1.29,36.82],["Lagos",6.52,3.38],["Johannesburg",-26.2,28.05],["Cape Town",-33.92,18.42],["London",51.51,-0.13],["Paris",48.86,2.35],["Berlin",52.52,13.4],["Amsterdam",52.37,4.9],["Madrid",40.42,-3.7],["Rome",41.9,12.5],["Zurich",47.38,8.54],["Vienna",48.21,16.37],["Warsaw",52.23,21.01],["Stockholm",59.33,18.07],["Moscow",55.76,37.62],["New York",40.71,-74.01],["Boston",42.36,-71.06],["Toronto",43.65,-79.38],["Chicago",41.88,-87.63],["Austin",30.27,-97.74],["San Francisco",37.77,-122.42],["Los Angeles",34.05,-118.24],["Seattle",47.61,-122.33],["Vancouver",49.28,-123.12],["Mexico City",19.43,-99.13],["Bogota",4.71,-74.07],["Lima",-12.05,-77.04],["Sao Paulo",-23.55,-46.63],["Buenos Aires",-34.6,-58.38],["Santiago",-33.45,-70.67],["Singapore",1.35,103.82],["Kuala Lumpur",3.14,101.69],["Jakarta",-6.21,106.85],["Bangkok",13.76,100.5],["Ho Chi Minh",10.82,106.63],["Manila",14.6,120.98],["Hong Kong",22.32,114.17],["Taipei",25.03,121.57],["Shanghai",31.23,121.47],["Beijing",39.9,116.41],["Seoul",37.57,126.98],["Tokyo",35.68,139.69],["Osaka",34.69,135.5],["Sydney",-33.87,151.21],["Melbourne",-37.81,144.96],["Auckland",-36.85,174.76]];
+const CITIES=[["IIT Mandi",31.78,76.99],["Mandi",31.71,76.93],["Shimla",31.1,77.17],["Dharamshala",32.22,76.32],["Manali",32.24,77.19],["Solan",30.91,77.1],["Kullu",31.96,77.11],["Bilaspur (HP)",31.33,76.76],["Hamirpur (HP)",31.68,76.52],["Una",31.47,76.27],["Kangra",32.1,76.27],["Chamba",32.56,76.13],["Palampur",32.11,76.54],["Nahan",30.56,77.3],["Kaza",32.23,78.07],["Reckong Peo",31.54,78.27],["Chandigarh",30.73,76.78],["Panipat",29.39,76.97],["Ambala",30.38,76.78],["Karnal",29.69,76.99],["Hisar",29.15,75.72],["Rohtak",28.9,76.61],["Sonipat",28.99,77.02],["Yamunanagar",30.13,77.29],["Kurukshetra",29.97,76.88],["Gurugram",28.46,77.03],["Faridabad",28.41,77.31],["Delhi",28.61,77.21],["Noida",28.54,77.39],["Ghaziabad",28.67,77.43],["Amritsar",31.63,74.87],["Ludhiana",30.9,75.86],["Jalandhar",31.33,75.58],["Patiala",30.34,76.39],["Bathinda",30.21,74.95],["Mohali",30.7,76.72],["Pathankot",32.27,75.65],["Hoshiarpur",31.53,75.91],["Moga",30.82,75.17],["Firozpur",30.93,74.61],["Srinagar",34.08,74.8],["Jammu",32.73,74.86],["Leh",34.16,77.58],["Udhampur",32.92,75.13],["Anantnag",33.73,75.15],["Baramulla",34.2,74.35],["Katra",32.99,74.95],["Kargil",34.56,76.13],["Dehradun",30.32,78.03],["Haridwar",29.95,78.16],["Rishikesh",30.09,78.27],["Nainital",29.38,79.45],["Haldwani",29.22,79.51],["Roorkee",29.87,77.89],["Mussoorie",30.46,78.07],["Almora",29.6,79.66],["Pithoragarh",29.58,80.22],["Rudrapur",28.98,79.4],["Lucknow",26.85,80.95],["Kanpur",26.45,80.33],["Varanasi",25.32,82.99],["Agra",27.18,78.02],["Prayagraj",25.44,81.85],["Meerut",28.98,77.71],["Bareilly",28.37,79.43],["Aligarh",27.9,78.08],["Moradabad",28.84,78.77],["Gorakhpur",26.76,83.37],["Jhansi",25.45,78.57],["Mathura",27.49,77.67],["Ayodhya",26.8,82.2],["Firozabad",27.15,78.4],["Saharanpur",29.97,77.55],["Muzaffarnagar",29.47,77.7],["Rampur",28.81,79.03],["Shahjahanpur",27.88,79.91],["Etawah",26.78,79.03],["Mirzapur",25.15,82.57],["Sultanpur",26.26,82.07],["Banda",25.48,80.33],["Deoria",26.5,83.78],["Basti",26.79,82.73],["Azamgarh",26.07,83.19],["Jaunpur",25.75,82.68],["Ghazipur",25.58,83.58],["Ballia",25.76,84.15],["Jaipur",26.91,75.79],["Jodhpur",26.24,73.02],["Udaipur",24.58,73.71],["Kota",25.21,75.86],["Ajmer",26.45,74.64],["Bikaner",28.02,73.31],["Bhilwara",25.35,74.64],["Alwar",27.55,76.63],["Jaisalmer",26.92,70.92],["Mount Abu",24.59,72.71],["Pushkar",26.49,74.55],["Sikar",27.61,75.14],["Ahmedabad",23.02,72.57],["Surat",21.17,72.83],["Vadodara",22.31,73.18],["Rajkot",22.3,70.8],["Bhavnagar",21.76,72.15],["Jamnagar",22.47,70.06],["Gandhinagar",23.22,72.65],["Junagadh",21.52,70.46],["Anand",22.56,72.95],["Bhuj",23.24,69.67],["Dwarka",22.24,68.97],["Somnath",20.89,70.4],["Mumbai",19.08,72.88],["Thane",19.22,72.98],["Navi Mumbai",19.03,73.03],["Pune",18.52,73.86],["Nagpur",21.15,79.09],["Nashik",20,73.79],["Aurangabad",19.88,75.34],["Solapur",17.66,75.91],["Kolhapur",16.7,74.24],["Amravati",20.93,77.75],["Nanded",19.15,77.32],["Sangli",16.85,74.58],["Jalgaon",21,75.56],["Akola",20.71,77],["Latur",18.4,76.58],["Ahmednagar",19.09,74.75],["Chandrapur",19.95,79.3],["Satara",17.69,74.02],["Ratnagiri",16.99,73.31],["Lonavala",18.75,73.41],["Shirdi",19.77,74.48],["Panaji",15.49,73.83],["Margao",15.28,73.96],["Vasco da Gama",15.4,73.81],["Bhopal",23.26,77.41],["Indore",22.72,75.86],["Jabalpur",23.18,79.99],["Gwalior",26.22,78.18],["Ujjain",23.18,75.78],["Sagar",23.84,78.74],["Satna",24.58,80.83],["Rewa",24.53,81.3],["Khajuraho",24.85,79.93],["Ratlam",23.33,75.04],["Raipur",21.25,81.63],["Bhilai",21.19,81.38],["Bilaspur",22.08,82.15],["Korba",22.36,82.73],["Jagdalpur",19.08,82.03],["Kolkata",22.57,88.36],["Howrah",22.59,88.31],["Durgapur",23.52,87.31],["Asansol",23.68,86.99],["Siliguri",26.73,88.4],["Raiganj",25.62,88.12],["Malda",25.01,88.14],["Kharagpur",22.35,87.32],["Haldia",22.06,88.1],["Darjeeling",27.04,88.26],["Bardhaman",23.25,87.86],["Krishnanagar",23.4,88.5],["Berhampore",24.1,88.25],["Balurghat",25.22,88.77],["Cooch Behar",26.32,89.45],["Jalpaiguri",26.52,88.72],["Bankura",23.23,87.07],["Purulia",23.33,86.36],["Midnapore",22.42,87.32],["Barasat",22.72,88.48],["Serampore",22.75,88.34],["Chandannagar",22.87,88.38],["Nabadwip",23.41,88.37],["Santiniketan",23.68,87.68],["Digha",21.63,87.51],["Alipurduar",26.49,89.53],["Basirhat",22.66,88.87],["Ranaghat",23.18,88.57],["Patna",25.59,85.14],["Gaya",24.8,85],["Bhagalpur",25.24,86.99],["Muzaffarpur",26.12,85.39],["Darbhanga",26.15,85.9],["Purnia",25.78,87.47],["Ara",25.56,84.66],["Begusarai",25.42,86.13],["Katihar",25.54,87.57],["Munger",25.38,86.47],["Chapra",25.78,84.75],["Bettiah",26.8,84.5],["Motihari",26.65,84.92],["Sasaram",24.95,84.03],["Bodh Gaya",24.7,84.99],["Ranchi",23.34,85.31],["Jamshedpur",22.8,86.2],["Dhanbad",23.8,86.43],["Bokaro",23.67,86.15],["Deoghar",24.48,86.7],["Hazaribagh",23.99,85.36],["Bhubaneswar",20.3,85.82],["Cuttack",20.46,85.88],["Rourkela",22.26,84.85],["Puri",19.81,85.83],["Sambalpur",21.47,83.97],["Berhampur",19.31,84.79],["Balasore",21.49,86.93],["Guwahati",26.14,91.74],["Dibrugarh",27.47,94.91],["Silchar",24.83,92.78],["Jorhat",26.75,94.22],["Tezpur",26.63,92.8],["Tinsukia",27.49,95.36],["Nagaon",26.35,92.68],["Shillong",25.58,91.89],["Imphal",24.82,93.94],["Aizawl",23.73,92.72],["Agartala",23.83,91.28],["Kohima",25.67,94.11],["Itanagar",27.08,93.61],["Gangtok",27.33,88.61],["Dimapur",25.91,93.73],["Hyderabad",17.39,78.49],["Warangal",17.97,79.59],["Nizamabad",18.67,78.09],["Karimnagar",18.44,79.13],["Visakhapatnam",17.69,83.22],["Vijayawada",16.51,80.65],["Guntur",16.31,80.44],["Tirupati",13.63,79.42],["Nellore",14.44,79.99],["Kakinada",16.99,82.25],["Rajahmundry",17,81.78],["Kurnool",15.83,78.04],["Anantapur",14.68,77.6],["Amaravati",16.51,80.52],["Bengaluru",12.97,77.59],["Mysuru",12.3,76.64],["Hubli",15.36,75.12],["Mangaluru",12.91,74.86],["Belagavi",15.85,74.5],["Davangere",14.47,75.92],["Ballari",15.14,76.92],["Shivamogga",13.93,75.57],["Udupi",13.34,74.75],["Hampi",15.34,76.46],["Madikeri",12.42,75.74],["Gulbarga",17.33,76.83],["Chennai",13.08,80.27],["Coimbatore",11.02,76.97],["Madurai",9.93,78.12],["Tiruchirappalli",10.79,78.7],["Salem",11.66,78.15],["Tirunelveli",8.71,77.76],["Erode",11.34,77.72],["Vellore",12.92,79.13],["Thoothukudi",8.76,78.13],["Thanjavur",10.79,79.14],["Ooty",11.41,76.7],["Kanyakumari",8.08,77.55],["Puducherry",11.93,79.83],["Rameswaram",9.29,79.31],["Kodaikanal",10.24,77.49],["Tiruppur",11.11,77.34],["Thiruvananthapuram",8.52,76.94],["Kochi",9.93,76.27],["Kozhikode",11.25,75.78],["Thrissur",10.53,76.21],["Kollam",8.89,76.61],["Alappuzha",9.5,76.34],["Kannur",11.87,75.37],["Palakkad",10.78,76.65],["Kottayam",9.59,76.52],["Munnar",10.09,77.06],["Kalpetta",11.61,76.08],["Port Blair",11.62,92.73],["Goa",15.5,73.83],["Kathmandu",27.72,85.32],["Colombo",6.93,79.85],["Dhaka",23.81,90.41],["Karachi",24.86,67.01],["Lahore",31.55,74.34],["Kabul",34.56,69.21],["Dubai",25.2,55.27],["Riyadh",24.71,46.68],["Tel Aviv",32.09,34.78],["Istanbul",41.01,28.98],["Cairo",30.04,31.24],["Nairobi",-1.29,36.82],["Lagos",6.52,3.38],["Johannesburg",-26.2,28.05],["Cape Town",-33.92,18.42],["London",51.51,-0.13],["Paris",48.86,2.35],["Berlin",52.52,13.4],["Amsterdam",52.37,4.9],["Madrid",40.42,-3.7],["Rome",41.9,12.5],["Zurich",47.38,8.54],["Vienna",48.21,16.37],["Warsaw",52.23,21.01],["Stockholm",59.33,18.07],["Moscow",55.76,37.62],["New York",40.71,-74.01],["Boston",42.36,-71.06],["Toronto",43.65,-79.38],["Chicago",41.88,-87.63],["Austin",30.27,-97.74],["San Francisco",37.77,-122.42],["Los Angeles",34.05,-118.24],["Seattle",47.61,-122.33],["Vancouver",49.28,-123.12],["Mexico City",19.43,-99.13],["Bogota",4.71,-74.07],["Lima",-12.05,-77.04],["Sao Paulo",-23.55,-46.63],["Buenos Aires",-34.6,-58.38],["Santiago",-33.45,-70.67],["Singapore",1.35,103.82],["Kuala Lumpur",3.14,101.69],["Jakarta",-6.21,106.85],["Bangkok",13.76,100.5],["Ho Chi Minh",10.82,106.63],["Manila",14.6,120.98],["Hong Kong",22.32,114.17],["Taipei",25.03,121.57],["Shanghai",31.23,121.47],["Beijing",39.9,116.41],["Seoul",37.57,126.98],["Tokyo",35.68,139.69],["Osaka",34.69,135.5],["Sydney",-33.87,151.21],["Melbourne",-37.81,144.96],["Auckland",-36.85,174.76]];
 function fmtLoc(lat,lon){
   // Never claim a place nobody gave us. This used to return 'IIT Mandi' on the
   // reasoning that every user was from that campus — true in July, false the
@@ -2288,6 +2295,64 @@ notifyToggle.onclick=()=>{
   if(wantNotify){notifyEmail.focus();track('notify_opened');}
 };
 syncNotify();
+
+/* ── buzz this phone: the same promise, delivered to the lock screen ────────
+   Only offered where it can actually be kept. On iOS the push API only exists
+   once the site has been added to the home screen, so an iPhone in Safari is
+   never shown a button that would do nothing — it keeps the email option,
+   which works everywhere.
+
+   The permission prompt is a one-shot resource: refuse it once and the browser
+   makes it hard to ever ask again. So it is never fired on load, only on this
+   deliberate tap, by someone who has just written a question and said they
+   want to hear back. */
+const VAPID_PUBLIC='BC_HRnAXjiC1-HHBSXYSoU51amHB011Mkmc7aRg6oVw2iWGX_Szbfa4MTOTg9_pyKsLEwweOZaP6uxRd1lB9Ajc';
+const b64ToU8=b=>{const p='='.repeat((4-b.length%4)%4);
+  const s=(b+p).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(s);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));};
+/* Flipped on only once the sending half exists. A button that asks for
+   notification permission and then never delivers spends the one prompt a
+   browser will ever give us, on nothing. */
+const PUSH_READY=false;
+const PUSH_CAPABLE=PUSH_READY && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+let pushSub=null;   // the live PushSubscription, once granted
+const pushRow=$('#pushRow'),pushToggle=$('#pushToggle'),pushHint=$('#pushHint');
+function syncPush(){
+  // it only makes sense as an alternative to email, so it rides the same intent
+  pushRow.hidden=!(PUSH_CAPABLE&&wantNotify&&Notification.permission!=='denied');
+  pushToggle.setAttribute('aria-pressed',String(!!pushSub));
+  pushHint.textContent=pushSub?'✓ this phone will buzz':'';
+  pushHint.classList.toggle('ok',!!pushSub);
+  // with a subscription in hand the address stops being required
+  if(pushSub){notifyEmail.hidden=true;notifyHint.textContent='';}
+  else if(wantNotify)notifyEmail.hidden=false;
+}
+const _syncNotify=syncNotify;
+syncNotify=function(){_syncNotify();syncPush();};
+pushToggle.onclick=async()=>{
+  if(pushSub){                                   // turning it back off
+    try{await db.pushMe&&sb.rpc('push_unsubscribe',{p_endpoint:pushSub.endpoint});await pushSub.unsubscribe();}catch(_){}
+    pushSub=null;syncNotify();return;
+  }
+  try{
+    track('push_asked');
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){
+      toast(perm==='denied'
+        ? 'notifications are blocked for this site — the email option still works.'
+        : 'no notifications then — the email option still works.');
+      track('push_'+perm);syncNotify();return;
+    }
+    const reg=await navigator.serviceWorker.ready;
+    pushSub=await reg.pushManager.getSubscription()
+      ||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUBLIC)});
+    track('push_granted');
+  }catch(err){
+    pushSub=null;
+    toast("this browser wouldn't set that up — the email option still works.");
+  }
+  syncNotify();
+};
 $('#post').onclick=async()=>{
   if(IS_DEMO){toast('demo data — read only. Remove ?n= from the URL to go live.');return}
   if(!db){toast("can't reach the space right now — your words wouldn't be saved.");return}
@@ -2304,8 +2369,9 @@ $('#post').onclick=async()=>{
   if(placeMode==='city'&&!cityPick){
     toast('pick a city from the list, or choose “no place” to let it orbit.');
     cityInput.focus();return;}
-  // same reasoning: they asked to be told, so a bad address is a stop, not a shrug
-  if(wantNotify&&!notifyOk()){
+  // same reasoning: they asked to be told, so a bad address is a stop, not a shrug.
+  // A subscribed phone already answers "how" — the address stops being needed.
+  if(wantNotify&&!pushSub&&!notifyOk()){
     toast('that email address looks off — fix it, or switch the notification back off.');
     notifyEmail.focus();return;}
   const loc=placeMode==='city'?{lat:cityPick.lat,lon:cityPick.lon}
@@ -2324,12 +2390,24 @@ $('#post').onclick=async()=>{
   /* The subscription can only exist once the question does, so it happens
      here rather than in the same call. If it fails the question still stands —
      say so plainly instead of leaving them expecting mail. */
-  if(data&&wantNotify&&notifyOk()){
-    try{
-      const {error:nerr}=await db.notifyMe(data.id,notifyEmail.value.trim().toLowerCase());
-      if(nerr)toast("it's floating — but I couldn't set up the email. Try again from the conversation.");
-      else{track('notify_subscribed');wantNotify=false;syncNotify();}
-    }catch(_){toast("it's floating — but I couldn't set up the email.");}
+  if(data&&wantNotify){
+    let ok=false;
+    if(pushSub){
+      try{
+        const {error:perr}=await db.pushMe(data.id,{endpoint:pushSub.endpoint,
+          p256dh:btoa(String.fromCharCode(...new Uint8Array(pushSub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
+          auth:btoa(String.fromCharCode(...new Uint8Array(pushSub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')});
+        if(!perr){ok=true;track('push_subscribed');}
+      }catch(_){}
+    }
+    if(!ok&&notifyOk()){
+      try{
+        const {error:nerr}=await db.notifyMe(data.id,notifyEmail.value.trim().toLowerCase());
+        if(!nerr){ok=true;track('notify_subscribed');}
+      }catch(_){}
+    }
+    if(ok){wantNotify=false;syncNotify();}
+    else toast("it's floating — but I couldn't set up the notification.");
   }
   if(data){S.mine.add(data.id);localStorage.setItem('dotbro_mine',JSON.stringify([...S.mine]));
     if(!S.q.has(data.id)){S.q.set(data.id,data);addNode(data,true);}
@@ -2640,6 +2718,7 @@ function pushReply(r){
     S.rcount.set(r.question_id,(S.rcount.get(r.question_id)||0)+1);
     const k=S.rkinds.get(r.question_id)||{};k[r.kind]=(k[r.kind]||0)+1;S.rkinds.set(r.question_id,k);
   }
+  loadLinks();                      // a reply is the one thing that forges a new link
   if(S.openId===r.question_id){renderQ();markSeen(r.question_id);}
   else if(!IS_DEMO&&S.mine.has(r.question_id))
     toastAction('someone answered your question — tap to read',()=>openQ(r.question_id),7000);
@@ -2712,6 +2791,18 @@ function hideInstallPill(){if(installPill){installPill.remove();installPill=null
 /* ─── bridge for the WebGL engine (module scripts cannot see const/let here) ─── */
 window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,catLabel,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)};
 
+/* Who shares a conversation with whom. Loaded after the globe is already up —
+   it decorates, so it must never hold the first paint hostage. Refreshed when
+   a reply lands, because a reply is exactly what creates a new link. */
+S.links=[];
+let _linksAt=-Infinity;              // 0 would throttle away the very first load
+async function loadLinks(){
+  if(IS_DEMO||!db)return;
+  if(performance.now()-_linksAt<20000)return;      // a burst of replies is one refresh
+  _linksAt=performance.now();
+  try{const {data,error}=await db.listLinks();if(!error&&data)S.links=data;}catch(_){}
+}
+
 /* ─── boot ─── */
 async function loadLive(){
   const [qres,cres]=await Promise.all([db.listQuestions(),db.listReplyCounts()]);
@@ -2770,6 +2861,7 @@ async function loadThread(id){
   try{
     await loadLive();
     wireLive();
+    loadLinks();                    // decoration: never blocks the first paint
     /* answers that arrived while this person was away */
     if(S.mine.size){
       const m=seenMap();let fresh=0,target=null;
@@ -2803,6 +2895,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=28"></script>
+<script type="module" src="/alge-engine.js?v=34"></script>
 </body>
 </html>
