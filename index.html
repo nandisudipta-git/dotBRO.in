@@ -160,6 +160,20 @@ body.feeding .botleft,body.feeding .zoomui,body.feeding #hint,
 body.feeding .albl,body.feeding #tip,body.feeding #leader{opacity:0 !important;pointer-events:none;}
 /* reading one conversation? then that is the only thing being said */
 body.sheeting .albl,body.sheeting #tip,body.sheeting #leader,body.sheeting #hint{opacity:0 !important;}
+/* place names. One 4K image around a whole planet is ~1px per 10km, so the
+   surface CANNOT be sharp when you dive in — but type can. These stay vector
+   crisp at every zoom, and they are what actually tells you where you are. */
+/* sits just BELOW its point — centred, the name hid under the very dot it
+   was there to explain */
+.plbl{position:absolute;transform:translate(-50%,7px);white-space:nowrap;pointer-events:none;
+  font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  font-family:'Space Mono',ui-monospace,monospace;
+  color:rgba(255,255,255,.72);text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 10px rgba(0,0,0,.6);
+  opacity:0;transition:opacity .45s ease;will-change:transform;}
+.plbl.has{color:#fff;font-weight:700;}
+.plbl b{display:block;font-size:8px;letter-spacing:.1em;font-weight:400;
+  color:rgba(255,150,150,.9);text-transform:none;}
+body.gated .plbl,body.sheeting .plbl,body.feeding .plbl{opacity:0 !important;}
 .albl{position:absolute;transform:translate(0,-50%);white-space:nowrap;
   font-size:12px;font-family:'Space Mono',ui-monospace,monospace;
   background:rgba(255,255,255,.92);color:#22303C;padding:4px 10px;border-radius:11px;
@@ -2789,7 +2803,7 @@ function maybeOfferInstall(){
 function hideInstallPill(){if(installPill){installPill.remove();installPill=null;}}
 
 /* ─── bridge for the WebGL engine (module scripts cannot see const/let here) ─── */
-window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,catLabel,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)};
+window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,catLabel,CITIES,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)};
 
 /* Who shares a conversation with whom. Loaded after the globe is already up —
    it decorates, so it must never hold the first paint hostage. Refreshed when
@@ -2895,6 +2909,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=34"></script>
+<script type="module" src="/alge-engine.js?v=37"></script>
 </body>
 </html>

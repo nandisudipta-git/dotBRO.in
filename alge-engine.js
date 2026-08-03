@@ -905,6 +905,99 @@ function stepBadges() {
   });
 }
 
+/* ── place names: what marks the regions ───────────────────────────────────
+   The globe is one photograph, ~1px per 10km, so diving in can only ever make
+   it softer — no amount of tuning fixes that, and it is why the surface reads
+   as "faded" up close. Type does not blur. As the camera comes down, the
+   places nearest the middle of the view name themselves, so you always know
+   what you are looking at, and a place holding conversations says how many.
+
+   Deliberately not political borders: this is an Indian product and drawing
+   contested lines would take a position the app has no business taking.
+   Places are places. */
+const CITY_LABELS = [];
+const cityBox = document.createElement('div');
+cityBox.id = 'places';
+cityBox.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:8;';
+document.body.appendChild(cityBox);
+for (let i = 0; i < 14; i++) {
+  const el = document.createElement('div'); el.className = 'plbl';
+  cityBox.appendChild(el); CITY_LABELS.push(el);
+}
+const _cityDirs = [];      // built once from the same list the picker uses
+function buildCityDirs() {
+  const list = (window.APP && window.APP.CITIES) || [];
+  if (_cityDirs.length || !list.length) return;
+  for (const [name, la, lo] of list) _cityDirs.push({ name, v: ll2v(la, lo), la, lo });
+}
+const _cv2 = new THREE.Vector3();
+let cityFrame = 0, cityPick = [];
+function stepCityLabels() {
+  if (MASSIVE) return;
+  buildCityDirs();
+  // far out, names would be a wall of text over an ocean — they belong to the dive
+  const want = zoom > 2.2 && !isGated() && _cityDirs.length;
+  if (!want) { CITY_LABELS.forEach(el => el.style.opacity = '0'); return; }
+  if (++cityFrame % 12 === 1) {
+    /* how much of the planet is on screen shrinks as you close in, so the
+       number of names that can fit does too — pick by how central they are */
+    const counts = new Map();
+    if (window.APP && window.APP.S) {
+      for (const [, q] of window.APP.S.q) {
+        if (q.lat == null || q.lon == null) continue;
+        const k = q.lat.toFixed(1) + ',' + q.lon.toFixed(1);
+        counts.set(k, (counts.get(k) || 0) + 1);
+      }
+    }
+    const cam = camera.position.clone().normalize();
+    const near = [];
+    for (const c of _cityDirs) {
+      _cv2.copy(c.v).applyQuaternion(yawG.quaternion).applyQuaternion(pitchG.quaternion);
+      const facing = _cv2.clone().normalize().dot(cam);
+      if (facing < 0.55) continue;                       // behind the limb or near it
+      near.push({ c, facing, n: counts.get(c.la.toFixed(1) + ',' + c.lo.toFixed(1)) || 0 });
+    }
+    // conversations first, then whatever is most squarely in front of you.
+    // Keep more candidates than there are slots so the collision pass below
+    // has something to fall back to when a dense region eats the good spots.
+    near.sort((a, b) => (b.n - a.n) || (b.facing - a.facing));
+    cityPick = near.slice(0, 60);
+  }
+  /* Himachal alone put eight towns inside a thumbnail and printed them on top
+     of one another. Names are only worth having if they can be read, so this
+     is a greedy placement: best candidate first, and anything whose box would
+     touch one already standing is simply not drawn. */
+  const taken = [];
+  const fade = Math.min(1, (zoom - 2.2) / 0.8);
+  let slot = 0;
+  for (const p of cityPick) {
+    if (slot >= CITY_LABELS.length) break;
+    _cv2.copy(p.c.v).multiplyScalar(1.002)
+        .applyQuaternion(yawG.quaternion).applyQuaternion(pitchG.quaternion).project(camera);
+    if (_cv2.z >= 1) continue;
+    const x = (_cv2.x * 0.5 + 0.5) * innerWidth, y = (-_cv2.y * 0.5 + 0.5) * innerHeight;
+    if (x < 8 || x > innerWidth - 8 || y < 8 || y > innerHeight - 8) continue;
+    const w = p.c.name.length * 7.4 + 10, h = p.n ? 26 : 14;
+    let hits = false;
+    for (const t of taken) {
+      if (Math.abs(x - t.x) < (w + t.w) / 2 && Math.abs(y - t.y) < (h + t.h) / 2 + 3) { hits = true; break; }
+    }
+    if (hits) continue;
+    taken.push({ x, y, w, h });
+    const el = CITY_LABELS[slot++];
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    if (el._nm !== p.c.name || el._n !== p.n) {
+      el._nm = p.c.name; el._n = p.n;
+      el.textContent = p.c.name;
+      if (p.n) { const b = document.createElement('b');
+        b.textContent = p.n + (p.n === 1 ? ' conversation' : ' conversations'); el.appendChild(b); }
+    }
+    el.classList.toggle('has', p.n > 0);
+    el.style.opacity = String(fade * (p.n ? 0.95 : 0.6));
+  }
+  for (let i = slot; i < CITY_LABELS.length; i++) CITY_LABELS[i].style.opacity = '0';
+}
+
 const labelBox = document.getElementById('labels');
 const labelEls = [];
 for (let i = 0; i < 4; i++) {
@@ -1180,6 +1273,7 @@ function frame() {
   else if (!intro.active) updateSpot(now);
   updateCallout();
   stepLabels();
+  stepCityLabels();
   stepBadges();
 
   // the air: seconds for the sine paths, plus a light parallax off the drag
