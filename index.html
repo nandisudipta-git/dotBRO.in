@@ -2413,10 +2413,12 @@ const VAPID_PUBLIC='BC_HRnAXjiC1-HHBSXYSoU51amHB011Mkmc7aRg6oVw2iWGX_Szbfa4MTOTg
 const b64ToU8=b=>{const p='='.repeat((4-b.length%4)%4);
   const s=(b+p).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(s);
   return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));};
-/* Flipped on only once the sending half exists. A button that asks for
-   notification permission and then never delivers spends the one prompt a
-   browser will ever give us, on nothing. */
-const PUSH_READY=false;
+/* On, now that the sending half exists and Google has been shown to accept our
+   signature — probed against a real FCM endpoint, which answered 410 "gone"
+   rather than 401 "unauthorised". Until that was true this stayed false: a
+   button that asks for notification permission and then never delivers spends
+   the one prompt a browser will ever give us, on nothing. */
+const PUSH_READY=true;
 const PUSH_CAPABLE=PUSH_READY && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 let pushSub=null;   // the live PushSubscription, once granted
 const pushRow=$('#pushRow'),pushToggle=$('#pushToggle'),pushHint=$('#pushHint');
@@ -3129,6 +3131,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=39"></script>
+<script type="module" src="/alge-engine.js?v=40"></script>
 </body>
 </html>
