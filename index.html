@@ -266,6 +266,17 @@ body.gated .plbl,body.sheeting .plbl,body.feeding .plbl{opacity:0 !important;}
   color:var(--dimink);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .15s;font-family:inherit;}
 .chip.on{color:#1D1D1F;font-weight:700;border-color:transparent;}
 .crow{display:flex;align-items:center;justify-content:space-between;margin-top:14px;}
+/* pinned action bar — never scrolls away, even with a keyboard covering half
+   the screen. Sits outside .sh-body, which is the part that scrolls. */
+.crow.sticky{margin:0;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));
+  border-top:1px solid rgba(0,0,0,.07);background:rgba(250,251,253,.985);flex-shrink:0;}
+/* the one-line summary of everything secondary */
+.optsum{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+  margin-top:12px;padding:9px 12px;cursor:pointer;font-family:inherit;font-size:.74rem;
+  letter-spacing:.03em;color:var(--dimink);background:rgba(0,0,0,.03);
+  border:1px solid rgba(0,0,0,.10);border-radius:9px;text-align:left;}
+.optsum:hover{border-color:rgba(0,0,0,.2);color:var(--ink);}
+.optsum[aria-expanded="true"]{background:none;}
 .cnt{font-size:.7rem;color:var(--dimink);}
 .btn{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:1rem;background:var(--steel);
   color:#FFFFFF;border:none;border-radius:9px;padding:9px 22px;cursor:pointer;
@@ -598,6 +609,13 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
     </div>
     <textarea id="body" aria-label="Your conversation" placeholder="What conversation are you leaving unfinished?" maxlength="500"></textarea>
     <div class="cats" id="cats"></div>
+    <!-- Everything past the question is secondary, and on a phone it was
+         burying the button that actually posts. One line says what the
+         current answers are; tapping it opens the controls. -->
+    <button type="button" class="optsum" id="optsToggle" aria-expanded="false" aria-controls="moreOpts">
+      <span id="optsSummary">✨ orbits · no email</span><span aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="moreOpts" hidden>
     <!-- the place is a CHOICE at posting time, not a permission at the door.
          Browser location is requested only if "attach" is chosen. -->
     <div class="placerow" role="radiogroup" aria-label="Where should this conversation live?">
@@ -623,15 +641,19 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
       <button type="button" class="placeopt" id="pushToggle" aria-pressed="false">🔔 buzz this phone instead</button>
       <span class="cityhint" id="pushHint"></span>
     </div>
-    <div class="crow">
-      <span class="cnt" id="count">0 / 500</span>
-      <button class="btn" id="post">Say it →</button>
-    </div>
     <p class="honest">Anyone can read this, and it can't be unsent. A place is only
     attached if you choose it — your city, or your rough area (~11&nbsp;km). Never more.
     An email, if you give one, is used to tell you about answers here and nothing
     else — never shown on the globe, never sent to anyone, and every message can
     turn it off.</p>
+    </div><!-- /moreOpts -->
+  </div>
+  <!-- OUTSIDE the scrolling body on purpose: with the keyboard up, a phone
+       shows a couple of hundred pixels of form, and the button that posts was
+       below all of it. Pinned, it cannot be scrolled away from. -->
+  <div class="crow sticky">
+    <span class="cnt" id="count">0 / 500</span>
+    <button class="btn" id="post">Say it →</button>
   </div>
 </div>
 
@@ -2447,12 +2469,15 @@ $('#post').onclick=async()=>{
      kind of conversation, not missing data. */
   // "pick my city" with nothing resolved is an unfinished intent, not a vote
   // for orbit — say so rather than silently dropping the place they wanted
+  // a field you are being asked to fix has to be visible to fix it
   if(placeMode==='city'&&!cityPick){
+    setOptsOpen(true);
     toast('pick a city from the list, or choose “no place” to let it orbit.');
     cityInput.focus();return;}
   // same reasoning: they asked to be told, so a bad address is a stop, not a shrug.
   // A subscribed phone already answers "how" — the address stops being needed.
   if(wantNotify&&!pushSub&&!notifyOk()){
+    setOptsOpen(true);
     toast('that email address looks off — fix it, or switch the notification back off.');
     notifyEmail.focus();return;}
   const loc=placeMode==='city'?{lat:cityPick.lat,lon:cityPick.lon}
@@ -2965,6 +2990,33 @@ async function checkMeetInbox(){
   }catch(_){}
 }
 
+/* The collapsed line has to state the real answers, or it is just a lid over
+   choices someone cannot see they already made. It is rebuilt from the same
+   state the controls write to, every time either of them changes. */
+const optsToggle=$('#optsToggle'),moreOpts=$('#moreOpts'),optsSummary=$('#optsSummary');
+function summariseOpts(){
+  const place = placeMode==='city' ? (cityPick?`📍 ${cityPick.name}`:'📍 pick a city')
+              : placeMode==='geo'  ? (S.geo?`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)}`:'🌍 your rough area')
+              : '✨ orbits';
+  const tell = pushSub ? '🔔 this phone'
+             : wantNotify ? (notifyOk()?'📧 '+notifyEmail.value.trim():'📧 add your email')
+             : 'no email';
+  optsSummary.textContent=`${place} · ${tell}`;
+}
+function setOptsOpen(open){
+  moreOpts.hidden=!open;
+  optsToggle.setAttribute('aria-expanded',String(open));
+  summariseOpts();
+}
+optsToggle.onclick=()=>setOptsOpen(moreOpts.hidden);
+/* every control that changes an answer refreshes the line above it */
+const _syncPlace2=syncPlace; syncPlace=function(){_syncPlace2();summariseOpts();};
+const _syncNotify2=syncNotify; syncNotify=function(){_syncNotify2();summariseOpts();};
+const _syncCityHint2=syncCityHint; syncCityHint=function(){_syncCityHint2();summariseOpts();};
+cityInput.addEventListener('input',summariseOpts);
+notifyEmail.addEventListener('input',summariseOpts);
+summariseOpts();
+
 $('#meetSend').onclick=sendMeet;
 $('#meetText').addEventListener('keydown',e=>{
   if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();sendMeet();}
@@ -3077,6 +3129,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=38"></script>
+<script type="module" src="/alge-engine.js?v=39"></script>
 </body>
 </html>
