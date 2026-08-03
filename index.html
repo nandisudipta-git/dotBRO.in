@@ -174,6 +174,19 @@ body.sheeting .albl,body.sheeting #tip,body.sheeting #leader,body.sheeting #hint
 .plbl b{display:block;font-size:8px;letter-spacing:.1em;font-weight:400;
   color:rgba(255,150,150,.9);text-transform:none;}
 body.gated .plbl,body.sheeting .plbl,body.feeding .plbl{opacity:0 !important;}
+/* the private thread */
+.privbtn{margin-top:8px;font-size:.7rem;letter-spacing:.06em;background:none;cursor:pointer;
+  border:1px solid rgba(0,0,0,.16);border-radius:99px;padding:5px 11px;color:var(--dimink);font-family:inherit;}
+.privbtn:hover{border-color:rgba(230,0,0,.4);color:var(--ink);}
+.meetlog{max-height:44vh;overflow-y:auto;margin:10px 0;display:flex;flex-direction:column;gap:8px;}
+.mm{max-width:82%;padding:9px 13px;border-radius:13px;font-size:.9rem;line-height:1.5;}
+.mm.me{align-self:flex-end;background:#22303C;color:#fff;border-bottom-right-radius:4px;}
+.mm.them{align-self:flex-start;background:rgba(0,0,0,.06);color:var(--ink);border-bottom-left-radius:4px;}
+.mm i{display:block;font-size:.62rem;opacity:.6;font-style:normal;margin-top:3px;}
+#meetPill{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));
+  z-index:30;background:#22303C;color:#fff;border:none;border-radius:99px;padding:9px 18px;
+  font-family:inherit;font-size:.76rem;letter-spacing:.05em;cursor:pointer;display:none;
+  box-shadow:0 8px 26px rgba(0,0,0,.3);}
 .albl{position:absolute;transform:translate(0,-50%);white-space:nowrap;
   font-size:12px;font-family:'Space Mono',ui-monospace,monospace;
   background:rgba(255,255,255,.92);color:#22303C;padding:4px 10px;border-radius:11px;
@@ -531,6 +544,7 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
   </div>
 </section>
 
+<button id="meetPill" type="button">✉</button>
 <div id="grain" aria-hidden="true"></div>
 <div id="netmsg"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -625,6 +639,22 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
 <div class="sheet" id="qsheet" role="dialog" aria-modal="true" aria-labelledby="qsheetTitle">
   <div class="sh-head"><span class="sh-title" id="qsheetTitle">Unfinished conversation</span><button class="x" data-close aria-label="Close">&times;</button></div>
   <div class="sh-body" id="qview"></div>
+</div>
+
+<!-- the private room: two people, nobody else, no trace on the globe -->
+<div class="sheet" id="meet" role="dialog" aria-modal="true" aria-labelledby="meetTitle">
+  <div class="sh-head"><span class="sh-title" id="meetTitle">Just the two of you</span><button class="x" data-close aria-label="Close">&times;</button></div>
+  <div class="sh-body">
+    <p class="honest" id="meetWho"></p>
+    <div id="meetLog" class="meetlog"></div>
+    <div class="p-input open">
+      <textarea id="meetText" maxlength="2000" aria-label="Your private message" placeholder="Only they will see this."></textarea>
+      <button class="btn" id="meetSend">Send →</button>
+    </div>
+    <p class="honest">This is off the globe. Nobody else can read it, and nobody
+    else can tell it exists. It lives on this device — clear your browser and
+    you lose the way back in.</p>
+  </div>
 </div>
 
 <!-- connect sheet -->
@@ -761,6 +791,24 @@ let _touched=false;
 addEventListener('pointerdown',e=>{
   if(!_touched&&e.target&&(e.target.id==='c'||e.target.id==='c3d')){_touched=true;track('globe_touched');}},true);
 
+/* ─── proof of authorship ───────────────────────────────────────────────────
+   The server hands out a secret once, when a post is created, and can never
+   be asked for it again. This device is the only copy — which is exactly why
+   a private thread cannot be opened by anyone who merely knows a question id,
+   and equally why clearing your browser loses the thread. That is the honest
+   cost of a place with no accounts. */
+const TOKENS_KEY='dotbro_tokens';
+function allTokens(){
+  try{return JSON.parse(localStorage.getItem(TOKENS_KEY)||'{}');}catch(_){return{};}
+}
+function keepToken(kind,id,token){
+  if(!token)return;
+  const t=allTokens();t[kind+':'+id]=token;
+  try{localStorage.setItem(TOKENS_KEY,JSON.stringify(t));}catch(_){}
+}
+const tokenFor=(kind,id)=>allTokens()[kind+':'+id]||null;
+const tokenList=()=>[...new Set(Object.values(allTokens()))];
+
 const db=!LIVE?null:{
   listQuestions:()=>sb.from('questions').select('*').order('created_at',{ascending:false}).limit(300),
   listReplyCounts:()=>sb.from('reply_counts').select('*'),
@@ -768,8 +816,27 @@ const db=!LIVE?null:{
   listLinks:()=>sb.from('conversation_links').select('*').limit(400),
   threadReplies:id=>sb.from('replies').select('*').eq('question_id',id).order('created_at',{ascending:true}).limit(500),
   getQuestion:id=>sb.from('questions').select('*').eq('id',id).maybeSingle(),
-  addQuestion:(name,body,category,lat,lon)=>sb.from('questions').insert({name,body,category,lat,lon}).select().single(),
-  addReply:(question_id,name,body,kind)=>sb.from('replies').insert({question_id,name,body,kind}).select().single(),
+  /* Posting goes through an RPC now, purely so the author can be handed a
+     one-time proof of authorship. Same table, same triggers, same limits —
+     the difference is that the reply comes back with a token attached. */
+  addQuestion:async(name,body,category,lat,lon)=>{
+    const {data,error}=await sb.rpc('post_question',
+      {p_name:name,p_body:body,p_category:category,p_lat:lat,p_lon:lon});
+    if(error)return{data:null,error};
+    keepToken('question',data.row.id,data.token);
+    return{data:data.row,error:null};
+  },
+  addReply:async(question_id,name,body,kind)=>{
+    const {data,error}=await sb.rpc('post_reply',
+      {p_question_id:question_id,p_name:name,p_body:body,p_kind:kind});
+    if(error)return{data:null,error};
+    keepToken('reply',data.row.id,data.token);
+    return{data:data.row,error:null};
+  },
+  meetOpen:(asker_token,p_reply_id)=>sb.rpc('meet_open',{asker_token,p_reply_id}),
+  meetSend:(tok,tid,p_body)=>sb.rpc('meet_send',{tok,tid,p_body}),
+  meetRead:(tok,tid)=>sb.rpc('meet_read',{tok,tid}),
+  meetInbox:toks=>sb.rpc('meet_inbox',{toks}),
   addReport:(question_id,reason)=>sb.from('reports').insert({question_id,reason}),
   // the only door to notify_subs — that table has RLS on and zero policies,
   // so an address can be written and never read back by anyone but the sender
@@ -2608,7 +2675,16 @@ function renderQ(){
   ) : '';
 
   const repliesHtml = rs.length
-    ? rs.map(x=>`<div class="r"><div class="rmeta"><span class="rk">${(KIND_META[x.kind]?KIND_META[x.kind].label:'continue').toUpperCase()}</span> · <b>${esc(x.name)}</b> · ${ago(x.created_at)}</div><div class="rbody">${esc(x.body)}</div></div>`).join('')
+    /* Only the person who asked sees the private door, and only on an answer
+       that can actually be replied to privately. Everyone else is not told it
+       exists — that is the whole point of "without anyone knowing". */
+    ? rs.map(x=>{
+        const canMeet=!IS_DEMO&&tokenFor('question',S.openId)&&tokenFor('reply',x.id)!==null;
+        const mine=!IS_DEMO&&!!tokenFor('question',S.openId);
+        return `<div class="r"><div class="rmeta"><span class="rk">${(KIND_META[x.kind]?KIND_META[x.kind].label:'continue').toUpperCase()}</span> · <b>${esc(x.name)}</b> · ${ago(x.created_at)}</div><div class="rbody">${esc(x.body)}</div>`+
+          (mine?`<button type="button" class="privbtn" data-meet="${x.id}">✉ message ${esc(x.name)} privately</button>`:'')+
+          `</div>`;
+      }).join('')
     : (!IS_DEMO&&!S.replies.has(S.openId)&&nReplies(S.openId)>0
       ? `<div class="r rmeta">fetching the thread…</div>`
       : `<div class="r rmeta">no one has continued this yet — be the first.</div>`);
@@ -2635,6 +2711,9 @@ function renderQ(){
   if(nw&&whyDraft)nw.value=whyDraft;
   if(repWasOpen){const rb=$('#reportBox');if(rb)rb.classList.add('open');}
 
+  document.querySelectorAll('[data-meet]').forEach(b=>{
+    b.onclick=()=>openMeet(b.dataset.meet);
+  });
   $('#pActions').querySelectorAll('.p-btn').forEach(btn=>{
     btn.onclick=()=>{
       const k=btn.dataset.kind;
@@ -2803,6 +2882,94 @@ function maybeOfferInstall(){
 function hideInstallPill(){if(installPill){installPill.remove();installPill=null;}}
 
 /* ─── bridge for the WebGL engine (module scripts cannot see const/let here) ─── */
+/* ─── the private room ──────────────────────────────────────────────────────
+   Meet used to be a PUBLIC reply with a star on it: three people used it,
+   which means three people announced to everyone that they wanted to meet
+   someone. Wanting to talk to one person is not a broadcast.
+
+   Only the asker can open the door, and only onto someone who actually
+   answered them — no stranger can start this with a stranger. Both sides then
+   talk through a token their own device holds; the server answers an unknown
+   token exactly the way it answers a wrong one, so the thread cannot even be
+   proven to exist by anyone outside it. */
+let meetTid=null,meetTok=null,meetPoll=null;
+async function openMeet(replyId){
+  const qtok=tokenFor('question',S.openId);
+  if(!qtok){toast('only the person who asked can start this.');return;}
+  try{
+    const {data:tid,error}=await db.meetOpen(qtok,replyId);
+    if(error||!tid){toast("couldn't open that — try again.");return;}
+    meetTid=tid;meetTok=qtok;
+    const r=repliesOf(S.openId).find(x=>x.id===replyId);
+    $('#meetWho').textContent=r?`With ${r.name}, about “${(qOf(S.openId)||{}).body||''}”.`:'';
+    closeAll();openSheet('#meet');
+    track('meet_opened');
+    await paintMeet();
+    startMeetPoll();
+  }catch(_){toast("couldn't open that — try again.");}
+}
+async function paintMeet(){
+  if(!meetTid||!meetTok)return;
+  try{
+    const {data,error}=await db.meetRead(meetTok,meetTid);
+    if(error||!data)return;
+    const log=$('#meetLog');if(!log)return;
+    const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<40;
+    log.innerHTML=(data.messages||[]).map(m=>
+      `<div class="mm ${m.mine?'me':'them'}">${esc(m.body)}<i>${ago(m.at)}</i></div>`).join('')
+      ||`<p class="honest">Nothing said yet. You go first.</p>`;
+    if(atBottom)log.scrollTop=log.scrollHeight;
+  }catch(_){}
+}
+function startMeetPoll(){
+  clearInterval(meetPoll);
+  // a private room has no realtime channel of its own on purpose — a channel
+  // is another surface that can leak that a thread exists
+  meetPoll=setInterval(()=>{if(document.querySelector('#meet.open'))paintMeet();else clearInterval(meetPoll);},6000);
+}
+async function sendMeet(){
+  const el=$('#meetText'),body=el.value.trim();
+  if(body.length<1)return;
+  if(!rateOk('meet',6,60000)){toast('easy — a few seconds between messages.');return;}
+  el.value='';
+  try{
+    const {error}=await db.meetSend(meetTok,meetTid,body);
+    if(error){toast("that didn't send.");el.value=body;return;}
+    await paintMeet();
+  }catch(_){toast("that didn't send.");el.value=body;}
+}
+/* Someone who ANSWERED has no idea a room was opened for them until they come
+   back. Their device holds the reply token, so on return it simply asks. */
+async function checkMeetInbox(){
+  if(IS_DEMO||!db)return;
+  const toks=tokenList();
+  if(!toks.length)return;
+  try{
+    const {data,error}=await db.meetInbox(toks);
+    if(error||!data||!data.length)return;
+    const pill=$('#meetPill');
+    pill.textContent=data.length===1?'✉ 1 private conversation':`✉ ${data.length} private conversations`;
+    pill.style.display='block';
+    pill.onclick=async()=>{
+      const t=data[0];
+      meetTid=t.id;
+      meetTok=tokenFor('question',t.question_id)||toks.find(k=>k)||null;
+      // find whichever of our tokens this thread actually accepts
+      for(const k of toks){
+        const {error:e2}=await db.meetRead(k,t.id);
+        if(!e2){meetTok=k;break;}
+      }
+      $('#meetWho').textContent=t.question?`About “${t.question}”.`:'';
+      closeAll();openSheet('#meet');await paintMeet();startMeetPoll();
+    };
+  }catch(_){}
+}
+
+$('#meetSend').onclick=sendMeet;
+$('#meetText').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();sendMeet();}
+});
+
 window.APP={S,CATS,CATKEYS,IS_DEMO,esc,ago,catLabel,CITIES,qOf:id=>qOf(id),nodeOf:id=>nodeOf(id)};
 
 /* Who shares a conversation with whom. Loaded after the globe is already up —
@@ -2876,6 +3043,7 @@ async function loadThread(id){
     await loadLive();
     wireLive();
     loadLinks();                    // decoration: never blocks the first paint
+    checkMeetInbox();               // "someone opened a private room for you"
     /* answers that arrived while this person was away */
     if(S.mine.size){
       const m=seenMap();let fresh=0,target=null;
@@ -2909,6 +3077,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=37"></script>
+<script type="module" src="/alge-engine.js?v=38"></script>
 </body>
 </html>
