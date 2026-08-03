@@ -191,7 +191,9 @@ body.gated .plbl,body.sheeting .plbl,body.feeding .plbl{opacity:0 !important;}
   font-size:12px;font-family:'Space Mono',ui-monospace,monospace;
   background:rgba(255,255,255,.92);color:#22303C;padding:4px 10px;border-radius:11px;
   opacity:0;transition:opacity .6s ease;will-change:transform;}
-#tip{position:fixed;pointer-events:none;z-index:20;max-width:270px;padding:11px 14px;
+/* on a narrow screen 270px was a fifth of the width and it arrives unasked —
+   the card is a nudge toward a conversation, not a second reading surface */
+#tip{position:fixed;pointer-events:none;z-index:20;max-width:min(270px,62vw);padding:11px 14px;
   background:rgba(255,255,255,.97);border:1px solid var(--hair);border-radius:9px;
   box-shadow:0 10px 28px rgba(0,0,0,.14);opacity:0;transition:opacity .15s ease;}
 #tip .ts{display:none;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:4px;}
@@ -578,8 +580,9 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
   </div>
 </div>
 <div class="hud topright">
-  <div class="count" aria-live="off"><span class="pulse" aria-hidden="true"></span><b id="nq">0</b> conversations floating</div>
-  <div class="count" id="hereRow" style="display:none;margin-top:5px;"><b id="nhere">0</b>&nbsp;here right now</div>
+  <!-- one pill, not two of different widths stacked on each other -->
+  <div class="count" aria-live="off"><span class="pulse" aria-hidden="true"></span><b id="nq">0</b> floating<span
+    id="hereRow" style="display:none;"> · <b id="nhere">0</b> here</span></div>
   <div class="demo-badge" id="demoBadge">demo data · read only</div>
 </div>
 <div class="hud botleft">
@@ -2896,7 +2899,7 @@ function startPresence(){
     pres.on('presence',{event:'sync'},()=>{
       const n=Object.keys(pres.presenceState()).length;
       document.getElementById('nhere').textContent=n;
-      document.getElementById('hereRow').style.display=n>=2?'flex':'none';
+      document.getElementById('hereRow').style.display=n>=2?'inline':'none';   // inline: it now lives inside the one pill
     });
     pres.subscribe(st=>{if(st==='SUBSCRIBED')pres.track({at:Date.now()});});
   }catch(_){/* presence is decoration — never let it break the page */}
@@ -3174,6 +3177,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=41"></script>
+<script type="module" src="/alge-engine.js?v=42"></script>
 </body>
 </html>

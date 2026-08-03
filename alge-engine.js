@@ -920,7 +920,11 @@ const cityBox = document.createElement('div');
 cityBox.id = 'places';
 cityBox.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:8;';
 document.body.appendChild(cityBox);
-for (let i = 0; i < 14; i++) {
+/* Fourteen was a wall of text — Ron's "over filled". A screen this size can
+   carry a handful of names before they stop being orientation and start being
+   noise, and a phone fewer still. */
+const CITY_SLOTS = innerWidth < 640 ? 4 : innerWidth < 1100 ? 6 : 8;
+for (let i = 0; i < CITY_SLOTS; i++) {
   const el = document.createElement('div'); el.className = 'plbl';
   cityBox.appendChild(el); CITY_LABELS.push(el);
 }
@@ -954,8 +958,11 @@ function stepCityLabels() {
     for (const c of _cityDirs) {
       _cv2.copy(c.v).applyQuaternion(yawG.quaternion).applyQuaternion(pitchG.quaternion);
       const facing = _cv2.clone().normalize().dot(cam);
-      if (facing < 0.55) continue;                       // behind the limb or near it
-      near.push({ c, facing, n: counts.get(c.la.toFixed(1) + ',' + c.lo.toFixed(1)) || 0 });
+      // 0.55 reached almost to the horizon; names out there are decoration, and
+      // with 3,000 towns loaded that is thousands of candidates fighting for slots
+      if (facing < 0.86) continue;
+      const n = counts.get(c.la.toFixed(1) + ',' + c.lo.toFixed(1)) || 0;
+      near.push({ c, facing, n });
     }
     // conversations first, then whatever is most squarely in front of you.
     // Keep more candidates than there are slots so the collision pass below
