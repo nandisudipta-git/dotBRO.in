@@ -111,27 +111,35 @@ const backdropMat = new THREE.ShaderMaterial({
                      vec3(0.137, 0.180, 0.220),
                      smoothstep(0.0, 1.0, uv.y * 0.85 + 0.15));
 
+      /* Their weather is ONE body of cloud you are inside of, not four blobs
+         you can count. Bigger radii so the banks overlap into a single
+         atmosphere, and half the drift speed — nothing on that page is in a
+         hurry, and that unhurriedness is most of why it reads as expensive. */
       vec3 mist = vec3(0.0);
-      mist += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.20 + sin(t * 0.023) * 0.10,
-                                                       0.30 + cos(t * 0.017) * 0.05), 0.42, asp) * 0.085;
-      mist += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.70 + sin(t * 0.031 + 2.1) * 0.14,
-                                                       0.75 + sin(t * 0.021 + 0.7) * 0.07), 0.46, asp) * 0.070;
-      mist += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.90 + sin(t * 0.019 + 1.3) * 0.08,
-                                                       0.20 + cos(t * 0.027) * 0.06), 0.34, asp) * 0.055;
-      mist += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.50 + sin(t * 0.013 + 4.2) * 0.12,
-                                                       0.55 + cos(t * 0.023 + 1.1) * 0.06), 0.38, asp) * 0.050;
+      mist += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.18 + sin(t * 0.011) * 0.09,
+                                                       0.28 + cos(t * 0.008) * 0.05), 0.68, asp) * 0.082;
+      mist += vec3(0.729, 0.800, 0.855) * bank(p, vec2(0.74 + sin(t * 0.015 + 2.1) * 0.12,
+                                                       0.76 + sin(t * 0.010 + 0.7) * 0.07), 0.74, asp) * 0.070;
+      mist += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.92 + sin(t * 0.009 + 1.3) * 0.07,
+                                                       0.22 + cos(t * 0.013) * 0.06), 0.58, asp) * 0.058;
+      mist += vec3(0.863, 0.910, 0.949) * bank(p, vec2(0.46 + sin(t * 0.006 + 4.2) * 0.11,
+                                                       0.58 + cos(t * 0.011 + 1.1) * 0.06), 0.62, asp) * 0.052;
 
-      /* the banks alone are smooth blobs; two octaves of drifting noise give
-         them internal texture — this is the half of mont-fort's fog we lacked */
-      float fogN = vnoise(p * asp * 3.0 + vec2(t * 0.020, -t * 0.012)) * 0.65;
+      /* Two octaves, but the base one much larger: fog should have weather in
+         it — slow masses that move — before it has grain. */
+      float fogN = vnoise(p * asp * 1.7 + vec2(t * 0.010, -t * 0.006)) * 0.70;
       if (uQuality > 0.5)
-        fogN += vnoise(p * asp * 7.0 - vec2(t * 0.014, t * 0.009)) * 0.35;
-      else fogN *= 1.35;                       // keep the fog's weight without the octave
-      col += mist * (0.70 + 0.60 * fogN);
+        fogN += vnoise(p * asp * 6.0 - vec2(t * 0.008, t * 0.005)) * 0.30;
+      else fogN *= 1.30;                       // keep the fog's weight without the octave
+      col += mist * (0.62 + 0.76 * fogN);
 
-      /* mont-fort blueprint grid: derivative-AA lines, brighter crosses at the
-         intersections, dots lit by a slow drifting noise pool. Held far from
-         the centre — the globe sits on air, not graph paper. */
+      /* The grid was the least mont-fort thing here. Their hero has none at
+         all — it is weather and a mountain and nothing else; the blueprint
+         belongs to sections further down their page. A regular technical
+         lattice across the whole frame is what made this read as a dashboard
+         instead of air, so it survives only as a suggestion at the far
+         corners: a quarter of its old weight, and held out past the middle
+         two-thirds of the screen, which is now clean atmosphere. */
       if (uQuality > 0.5) {
       vec2 gUv = p * asp * 16.0;
       vec2 gridUV = 1.0 - abs(fract(gUv) * 2.0 - 1.0);
@@ -145,14 +153,15 @@ const backdropMat = new THREE.ShaderMaterial({
       float crossMark = inter.x * inter.y;
       float dots = smoothstep(0.30, 0.10, length(gridUV));
       float lit  = smoothstep(0.62, 0.95, vnoise(gUv * 0.14 + vec2(t * 0.030, -t * 0.018)));
-      float ring = smoothstep(0.16, 0.55, length((uv - 0.5) * asp));
-      col += vec3(0.28, 0.36, 0.44) * grid      * 0.045 * ring;
-      col += vec3(0.42, 0.58, 0.72) * crossMark * 0.075 * ring;
-      col += vec3(0.30, 0.60, 0.85) * dots * lit * 0.16 * ring;
+      float ring = smoothstep(0.46, 0.92, length((uv - 0.5) * asp));
+      col += vec3(0.28, 0.36, 0.44) * grid      * 0.013 * ring;
+      col += vec3(0.42, 0.58, 0.72) * crossMark * 0.022 * ring;
+      col += vec3(0.30, 0.60, 0.85) * dots * lit * 0.045 * ring;
       }
 
-      float v = smoothstep(1.25, 0.30, length((uv - 0.5) * asp) * 1.30);
-      col *= mix(0.52, 1.0, v);
+      /* Deeper falloff: on their page the frame does not end, it dissolves. */
+      float v = smoothstep(1.35, 0.22, length((uv - 0.5) * asp) * 1.30);
+      col *= mix(0.34, 1.0, v);
 
       /* mont-fort ships dithering:!0 on every material for the same reason:
          8-bit output posterises these long dark gradients without it */
