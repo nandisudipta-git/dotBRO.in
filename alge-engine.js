@@ -410,19 +410,30 @@ function discTexture(paint) {
   return t;
 }
 const sunTex = discTexture(c => {
+  // corona first, then a hard-edged photosphere on top — a sun has an EDGE,
+  // and a pure gradient reads as a smudge of light rather than a body
   const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
-  g.addColorStop(0.00, 'rgba(255,252,242,1)');
-  g.addColorStop(0.16, 'rgba(255,246,214,0.96)');
-  g.addColorStop(0.30, 'rgba(255,214,140,0.34)');
-  g.addColorStop(0.60, 'rgba(255,186,110,0.09)');
-  g.addColorStop(1.00, 'rgba(255,170,90,0)');
+  g.addColorStop(0.00, 'rgba(255,250,232,0.95)');
+  g.addColorStop(0.14, 'rgba(255,242,206,0.55)');
+  g.addColorStop(0.30, 'rgba(255,212,140,0.20)');
+  g.addColorStop(0.58, 'rgba(255,180,104,0.06)');
+  g.addColorStop(1.00, 'rgba(255,166,84,0)');
   c.fillStyle = g; c.fillRect(0, 0, 256, 256);
+  // faint equatorial flare, the way a bright source smears through a lens
+  const f = c.createLinearGradient(0, 128, 256, 128);
+  f.addColorStop(0, 'rgba(255,214,150,0)'); f.addColorStop(0.5, 'rgba(255,232,190,0.16)');
+  f.addColorStop(1, 'rgba(255,214,150,0)');
+  c.fillStyle = f; c.fillRect(0, 120, 256, 16);
+  const core = c.createRadialGradient(128, 128, 0, 128, 128, 34);
+  core.addColorStop(0, '#FFFDF6'); core.addColorStop(0.72, '#FFF6DC');
+  core.addColorStop(1, 'rgba(255,240,198,0)');
+  c.fillStyle = core; c.beginPath(); c.arc(128, 128, 34, 0, 7); c.fill();
 });
 const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
   map: sunTex, transparent: true, depthTest: false, depthWrite: false,
   blending: THREE.AdditiveBlending,
 }));
-sunSprite.scale.setScalar(1.05); sunSprite.renderOrder = -0.5;
+sunSprite.scale.setScalar(1.55); sunSprite.renderOrder = -0.5;
 yawG.add(sunSprite);
 
 /* A painted disc with a swept terminator is a drawing of a moon. This is a
@@ -872,7 +883,11 @@ function baseDist() {
 /* The far clamp was 1.2× the fitting distance — the Earth always filled the
    frame, so there was never any sky to put anything in. 4.6× lets you retreat
    until the planet is a marble and the sun and moon are simply there. */
-const distFor = z => THREE.MathUtils.clamp(baseDist() / Math.pow(z, 0.85), 1.45, baseDist() * 4.6);
+/* 4.6x still left the sun ~20° off-axis at full retreat — right on the edge of
+   a 21° half-frustum, so it grazed the frame or missed it depending on the
+   hour. 7.2x puts it comfortably inside: pull all the way out and the Earth is
+   a marble two and a half degrees wide with the sun genuinely in the sky. */
+const distFor = z => THREE.MathUtils.clamp(baseDist() / Math.pow(z, 0.85), 1.45, baseDist() * 7.2);
 /* portrait: the FAB + chips live at the bottom, so the globe rides a little
    high; wide screens keep it centered */
 const lookY = () => camera.aspect < 0.8 ? -0.16 : 0;
@@ -927,7 +942,7 @@ cvs.addEventListener('pointermove', e => {
   if (pinching && ptrs.size >= 2) {
     const a = [...ptrs.values()];
     const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
-    if (pinchD0 > 0) zoomT = THREE.MathUtils.clamp(pinchZ0 * d / pinchD0, 0.18, 7);
+    if (pinchD0 > 0) zoomT = THREE.MathUtils.clamp(pinchZ0 * d / pinchD0, 0.12, 7);
     lastInteract = performance.now(); hover = null; return;
   }
   if (dragging) {
@@ -944,17 +959,17 @@ cvs.addEventListener('wheel', e => {
   // end the intro BEFORE applying the zoom — finishIntro resets zoomT to 1,
   // so the old order silently ate the user's first scroll
   if (intro.active) finishIntro();
-  zoomT = THREE.MathUtils.clamp(zoomT * Math.exp(-e.deltaY * 0.0016), 0.18, 7);
+  zoomT = THREE.MathUtils.clamp(zoomT * Math.exp(-e.deltaY * 0.0016), 0.12, 7);
 }, { passive: false });
 /* the classic script's window-level pinch handler routes here while __3D is up */
 window.__ZOOM3D = f => {
   if (intro.active) finishIntro();   // resets zoomT — must run before, not after
-  zoomT = THREE.MathUtils.clamp(zoomT * f, 0.18, 7);
+  zoomT = THREE.MathUtils.clamp(zoomT * f, 0.12, 7);
   lastInteract = performance.now();
 };
 const zin = document.getElementById('zin'), zout = document.getElementById('zout');
 if (zin) zin.onclick = () => { zoomT = Math.min(7, zoomT * 1.45); lastInteract = performance.now(); };
-if (zout) zout.onclick = () => { zoomT = Math.max(0.18, zoomT / 1.45); lastInteract = performance.now(); };
+if (zout) zout.onclick = () => { zoomT = Math.max(0.12, zoomT / 1.45); lastInteract = performance.now(); };
 addEventListener('keydown', e => {
   if (document.querySelector('.sheet.open')) return;
   const ae = document.activeElement;
@@ -964,7 +979,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'ArrowUp') pitch = Math.max(-1.3, pitch - st);
   else if (e.key === 'ArrowDown') pitch = Math.min(1.3, pitch + st);
   else if (e.key === '+' || e.key === '=') zoomT = Math.min(7, zoomT * 1.2);
-  else if (e.key === '-' || e.key === '_') zoomT = Math.max(0.18, zoomT / 1.2);
+  else if (e.key === '-' || e.key === '_') zoomT = Math.max(0.12, zoomT / 1.2);
   else return;
   lastInteract = performance.now();
   if (intro.active) finishIntro();
@@ -1312,6 +1327,14 @@ const clock = new THREE.Clock();
 window.__ENGINE = { ema: 16.7, fps: () => +(1000 / window.__ENGINE.ema).toFixed(1),
   tier: () => tier, setTier: n => setTier(n),   // so a session can be inspected honestly
   arcs: () => ARCS.length, spawnArc: () => spawnArc(performance.now()),
+  sky: () => {                                   // is the sun actually on screen?
+    const v = sunSprite.position.clone();
+    sunSprite.getWorldPosition(v); v.project(camera);
+    const m = moonMesh.position.clone(); moonMesh.getWorldPosition(m); m.project(camera);
+    return { camDist: +camera.position.z.toFixed(2), zoom: +zoom.toFixed(3),
+      sun: { x: +(v.x).toFixed(2), y: +(v.y).toFixed(2), inFrame: Math.abs(v.x) < 1 && Math.abs(v.y) < 1 && v.z < 1 },
+      moon:{ x: +(m.x).toFixed(2), y: +(m.y).toFixed(2), inFrame: Math.abs(m.x) < 1 && Math.abs(m.y) < 1 && m.z < 1 } };
+  },
   bg: () => ({ inScene: scene.children.includes(backdrop), visible: backdrop.visible,
                order: backdrop.renderOrder, culled: backdrop.frustumCulled,
                prog: !!backdropMat.program, t: backdropMat.uniforms.uTime.value,
@@ -1545,7 +1568,7 @@ function frame() {
   backdropMat.uniforms.uTime.value = now * 0.001;
   backdropMat.uniforms.uPar.value.set(yaw * 0.014, pitch * 0.014);
   // 1.0 at the far end of the new zoom range, 0 by the time you are reading
-  backdropMat.uniforms.uSpace.value = THREE.MathUtils.clamp((0.62 - zoom) / 0.44, 0, 1);
+  backdropMat.uniforms.uSpace.value = THREE.MathUtils.clamp((0.66 - zoom) / 0.50, 0, 1);
 
   /* Adaptive quality. The backdrop runs noise and a derivative-AA grid over
      every pixel of a retina fullscreen quad, every frame — beautiful, and the
