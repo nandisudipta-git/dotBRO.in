@@ -26,59 +26,6 @@
   --steel:#2D628C; --steel2:#3D7AA8;
   --red:#E60000; --hair:rgba(255,255,255,.14);
 }
-/* ── LIGHT PREVIEW (?light=1) ───────────────────────────────────────────────
-   mont-fort is a pale site: cloud, and slate blue on near-white. Reachable
-   only by that query string so nobody browsing dotbro.in is handed a half-made
-   repaint — this exists to be LOOKED at and judged, then kept or thrown away. */
-body.light{
-  --void:#8FA0AE; --paper:#22303C; --ink:#14232F; --dim:#5F7385; --dimink:#78899A;
-  --steel:#2D628C; --steel2:#3D7AA8; --hair:rgba(20,40,60,.14);
-  background:linear-gradient(180deg,#EDF1F5 0%,#E2E8EE 55%,#D6DEE6 100%);
-  color:#22303C;
-}
-body.light .hud .count,body.light .viewtabs,body.light #filterToggle,
-body.light .zoomui button,body.light .fab,body.light #toast{
-  background:rgba(255,255,255,.78) !important;color:#22303C !important;
-  border:1px solid rgba(20,40,60,.10) !important;
-  box-shadow:0 6px 20px rgba(45,98,140,.10) !important;}
-body.light .brand .wm,body.light .sub,body.light .hud a{color:#3C5060 !important;}
-body.light .viewtabs button{color:#7B8C9C;}
-body.light .viewtabs button[aria-selected=true]{background:rgba(45,98,140,.12);color:#1B2C3A;}
-body.light .viewtabs button:hover{color:#1B2C3A;}
-body.light .fab{color:#14232F !important;font-weight:600;}
-body.light .plbl{color:rgba(30,50,68,.72);text-shadow:0 1px 2px rgba(255,255,255,.9);}
-body.light .plbl.has{color:#1B2C3A;}
-body.light #tip{background:rgba(255,255,255,.94);box-shadow:0 14px 40px rgba(45,98,140,.16);}
-/* The feed was transparent over a dark body, and its rows are a 3.5% white
-   wash — which is invisible the moment the body underneath goes pale. It needs
-   a surface of its own here, and rows that are cards rather than tints. */
-body.light #feed{background:linear-gradient(180deg,rgba(238,242,246,.94) 0%,rgba(233,238,243,.985) 22%,rgba(229,235,241,.995) 100%);}
-/* the mountain. Loaded only in light mode — dark pays none of these bytes.
-   Bleached almost to paper and dissolved into the fog at its base, the way
-   mont-fort's peak has no bottom, only weather. */
-#peak{display:none;}
-body.light #peak{display:block;position:fixed;left:50%;bottom:0;z-index:1;
-  transform:translateX(-50%);width:min(1700px,150vw);aspect-ratio:1500/620;
-  background:url('/assets/peak.jpg') center bottom/cover no-repeat;
-  filter:saturate(.12) brightness(1.18) contrast(.98);opacity:.62;
-  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.92) 0%,rgba(0,0,0,.55) 45%,transparent 88%);
-  mask-image:linear-gradient(180deg,rgba(0,0,0,.92) 0%,rgba(0,0,0,.55) 45%,transparent 88%);
-  pointer-events:none;}
-body.light.feeding #peak,body.light.sheeting #peak{opacity:.16;}
-body.light .frow{background:#fff;border:1px solid rgba(20,40,60,.10);
-  box-shadow:0 2px 10px rgba(45,98,140,.06);}
-body.light .frow:hover{background:#fff;border-color:rgba(45,98,140,.32);
-  box-shadow:0 6px 18px rgba(45,98,140,.13);}
-body.light .frow .fq{color:#16242F;}
-body.light .frow .fmeta{color:#6B7C8C;}
-body.light .frow:focus-visible{outline:2px solid #2D628C;}
-body.light .feedsort button{color:#6B7C8C;border-color:rgba(20,40,60,.16);}
-/* --paper is dark type in light mode, so the active pill was painting itself
-   near-black on white — it needs the brand blue instead */
-body.light .feedsort button[aria-pressed=true]{color:#fff;background:#2D628C;border-color:#2D628C;}
-body.light .feedsort button:focus-visible{outline:2px solid #2D628C;}
-body.light #feed h2,body.light #feed .fhead{color:#16242F;}
-
 /* keyboard users get a visible ring; mouse users never see it */
 :focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -617,7 +564,6 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
   </div>
 </section>
 
-<div id="peak" aria-hidden="true"></div>
 <button id="meetPill" type="button">✉</button>
 <div id="grain" aria-hidden="true"></div>
 <div id="netmsg"></div>
@@ -834,10 +780,6 @@ function rateOk(bucket,max,windowMs){
 /* ─── demo mode: ?n=100 | 1000 | 100000 — synthetic local data, Supabase untouched ─── */
 const DEMO_N=Math.min(parseInt(new URLSearchParams(location.search).get('n'))||0,150000);
 const IS_DEMO=DEMO_N>0;
-/* the light repaint, opt-in by URL so it can be judged before it is chosen */
-const LIGHT_MODE=new URLSearchParams(location.search).has('light');   // LIGHT is the 2D engine's sun vector
-if(LIGHT_MODE)document.body.classList.add('light');
-window.__LIGHT=LIGHT_MODE;
 const IS_STATIC=IS_DEMO&&DEMO_N>220;     // beyond this, pairwise physics is replaced by a fixed sphere lattice
 const IS_MASSIVE=IS_DEMO&&DEMO_N>2500;   // beyond this, point-cloud rendering (no z-sort, culled back hemisphere)
 if(IS_DEMO)document.getElementById('demoBadge').classList.add('on');
@@ -1478,7 +1420,7 @@ canvas.addEventListener('pointermove',e=>{
   if(pinching&&ptrs.size>=2){
     const a=[...ptrs.values()];
     const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
-    if(pinchD0>0)zoomT=Math.max(0.5,Math.min(7,pinchZ0*d/pinchD0));
+    if(pinchD0>0)zoomT=Math.max(0.18,Math.min(7,pinchZ0*d/pinchD0));
     lastInteract=performance.now();hover=null;return;
   }
   if(dragging){const dx=e.clientX-lx,dy=e.clientY-ly;
@@ -1496,16 +1438,16 @@ canvas.addEventListener('pointermove',e=>{
 });
 canvas.addEventListener('pointerleave',()=>{hover=null;});
 canvas.addEventListener('wheel',e=>{e.preventDefault();lastInteract=performance.now();
-  zoomT=Math.max(0.5,Math.min(7,zoomT*Math.exp(-e.deltaY*0.0016)));},{passive:false});
+  zoomT=Math.max(0.18,Math.min(7,zoomT*Math.exp(-e.deltaY*0.0016)));},{passive:false});
 document.getElementById('zin').onclick=()=>{lastInteract=performance.now();zoomT=Math.min(7,zoomT*1.45);};
-document.getElementById('zout').onclick=()=>{lastInteract=performance.now();zoomT=Math.max(0.5,zoomT/1.45);};
+document.getElementById('zout').onclick=()=>{lastInteract=performance.now();zoomT=Math.max(0.18,zoomT/1.45);};
 /* Trackpad pinch = globe zoom no matter what the pointer is over. The canvas
    already claims wheel events, but a pinch that starts over the HUD, the gate
    or the FAB fell through to the browser's page scale — which drags the fixed
    chrome off-screen. Chrome delivers pinch as ctrl+wheel; Safari as gesture*. */
 const pinchZoom=f=>{
   if(window.__3D&&window.__ZOOM3D){window.__ZOOM3D(f);return;}
-  lastInteract=performance.now();zoomT=Math.max(0.5,Math.min(7,zoomT*f));};
+  lastInteract=performance.now();zoomT=Math.max(0.18,Math.min(7,zoomT*f));};
 addEventListener('wheel',e=>{
   if(!e.ctrlKey)return;
   e.preventDefault();e.stopPropagation();
@@ -2160,7 +2102,7 @@ addEventListener('keydown',e=>{
     case 'ArrowUp':   rotX=Math.max(-1.3,rotX-step);break;
     case 'ArrowDown': rotX=Math.min( 1.3,rotX+step);break;
     case '+': case '=': zoomT=Math.min(7,zoomT*1.2);break;
-    case '-': case '_': zoomT=Math.max(0.5,zoomT/1.2);break;
+    case '-': case '_': zoomT=Math.max(0.18,zoomT/1.2);break;
     default:used=false;
   }
   if(used){e.preventDefault();lastInteract=performance.now();dismissHint();}
@@ -3264,6 +3206,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=50"></script>
+<script type="module" src="/alge-engine.js?v=53"></script>
 </body>
 </html>

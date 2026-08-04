@@ -77,7 +77,6 @@ const backdropMat = new THREE.ShaderMaterial({
     uPar:    { value: new THREE.Vector2(0, 0) },
     uMotion: { value: REDUCED ? 0 : 1 },
     uQuality:{ value: 1 },     // dropped to 0 automatically when frames are missed
-    uLight:  { value: window.__LIGHT ? 1 : 0 },
   },
   vertexShader: `
     void main(){ gl_Position = vec4(position.xy, 1.0, 1.0); }
@@ -85,7 +84,7 @@ const backdropMat = new THREE.ShaderMaterial({
   fragmentShader: `
     precision mediump float;
     uniform vec2 uRes; uniform float uTime; uniform vec2 uPar; uniform float uMotion;
-    uniform float uQuality; uniform float uLight;
+    uniform float uQuality;
 
     float bank(vec2 p, vec2 c, float r, vec2 asp){
       return smoothstep(r, 0.0, distance(p * asp, c * asp));
@@ -111,11 +110,6 @@ const backdropMat = new THREE.ShaderMaterial({
       vec3 col = mix(vec3(0.047, 0.064, 0.082),
                      vec3(0.137, 0.180, 0.220),
                      smoothstep(0.0, 1.0, uv.y * 0.85 + 0.15));
-      // their sky: near-white at the top settling into cool grey below
-      if (uLight > 0.5)
-        col = mix(vec3(0.816, 0.851, 0.886),
-                  vec3(0.937, 0.953, 0.969),
-                  smoothstep(0.0, 1.0, uv.y * 0.9 + 0.10));
 
       /* Their weather is ONE body of cloud you are inside of, not four blobs
          you can count. Bigger radii so the banks overlap into a single
@@ -137,9 +131,7 @@ const backdropMat = new THREE.ShaderMaterial({
       if (uQuality > 0.5)
         fogN += vnoise(p * asp * 6.0 - vec2(t * 0.008, t * 0.005)) * 0.30;
       else fogN *= 1.30;                       // keep the fog's weight without the octave
-      /* On white, the same faint veils vanish — cloud has to be the loudest
-         thing in the frame, the way it is on their page. */
-      col += mist * (0.62 + 0.76 * fogN) * (uLight > 0.5 ? 5.2 : 1.0);
+      col += mist * (0.62 + 0.76 * fogN);
 
       /* The grid was the least mont-fort thing here. Their hero has none at
          all — it is weather and a mountain and nothing else; the blueprint
@@ -148,7 +140,7 @@ const backdropMat = new THREE.ShaderMaterial({
          instead of air, so it survives only as a suggestion at the far
          corners: a quarter of its old weight, and held out past the middle
          two-thirds of the screen, which is now clean atmosphere. */
-      if (uQuality > 0.5 && uLight < 0.5) {
+      if (uQuality > 0.5) {
       vec2 gUv = p * asp * 16.0;
       vec2 gridUV = 1.0 - abs(fract(gUv) * 2.0 - 1.0);
       vec2 deriv = fwidth(gUv);
@@ -167,10 +159,9 @@ const backdropMat = new THREE.ShaderMaterial({
       col += vec3(0.30, 0.60, 0.85) * dots * lit * 0.045 * ring;
       }
 
-      /* Deeper falloff: on their page the frame does not end, it dissolves.
-         Darkening a pale sky reads as dirt, so light mode barely tightens. */
+      /* Deeper falloff: on their page the frame does not end, it dissolves. */
       float v = smoothstep(1.35, 0.22, length((uv - 0.5) * asp) * 1.30);
-      col *= mix(uLight > 0.5 ? 0.90 : 0.34, 1.0, v);
+      col *= mix(0.34, 1.0, v);
 
       /* mont-fort ships dithering:!0 on every material for the same reason:
          8-bit output posterises these long dark gradients without it */
@@ -218,13 +209,71 @@ const dayMap = tex('earth_atmos_2048.jpg');
 const nightMap = tex('earth_lights_2048.png');
 const specMap = loader.load(TEXBASE + 'earth_specular_2048.jpg');
 
-/* Dark: the terminator crosses the visible disc, so you get a lit limb and a
-   night side full of city lights — the whole reason the globe reads at all.
-   Light: there is no night. City lights on a white sky look like dirt, so the
-   sun moves behind the camera and the planet is simply, evenly, day. */
-const SUN = window.__LIGHT
-  ? new THREE.Vector3(-0.15, 0.22, 1.0).normalize()
-  : new THREE.Vector3(-0.85, 0.30, 0.42).normalize();
+/* ── real sky: where the sun and moon actually are, right now ───────────────
+   The sun used to be a fixed art direction — a pleasing angle, chosen once.
+   It is a place instead now. The subsolar point is computed from UTC, so if
+   it is morning in Mandi then Mandi is in morning light, and the terminator
+   crossing the globe is the real one. Nothing to configure and nothing to
+   animate: the clock does it.
+
+   These live in the globe's own rotating frame, not the world's, because a
+   drag here means "walk around the Earth", not "spin the Earth under a fixed
+   lamp". Keeping sun, moon and geography in one frame is what stops India
+   drifting into night because someone turned the view. */
+const SUN = new THREE.Vector3(-0.85, 0.30, 0.42).normalize();   // world-space, refreshed every frame
+const sunLocal = new THREE.Vector3(), moonLocal = new THREE.Vector3();
+let moonPhase = 0.5, skyStampedAt = -1e9;
+
+function subsolarPoint(dt) {
+  const yStart = Date.UTC(dt.getUTCFullYear(), 0, 0);
+  const doy = (Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()) - yStart) / 86400000;
+  // axial tilt gives the season; the equation of time is small but it is the
+  // difference between "about right" and actually right, and it costs nothing
+  const decl = -23.44 * Math.cos((2 * Math.PI / 365.24) * (doy + 10));
+  const B = (2 * Math.PI / 364) * (doy - 81);
+  const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);   // minutes
+  const utcH = dt.getUTCHours() + dt.getUTCMinutes() / 60 + dt.getUTCSeconds() / 3600;
+  return { lat: decl, lon: -15 * (utcH - 12 + eot / 60) };
+}
+
+/* Low-precision lunar theory — a few degrees out, which no eye will catch at
+   this size, and it means tonight's crescent leans the way the real one does. */
+function moonEcliptic(dt) {
+  const d = (dt.getTime() - Date.UTC(2000, 0, 1, 12)) / 86400000;
+  const rad = Math.PI / 180;
+  const L = (218.316 + 13.176396 * d) * rad;      // mean longitude
+  const M = (134.963 + 13.064993 * d) * rad;      // mean anomaly
+  const F = (93.272 + 13.229350 * d) * rad;       // argument of latitude
+  return { lon: L + 6.289 * rad * Math.sin(M), lat: 5.128 * rad * Math.sin(F) };
+}
+function sunEclipticLon(dt) {
+  const d = (dt.getTime() - Date.UTC(2000, 0, 1, 12)) / 86400000;
+  const rad = Math.PI / 180;
+  const g = (357.529 + 0.98560028 * d) * rad;
+  return (280.459 + 0.98564736 * d) * rad + 1.915 * rad * Math.sin(g);
+}
+
+function refreshSky(force) {
+  const now = Date.now();
+  if (!force && now - skyStampedAt < 60000) return;   // the sky moves 0.25° a minute
+  skyStampedAt = now;
+  const dt = new Date(now);
+
+  const ss = subsolarPoint(dt);
+  sunLocal.copy(ll2v(ss.lat, ss.lon));
+
+  /* The moon is placed by its elongation from the sun — the angle that
+     actually decides which sliver is lit — swung about the pole so it rides
+     roughly where the ecliptic runs rather than sitting in an arbitrary spot. */
+  const me = moonEcliptic(dt), sl = sunEclipticLon(dt);
+  let elong = me.lon - sl;
+  elong = Math.atan2(Math.sin(elong), Math.cos(elong));          // wrap to ±π
+  moonPhase = (1 - Math.cos(elong)) / 2;                         // 0 new, 1 full
+  const axis = new THREE.Vector3(0, 1, 0);
+  moonLocal.copy(sunLocal).applyAxisAngle(axis, elong)
+           .applyAxisAngle(new THREE.Vector3(1, 0, 0), me.lat * 0.6).normalize();
+}
+refreshSky(true);
 const earthMat = new THREE.ShaderMaterial({
   uniforms: {
     dayMap: { value: dayMap }, nightMap: { value: nightMap }, specMap: { value: specMap },
@@ -328,6 +377,78 @@ const atmo = new THREE.Mesh(
 );
 scene.add(atmo);
 
+/* ── the two bodies ─────────────────────────────────────────────────────────
+   Children of yawG so they hold station over the geography they belong to.
+   Far out and depth-free: they are sky, and nothing in the scene should ever
+   be found in front of them. */
+function discTexture(paint) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  paint(cv.getContext('2d'));
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const sunTex = discTexture(c => {
+  const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0.00, 'rgba(255,252,242,1)');
+  g.addColorStop(0.16, 'rgba(255,246,214,0.96)');
+  g.addColorStop(0.30, 'rgba(255,214,140,0.34)');
+  g.addColorStop(0.60, 'rgba(255,186,110,0.09)');
+  g.addColorStop(1.00, 'rgba(255,170,90,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 256, 256);
+});
+const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: sunTex, transparent: true, depthTest: false, depthWrite: false,
+  blending: THREE.AdditiveBlending,
+}));
+sunSprite.scale.setScalar(1.05); sunSprite.renderOrder = -0.5;
+yawG.add(sunSprite);
+
+/* The moon is redrawn when its phase moves — a terminator swept across a lit
+   disc, so a crescent is a crescent and not a dimmed circle. */
+let moonDrawnAt = -1;
+const moonCanvas = document.createElement('canvas'); moonCanvas.width = moonCanvas.height = 256;
+const moonTex = new THREE.CanvasTexture(moonCanvas); moonTex.colorSpace = THREE.SRGBColorSpace;
+function paintMoon(phase) {
+  const c = moonCanvas.getContext('2d');
+  c.clearRect(0, 0, 256, 256);
+  const R = 88, cx = 128, cy = 128;
+  const halo = c.createRadialGradient(cx, cy, R * 0.8, cx, cy, 128);
+  halo.addColorStop(0, 'rgba(214,226,240,0.20)'); halo.addColorStop(1, 'rgba(214,226,240,0)');
+  c.fillStyle = halo; c.fillRect(0, 0, 256, 256);
+  c.save(); c.beginPath(); c.arc(cx, cy, R, 0, 7); c.clip();
+  c.fillStyle = 'rgba(150,166,186,0.16)'; c.fillRect(0, 0, 256, 256);   // earthshine
+  // lit half, then the terminator ellipse carves the phase out of it
+  c.fillStyle = '#EEF3FA';
+  c.beginPath(); c.arc(cx, cy, R, -Math.PI / 2, Math.PI / 2); c.fill();
+  const k = (phase - 0.5) * 2;                       // -1 waning … +1 waxing
+  c.globalCompositeOperation = k < 0 ? 'destination-out' : 'source-over';
+  c.fillStyle = k < 0 ? '#000' : '#EEF3FA';
+  c.beginPath(); c.ellipse(cx, cy, R * Math.abs(k), R, 0, 0, 7); c.fill();
+  c.globalCompositeOperation = 'source-over';
+  c.restore();
+  moonTex.needsUpdate = true;
+}
+const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: moonTex, transparent: true, depthTest: false, depthWrite: false,
+}));
+moonSprite.scale.setScalar(0.52); moonSprite.renderOrder = -0.5;
+yawG.add(moonSprite);
+
+/* 26 put them permanently outside a 42° frustum: at 90° round the sky a body
+   sits ~82° off-axis no matter how far you pull back, so they could never be
+   seen. Brought in to 5.2, they stay off-frame at reading distance and swing
+   into view as the camera retreats — which is the whole point of pulling back. */
+const SKY_R = 5.2;
+function placeSky() {
+  refreshSky(false);
+  sunSprite.position.copy(sunLocal).multiplyScalar(SKY_R);
+  moonSprite.position.copy(moonLocal).multiplyScalar(SKY_R * 0.8);
+  if (Math.abs(moonPhase - moonDrawnAt) > 0.01) { paintMoon(moonPhase); moonDrawnAt = moonPhase; }
+  // the shader wants the sun in world space; the globe's rig supplies the rest
+  SUN.copy(sunLocal).applyQuaternion(yawG.quaternion).applyQuaternion(pitchG.quaternion).normalize();
+}
+placeSky();
+
 /* GL points with no map draw as SQUARES — on camera phones and at close zoom
    the ground markers and stars read as little boxes. One shared soft round
    texture fixes every Points material in the scene. */
@@ -358,8 +479,7 @@ function starField(n, size, spread) {
   }));
 }
 const starsFar = starField(900, 0.055, 34), starsNear = starField(220, 0.1, 22);
-// stars belong to space; on a pale sky they are specks of grit
-if (!window.__LIGHT) scene.add(starsFar, starsNear);
+scene.add(starsFar, starsNear);
 
 /* Each category gets its own SHAPE, not just its own colour. Six coloured dots
    at the same size are six identical round blobs once bloom has had its way with
@@ -635,10 +755,7 @@ composer.addPass(new RenderPass(scene, camera));
 /* Calmer than it was (0.38/0.55/0.78): bloom had become the subject. Higher
    threshold means only genuinely bright cores glow; the conversation, not the
    lighting, is the hero. */
-/* Bloom is light added to darkness. On white there is nothing left to add to,
-   and it only greys the picture — the dots have to read as ink instead. */
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight),
-  window.__LIGHT ? 0.045 : 0.22, 0.4, window.__LIGHT ? 0.98 : 0.85);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.4, 0.85);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -659,7 +776,10 @@ function baseDist() {
   const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
   return FIT_R / Math.sin(Math.min(vHalf, hHalf));
 }
-const distFor = z => THREE.MathUtils.clamp(baseDist() / Math.pow(z, 0.85), 1.45, baseDist() * 1.2);
+/* The far clamp was 1.2× the fitting distance — the Earth always filled the
+   frame, so there was never any sky to put anything in. 4.6× lets you retreat
+   until the planet is a marble and the sun and moon are simply there. */
+const distFor = z => THREE.MathUtils.clamp(baseDist() / Math.pow(z, 0.85), 1.45, baseDist() * 4.6);
 /* portrait: the FAB + chips live at the bottom, so the globe rides a little
    high; wide screens keep it centered */
 const lookY = () => camera.aspect < 0.8 ? -0.16 : 0;
@@ -714,7 +834,7 @@ cvs.addEventListener('pointermove', e => {
   if (pinching && ptrs.size >= 2) {
     const a = [...ptrs.values()];
     const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
-    if (pinchD0 > 0) zoomT = THREE.MathUtils.clamp(pinchZ0 * d / pinchD0, 0.5, 7);
+    if (pinchD0 > 0) zoomT = THREE.MathUtils.clamp(pinchZ0 * d / pinchD0, 0.18, 7);
     lastInteract = performance.now(); hover = null; return;
   }
   if (dragging) {
@@ -731,17 +851,17 @@ cvs.addEventListener('wheel', e => {
   // end the intro BEFORE applying the zoom — finishIntro resets zoomT to 1,
   // so the old order silently ate the user's first scroll
   if (intro.active) finishIntro();
-  zoomT = THREE.MathUtils.clamp(zoomT * Math.exp(-e.deltaY * 0.0016), 0.5, 7);
+  zoomT = THREE.MathUtils.clamp(zoomT * Math.exp(-e.deltaY * 0.0016), 0.18, 7);
 }, { passive: false });
 /* the classic script's window-level pinch handler routes here while __3D is up */
 window.__ZOOM3D = f => {
   if (intro.active) finishIntro();   // resets zoomT — must run before, not after
-  zoomT = THREE.MathUtils.clamp(zoomT * f, 0.5, 7);
+  zoomT = THREE.MathUtils.clamp(zoomT * f, 0.18, 7);
   lastInteract = performance.now();
 };
 const zin = document.getElementById('zin'), zout = document.getElementById('zout');
 if (zin) zin.onclick = () => { zoomT = Math.min(7, zoomT * 1.45); lastInteract = performance.now(); };
-if (zout) zout.onclick = () => { zoomT = Math.max(0.5, zoomT / 1.45); lastInteract = performance.now(); };
+if (zout) zout.onclick = () => { zoomT = Math.max(0.18, zoomT / 1.45); lastInteract = performance.now(); };
 addEventListener('keydown', e => {
   if (document.querySelector('.sheet.open')) return;
   const ae = document.activeElement;
@@ -751,7 +871,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'ArrowUp') pitch = Math.max(-1.3, pitch - st);
   else if (e.key === 'ArrowDown') pitch = Math.min(1.3, pitch + st);
   else if (e.key === '+' || e.key === '=') zoomT = Math.min(7, zoomT * 1.2);
-  else if (e.key === '-' || e.key === '_') zoomT = Math.max(0.5, zoomT / 1.2);
+  else if (e.key === '-' || e.key === '_') zoomT = Math.max(0.18, zoomT / 1.2);
   else return;
   lastInteract = performance.now();
   if (intro.active) finishIntro();
@@ -1216,6 +1336,8 @@ function frame() {
   if (!intro.active) zoom += (zoomT - zoom) * 0.12;
 
   pitchG.rotation.x = pitch; yawG.rotation.y = yaw;
+  // the rig just moved, so the world-space sun has to be recomputed from it
+  pitchG.updateMatrixWorld(); placeSky();
   atmo.rotation.copy(pitchG.rotation);                     // rim stays camera-true
   camera.position.set(0, 0, distFor(zoom));
   camera.lookAt(0, lookY(), 0);
