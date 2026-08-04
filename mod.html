@@ -64,6 +64,13 @@ button{font-family:inherit;cursor:pointer;}
 #toast.on{opacity:1;}
   .editbox{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
   .editbox[hidden]{display:none;}
+  .placerow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;}
+  .placerow .now{font-size:.72rem;opacity:.7;}
+  .placerow input{flex:1;min-width:180px;font:inherit;font-size:.84rem;padding:7px 10px;
+    border-radius:8px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.05);color:inherit;}
+  .sug{display:none;flex-wrap:wrap;gap:4px;margin-top:5px;}
+  .sug.on{display:flex;}
   .editbox textarea{width:100%;min-height:70px;font:inherit;font-size:.86rem;line-height:1.5;
     padding:9px 11px;border-radius:8px;border:1px solid rgba(255,255,255,.18);
     background:rgba(255,255,255,.05);color:inherit;resize:vertical;}
@@ -89,6 +96,27 @@ button{font-family:inherit;cursor:pointer;}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* The same gazetteer the composer uses, so a moderator picks from exactly the
+   places a poster could have picked. Loaded once, cached by the service
+   worker; an empty list simply means no suggestions rather than a broken page. */
+let CITIES=[];
+fetch('/cities.txt').then(r=>r.ok?r.text():'').then(t=>{
+  CITIES=t.split('\n').filter(Boolean).map(l=>{
+    const i=l.lastIndexOf('|'), j=l.lastIndexOf('|',i-1);
+    return [l.slice(0,j), +l.slice(j+1,i)/100, +l.slice(i+1)/100];
+  });
+}).catch(()=>{});
+function fmtLoc(lat,lon){
+  if(lat==null||lon==null)return 'in orbit';
+  let best=null,bd=2.5*2.5;
+  for(const [n,la,lo] of CITIES){
+    const dla=lat-la, dlo=(lon-lo)*Math.cos(lat*Math.PI/180), d2=dla*dla+dlo*dlo;
+    if(d2<bd){bd=d2;best=n;}
+  }
+  return best ? 'near '+best.split(',')[0].trim()
+              : Math.abs(lat).toFixed(1)+'°'+(lat>=0?'N':'S')+' '+Math.abs(lon).toFixed(1)+'°'+(lon>=0?'E':'W');
+}
+
 'use strict';
 const SB_URL='https://fliheqjbwmcoggajovln.supabase.co';
 const SB_KEY='sb_publishable_qaGLnY9bUZ3nhveVw-64xg_kDuJLfHt';
@@ -170,7 +198,16 @@ function render(){
          tokens existed. */
       `<div class="editbox" data-editbox hidden>`+
         `<textarea data-editbody maxlength="500">${esc(q.body)}</textarea>`+
-        `<button class="mini" data-editgo>save · marks it edited by a moderator</button>`+
+        `<button class="mini" data-editgo>save wording · marks it edited by a moderator</button>`+
+        /* A wrong place is its own kind of wrong: several early questions claim
+           IIT Mandi because the composer cached one fix and reused it in other
+           cities. Rewording cannot fix that; moving them can. */
+        `<div class="placerow">`+
+          `<span class="now">now: ${q.lat==null?'in orbit':esc(fmtLoc(q.lat,q.lon))}</span>`+
+          `<input data-place placeholder="type a city — Raniganj, Kolkata…" autocomplete="off">`+
+          `<button class="mini" data-orbit>send to orbit</button>`+
+        `</div>`+
+        `<div class="sug" data-sug></div>`+
       `</div>`+
       `<div class="replies">${rs.map(x=>
         `<div class="r"><div class="rb"><div class="rm">${esc(x.kind)} · ${esc(x.name)} · ${ago(x.created_at)}</div>${esc(x.body)}</div>`+
@@ -194,6 +231,29 @@ function render(){
         toast((error&&error.message)||'edit failed — unlock again?');return;}
       toast('reworded, and marked as a moderator edit');load();
     };
+    const placeIn=el.querySelector('[data-place]'), sug=el.querySelector('[data-sug]');
+    async function savePlace(lat,lon,label){
+      const {data,error}=await sb.rpc('admin_set_place',
+        {qid:q.id,p_lat:lat,p_lon:lon,passphrase:PASS});
+      if(error||!data){toast((error&&error.message)||'move failed — unlock again?');return;}
+      toast(lat==null?'sent to orbit':('moved to '+label));load();
+    }
+    placeIn.oninput=()=>{
+      const t=placeIn.value.trim().toLowerCase();
+      sug.innerHTML='';
+      if(t.length<2){sug.classList.remove('on');return;}
+      const hits=[];
+      for(const c of CITIES){ if(c[0].toLowerCase().startsWith(t)){hits.push(c);if(hits.length>=6)break;} }
+      if(!hits.length){sug.classList.remove('on');return;}
+      hits.forEach(c=>{
+        const b=document.createElement('button');
+        b.type='button';b.className='mini';b.textContent=c[0];
+        b.onclick=()=>savePlace(c[1],c[2],c[0]);
+        sug.appendChild(b);
+      });
+      sug.classList.add('on');
+    };
+    el.querySelector('[data-orbit]').onclick=()=>savePlace(null,null,'orbit');
     el.querySelector('[data-del]').onclick=async ev=>{
       const b=ev.currentTarget;
       if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='sure? delete forever';
