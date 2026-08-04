@@ -30,6 +30,12 @@
 :focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px;}
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;overscroll-behavior:none;}
+/* Double-tapping a feed row zoomed the whole page — the browser's default
+   when nothing says otherwise, and it fires on any quick second tap, so
+   reading the feed on a phone kept throwing the layout about. 'manipulation'
+   keeps scrolling and panning and drops only the double-tap gesture. The
+   globe keeps touch-action:none because it handles every touch itself. */
+body,#feed,.sheet,.hud,#toast,.viewtabs{touch-action:manipulation;}
 body{background:linear-gradient(180deg,#57646E 0%,#45525C 55%,#333E48 100%);color:var(--paper);
   font-family:'Space Mono','SF Mono',ui-monospace,monospace;
   overflow:hidden;-webkit-font-smoothing:antialiased;}
@@ -1469,15 +1475,20 @@ document.getElementById('zout').onclick=()=>{lastInteract=performance.now();zoom
 const pinchZoom=f=>{
   if(window.__3D&&window.__ZOOM3D){window.__ZOOM3D(f);return;}
   lastInteract=performance.now();zoomT=Math.max(0.12,Math.min(7,zoomT*f));};
+/* Only when the globe is what you are actually looking at. Pinching a list of
+   text was steering the planet behind it, which is nobody's intention. */
+const globeIsFront=()=>!document.body.classList.contains('feeding')
+                     && !document.querySelector('.sheet.open');
 addEventListener('wheel',e=>{
   if(!e.ctrlKey)return;
+  if(!globeIsFront())return;                 // let the page do its normal thing
   e.preventDefault();e.stopPropagation();
   pinchZoom(Math.exp(-e.deltaY*0.012));
 },{passive:false,capture:true});
 let gPrev=1;
-addEventListener('gesturestart',e=>{e.preventDefault();gPrev=1;},{passive:false});
-addEventListener('gesturechange',e=>{e.preventDefault();pinchZoom(e.scale/gPrev);gPrev=e.scale;},{passive:false});
-addEventListener('gestureend',e=>e.preventDefault(),{passive:false});
+addEventListener('gesturestart',e=>{if(!globeIsFront())return;e.preventDefault();gPrev=1;},{passive:false});
+addEventListener('gesturechange',e=>{if(!globeIsFront())return;e.preventDefault();pinchZoom(e.scale/gPrev);gPrev=e.scale;},{passive:false});
+addEventListener('gestureend',e=>{if(globeIsFront())e.preventDefault();},{passive:false});
 ['pointerdown','wheel','keydown'].forEach(ev=>addEventListener(ev,()=>{if(intro.active)endIntro();},{passive:true}));
 
 /* ─── spotlight: resurface an old / unanswered question the user likely missed ─── */
@@ -2859,7 +2870,13 @@ function renderQ(){
          into nonsense they never agreed to. */
       ((!IS_DEMO&&q&&q.edited_at)?` · <span class="editedmark">edited</span>`:'')+
       ((!IS_DEMO&&q&&!q.edited_at&&tokenFor('question',S.openId))
-        ? ` · <button type="button" class="linkbtn" id="editQ">edit once</button>` : '')+`</div>`+
+        ? ` · <button type="button" class="linkbtn" id="editQ">edit once</button>` : '')+
+      /* Yours, but from before proof-of-authorship existed. Silence here reads
+         as a missing feature; the truth is that nothing on this device can
+         show the server it was you, and S.mine cannot stand in — it is a plain
+         localStorage list, so honouring it would let anyone edit anything. */
+      ((!IS_DEMO&&q&&!q.edited_at&&!tokenFor('question',S.openId)&&S.mine.has(S.openId))
+        ? ` · <span class="editedmark" title="Posted before this device could prove authorship — only questions asked from here since can be edited.">can't edit this one</span>` : '')+`</div>`+
     (IS_DEMO?'':`<div class="reportbox" id="editBox"><textarea id="editBody" maxlength="500" aria-label="Reword your question"></textarea><button class="btn" id="editGo">Save the one change</button></div>`)+
     (IS_DEMO?'':`<div class="reportbox" id="reportBox"><input id="reportWhy" type="text" maxlength="300" aria-label="Why are you reporting this?" placeholder="why? (optional)"><button class="btn" id="reportGo">Report</button></div>`)+
     `<div class="p-actions" id="pActions">${actionsHtml}</div>`+
@@ -3318,6 +3335,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=64"></script>
+<script type="module" src="/alge-engine.js?v=65"></script>
 </body>
 </html>
