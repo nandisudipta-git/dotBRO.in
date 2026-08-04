@@ -1460,7 +1460,9 @@ addEventListener('gestureend',e=>e.preventDefault(),{passive:false});
 ['pointerdown','wheel','keydown'].forEach(ev=>addEventListener(ev,()=>{if(intro.active)endIntro();},{passive:true}));
 
 /* ─── spotlight: resurface an old / unanswered question the user likely missed ─── */
-let spot=null,spotNextAt=4000;const spotRecent=[];
+let spot=null,spotNextAt=4000;
+const spotRecent=(()=>{try{const v=JSON.parse(localStorage.getItem('dotbro_spot')||'[]');
+  return Array.isArray(v)?v.slice(-12):[]}catch(_){return[]}})();
 function pickSpot(now){
   const n=S.arr.length;if(!n)return null;
   let best=null,bestScore=-1;
@@ -1472,7 +1474,14 @@ function pickSpot(now){
     if(spotRecent.includes(p.id))continue;
     const nr=IS_DEMO?p.nr:nReplies(p.id);
     const ageDays=(Date.now()-p.ts)/86400000;
-    const score=(nr===0?1.6:0)+Math.min(ageDays/45,1)+Math.random()*0.4;
+    /* The old scoring gave unanswered +1.6 and age up to +1, against 0.4 of
+       randomness — a gap chance could never close, so the single oldest
+       unanswered question won every draw and kept winning after a reload,
+       because the "recently shown" list only ever lived in memory. Weighted
+       sampling instead: the same preferences, expressed as odds rather than
+       as a verdict. */
+    const weight=(nr===0?2.4:1)*(1+Math.min(ageDays/45,1));
+    const score=Math.random()*weight;
     if(score>bestScore){bestScore=score;best=p;}
   }
   return best;
@@ -1483,7 +1492,10 @@ function updateSpot(now){
   if(!spot&&now>spotNextAt){
     const node=pickSpot(now);
     if(node){spot={node,until:now+5200,born:now};
-      spotRecent.push(node.id);if(spotRecent.length>8)spotRecent.shift();}
+      spotRecent.push(node.id);if(spotRecent.length>12)spotRecent.shift();
+      // survives a reload: in memory only, every refresh started the rotation
+      // over and landed on the same conversation again
+      try{localStorage.setItem('dotbro_spot',JSON.stringify(spotRecent))}catch(_){}}
     spotNextAt=now+9000;
   }
 }
@@ -3194,6 +3206,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=44"></script>
+<script type="module" src="/alge-engine.js?v=45"></script>
 </body>
 </html>

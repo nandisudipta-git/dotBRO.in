@@ -1020,7 +1020,7 @@ for (let i = 0; i < 4; i++) {
   const el = document.createElement('div'); el.className = 'albl';
   labelBox.appendChild(el); labelEls.push(el);
 }
-let labelFrame = 0, labelPick = [];
+let labelFrame = 0, labelPick = [], lastLabelId = null;
 function stepLabels() {
   if (MASSIVE) return;
   // While the entry gate is up the only thing on screen is one real person's
@@ -1035,10 +1035,24 @@ function stepLabels() {
     const nr = s => { const id = s.userData.node.id;
       return IS_DEMO ? (s.userData.node.nr || 0)
         : S.replies.has(id) ? S.replies.get(id).length : ((S.rcount && S.rcount.get(id)) || 0); };
+    /* This used to be sort-by-replies and take the first, which is not a
+       choice at all — the single most-answered conversation on the globe won
+       every draw, forever. Ron watched the same question hang over the planet
+       all day. Being well-answered should improve the odds, not settle them:
+       pick randomly among the ones facing you, weighted toward replies, and
+       never repeat the one just shown. */
     const cand = [...sprites.values()]
       .filter(s => frontDot(s) > 0.35 && (!S.filter || S.filter === s.userData.node.cat))
-      .sort((a, b) => nr(b) - nr(a) || frontDot(b) - frontDot(a));
-    labelPick = cand.length ? [{ s: cand[0], p: screenPos(cand[0]) }] : [];
+      .filter(s => s.userData.node.id !== lastLabelId);
+    let pick = null;
+    if (cand.length) {
+      const w = cand.map(s => 1 + Math.sqrt(nr(s)) * 1.4);
+      let r = Math.random() * w.reduce((a, b) => a + b, 0);
+      pick = cand[cand.length - 1];
+      for (let i = 0; i < cand.length; i++) { r -= w[i]; if (r <= 0) { pick = cand[i]; break; } }
+      lastLabelId = pick.userData.node.id;
+    }
+    labelPick = pick ? [{ s: pick, p: screenPos(pick) }] : [];
   }
   labelEls.forEach((el, i) => {
     const pick = labelPick[i];
