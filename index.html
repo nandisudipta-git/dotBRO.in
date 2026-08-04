@@ -2868,7 +2868,11 @@ function renderQ(){
       /* Readers are told the words changed. People answer questions, and a
          question quietly rewritten after three replies turns their answers
          into nonsense they never agreed to. */
-      ((!IS_DEMO&&q&&q.edited_at)?` · <span class="editedmark">edited</span>`:'')+
+      /* An author fixing their own typo and a moderator rewriting somebody
+         else's words are not the same event, and a reader deciding whether to
+         trust a question is entitled to know which one happened. */
+      ((!IS_DEMO&&q&&q.edited_at)
+        ?` · <span class="editedmark">${q.edited_by_mod?'edited by a moderator':'edited'}</span>`:'')+
       ((!IS_DEMO&&q&&!q.edited_at&&tokenFor('question',S.openId))
         ? ` · <button type="button" class="linkbtn" id="editQ">edit once</button>` : '')+
       /* Yours, but from before proof-of-authorship existed. Silence here reads
@@ -3335,6 +3339,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=65"></script>
+<script type="module" src="/alge-engine.js?v=66"></script>
 </body>
 </html>

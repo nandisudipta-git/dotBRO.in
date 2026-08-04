@@ -62,6 +62,11 @@ button{font-family:inherit;cursor:pointer;}
   background:rgba(13,22,30,.95);color:var(--paper);padding:10px 18px;border-radius:10px;
   font-size:12.5px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:88vw;text-align:center;}
 #toast.on{opacity:1;}
+  .editbox{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
+  .editbox[hidden]{display:none;}
+  .editbox textarea{width:100%;min-height:70px;font:inherit;font-size:.86rem;line-height:1.5;
+    padding:9px 11px;border-radius:8px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.05);color:inherit;resize:vertical;}
 </style>
 </head>
 <body>
@@ -156,7 +161,16 @@ function render(){
       (rep?`<div class="reasons">${rep.reasons.slice(0,5).map(esc).join('<br>')}</div>`:'')+
       `<div class="qact">`+
         (rs.length?`<button class="mini" data-open>show replies</button>`:'')+
+        `<button class="mini" data-edit>edit wording</button>`+
         `<button class="mini danger" data-del>delete question</button>`+
+      `</div>`+
+      /* Deleting is sometimes too blunt — a question can be worth keeping and
+         still need a word fixed. This reaches the ones the author's own device
+         cannot prove it owns, which is every question asked before ownership
+         tokens existed. */
+      `<div class="editbox" data-editbox hidden>`+
+        `<textarea data-editbody maxlength="500">${esc(q.body)}</textarea>`+
+        `<button class="mini" data-editgo>save · marks it edited by a moderator</button>`+
       `</div>`+
       `<div class="replies">${rs.map(x=>
         `<div class="r"><div class="rb"><div class="rm">${esc(x.kind)} · ${esc(x.name)} · ${ago(x.created_at)}</div>${esc(x.body)}</div>`+
@@ -165,6 +179,21 @@ function render(){
     const ob=el.querySelector('[data-open]');
     if(ob)ob.onclick=()=>{rbox.classList.toggle('open');
       ob.textContent=rbox.classList.contains('open')?'hide replies':'show replies';};
+    const eb=el.querySelector('[data-editbox]');
+    el.querySelector('[data-edit]').onclick=()=>{
+      eb.hidden=!eb.hidden;
+      if(!eb.hidden)el.querySelector('[data-editbody]').focus();
+    };
+    el.querySelector('[data-editgo]').onclick=async ev=>{
+      const btn=ev.currentTarget, body=el.querySelector('[data-editbody]').value.trim();
+      if(body.length<3){toast('three characters or more');return;}
+      if(body===q.body){toast('nothing changed');return;}
+      btn.disabled=true;btn.textContent='saving…';
+      const {data,error}=await sb.rpc('admin_edit_question',{qid:q.id,new_body:body,passphrase:PASS});
+      if(error||!data){btn.disabled=false;btn.textContent='save · marks it edited by a moderator';
+        toast((error&&error.message)||'edit failed — unlock again?');return;}
+      toast('reworded, and marked as a moderator edit');load();
+    };
     el.querySelector('[data-del]').onclick=async ev=>{
       const b=ev.currentTarget;
       if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='sure? delete forever';
