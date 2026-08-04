@@ -629,7 +629,7 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
     <!-- the place is a CHOICE at posting time, not a permission at the door.
          Browser location is requested only if "attach" is chosen. -->
     <div class="placerow" role="radiogroup" aria-label="Where should this conversation live?">
-      <button type="button" class="placeopt" id="placeFree" aria-pressed="true">✨ no place — it orbits, belongs to everyone</button>
+      <button type="button" class="placeopt" id="placeFree" aria-pressed="false">✨ no place — it orbits, belongs to everyone</button>
       <button type="button" class="placeopt" id="placeCity" aria-pressed="false">📍 pick my city</button>
       <button type="button" class="placeopt" id="placeGeo" aria-pressed="false">🌍 use my rough area (~11 km)</button>
     </div>
@@ -919,7 +919,12 @@ function hi(x){x^=x>>>16;x=Math.imul(x,0x45d9f3b);x^=x>>>16;x=Math.imul(x,0x45d9
    in the database just to draw dot sizes. */
 const S={q:new Map(),replies:new Map(),rcount:new Map(),rkinds:new Map(),nodes:new Map(),arr:[],openId:null,cat:'random',filter:null,
   anon:localStorage.getItem('dotbro_anon')==='1',
-  geo:(()=>{try{return JSON.parse(localStorage.getItem('dotbro_geo'))}catch(_){return null}})(),
+  /* NOT restored from storage. A place is where you are NOW, and a coordinate
+     cached in July was still being attached in August from a different city —
+     Ron was in Raniganj and the composer said IIT Mandi. Within a session the
+     browser's own maximumAge does the caching; across sessions there is
+     nothing to cache, because the answer may have changed. */
+  geo:null,
   mine:new Set((()=>{try{return JSON.parse(localStorage.getItem('dotbro_mine'))||[]}catch(_){return []}})())};
 function latLonDir(lat,lon){const la=lat*Math.PI/180,lo=lon*Math.PI/180;
   return {x:Math.cos(la)*Math.cos(lo),y:-Math.sin(la),z:Math.cos(la)*Math.sin(lo)};}
@@ -2318,15 +2323,19 @@ function syncAnon(){
 anonBtn.onclick=()=>{S.anon=!S.anon;syncAnon();};
 syncAnon();
 function captureGeo(ok,fail){
-  if(IS_DEMO||!navigator.geolocation){if(fail)fail();return;}
-  if(S.geo){if(ok)ok();return;}
+  if(IS_DEMO||!navigator.geolocation){if(fail)fail('unsupported');return;}
+  if(S.geo){if(ok)ok();return;}                 // same session only
   track('geo_prompt_shown');
   navigator.geolocation.getCurrentPosition(
     p=>{S.geo={lat:Math.round(p.coords.latitude*10)/10,lon:Math.round(p.coords.longitude*10)/10};
-      localStorage.setItem('dotbro_geo',JSON.stringify(S.geo));
       track('geo_granted');
       if(ok)ok();},
-    ()=>{track('geo_denied');if(fail)fail();},{timeout:8000,maximumAge:600000});
+    err=>{track('geo_denied');
+      // denial and timeout are different problems and deserve different words
+      if(fail)fail(err&&err.code===1?'denied':'timeout');},
+    // 8s is short for a cold GPS fix on a phone indoors, and a timeout was
+    // being read as a refusal; 20s and no stale reuse beyond a minute
+    {timeout:20000,maximumAge:60000,enableHighAccuracy:false});
 }
 
 const catsEl=$('#cats');
@@ -2346,7 +2355,9 @@ $('#body').addEventListener('input',e=>$('#count').textContent=`${e.target.value
    no GPS, and is more accurate than desktop geolocation ever was: a person
    knows their city, an IP lookup guesses it. Both paths round to the same
    0.1°, so nothing in the data says which one you used. */
-let placeMode='orbit';                     // 'orbit' | 'city' | 'geo'
+/* No default. Orbit used to be pre-selected, so anyone who did not engage was
+   silently placeless — Ron wants the question asked, not assumed. */
+let placeMode=null;                        // null | 'orbit' | 'city' | 'geo'
 let cityPick=null;                         // {name,lat,lon}
 const placeFree=$('#placeFree'),placeGeo=$('#placeGeo'),placeCity=$('#placeCity'),
       cityRow=$('#cityRow'),cityInput=$('#cityInput'),cityHint=$('#cityHint');
@@ -2422,11 +2433,20 @@ placeCity.onclick=()=>{
 };
 placeGeo.onclick=()=>{
   placeMode='geo';syncPlace();
+  if(S.geo){placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;summariseOpts();return;}
+  /* Staying on 'geo' while it resolves matters: switching to orbit behind
+     someone's back is how a person who asked to be placed ends up in orbit
+     without being told, which is exactly what Ron saw. */
+  placeGeo.textContent='🌍 finding you…';
   captureGeo(
-    ()=>{placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;},
-    ()=>{placeMode='orbit';syncPlace();
-      toast('no location permission — pick your city instead, or let it orbit.');});
-  if(S.geo)placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;
+    ()=>{placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;summariseOpts();},
+    why=>{
+      placeGeo.textContent='🌍 use my rough area (~11 km)';
+      placeMode=null;syncPlace();
+      toast(why==='denied'
+        ? "this browser is blocking location — pick your city instead, it's just as good."
+        : "couldn't get a fix in time — pick your city instead.",6000);
+    });
 };
 syncPlace();
 
@@ -2529,6 +2549,12 @@ $('#post').onclick=async()=>{
      kind of conversation, not missing data. */
   // "pick my city" with nothing resolved is an unfinished intent, not a vote
   // for orbit — say so rather than silently dropping the place they wanted
+  /* The place is now asked, not assumed. Open the panel and say so rather
+     than posting into orbit on their behalf. */
+  if(!placeMode){
+    setOptsOpen(true);
+    toast('where does this live? pick a place, or choose “no place” to let it orbit.',5500);
+    return;}
   // a field you are being asked to fix has to be visible to fix it
   if(placeMode==='city'&&!cityPick){
     setOptsOpen(true);
@@ -2542,7 +2568,7 @@ $('#post').onclick=async()=>{
     notifyEmail.focus();return;}
   const loc=placeMode==='city'?{lat:cityPick.lat,lon:cityPick.lon}
            :placeMode==='geo'&&S.geo?S.geo
-           :{lat:null,lon:null};
+           :{lat:null,lon:null};        // 'orbit' — chosen, not defaulted to
   let data=null,error=null;
   try{({data,error}=await db.addQuestion(name,body,S.cat,loc.lat,loc.lon));}
   catch(err){error=err;}
@@ -3056,8 +3082,9 @@ async function checkMeetInbox(){
 const optsToggle=$('#optsToggle'),moreOpts=$('#moreOpts'),optsSummary=$('#optsSummary');
 function summariseOpts(){
   const place = placeMode==='city' ? (cityPick?`📍 ${cityPick.name}`:'📍 pick a city')
-              : placeMode==='geo'  ? (S.geo?`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)}`:'🌍 your rough area')
-              : '✨ orbits';
+              : placeMode==='geo'  ? (S.geo?`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)}`:'🌍 finding you…')
+              : placeMode==='orbit'? '✨ orbits'
+              : '📍 where does this live?';
   const tell = pushSub ? '🔔 this phone'
              : wantNotify ? (notifyOk()?'📧 '+notifyEmail.value.trim():'📧 add your email')
              : 'no email';
@@ -3206,6 +3233,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=60"></script>
+<script type="module" src="/alge-engine.js?v=61"></script>
 </body>
 </html>
