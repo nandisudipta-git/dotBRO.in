@@ -424,16 +424,26 @@ const sunTex = discTexture(c => {
   f.addColorStop(0, 'rgba(255,214,150,0)'); f.addColorStop(0.5, 'rgba(255,232,190,0.16)');
   f.addColorStop(1, 'rgba(255,214,150,0)');
   c.fillStyle = f; c.fillRect(0, 120, 256, 16);
-  const core = c.createRadialGradient(128, 128, 0, 128, 128, 34);
-  core.addColorStop(0, '#FFFDF6'); core.addColorStop(0.72, '#FFF6DC');
-  core.addColorStop(1, 'rgba(255,240,198,0)');
-  c.fillStyle = core; c.beginPath(); c.arc(128, 128, 34, 0, 7); c.fill();
+  // spokes: the way a star tears through a lens, faint and uneven
+  c.save(); c.translate(128, 128);
+  for (let i = 0; i < 12; i++) {
+    c.rotate(Math.PI / 6);
+    const len = 70 + (i % 3) * 26;
+    const sp = c.createLinearGradient(0, 0, len, 0);
+    sp.addColorStop(0, 'rgba(255,246,214,0.30)'); sp.addColorStop(1, 'rgba(255,226,168,0)');
+    c.fillStyle = sp; c.fillRect(0, -1.1, len, 2.2);
+  }
+  c.restore();
+  const core = c.createRadialGradient(128, 128, 0, 128, 128, 30);
+  core.addColorStop(0, '#FFFFFF'); core.addColorStop(0.55, '#FFFCEE');
+  core.addColorStop(0.86, '#FFF3D2'); core.addColorStop(1, 'rgba(255,240,198,0)');
+  c.fillStyle = core; c.beginPath(); c.arc(128, 128, 30, 0, 7); c.fill();
 });
 const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
   map: sunTex, transparent: true, depthTest: false, depthWrite: false,
   blending: THREE.AdditiveBlending,
 }));
-sunSprite.scale.setScalar(1.55); sunSprite.renderOrder = -0.5;
+sunSprite.scale.setScalar(4.4); sunSprite.renderOrder = -0.5;
 yawG.add(sunSprite);
 
 /* A painted disc with a swept terminator is a drawing of a moon. This is a
@@ -518,28 +528,66 @@ function placePlanets(dt, ss, sunLon) {
    burns for a beat and is gone — rare enough that catching one feels like
    catching one. */
 const METEORS = [];
-let meteorNextAt = 5000;
+let meteorNextAt = 3500;
+/* A meteor is not a lit line. It is a bright head with everything behind it
+   already dying, so the streak has to taper — a flat segment of one colour is
+   the single most obvious tell that a sky is drawn rather than observed.
+   Twelve vertices carry a brightness ramp from head to tail, additively blended
+   so the faint end genuinely disappears instead of going grey. */
+const METEOR_SEGS = 12;
 function spawnMeteor(now) {
-  const from = new THREE.Vector3().randomDirection().multiplyScalar(30);
-  // a shallow chord across the sky, not a spoke through the middle
-  const to = from.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(11));
-  const g = new THREE.BufferGeometry().setFromPoints([from, to]);
+  const fireball = Math.random() < 0.13;                 // rare, and worth catching
+  const from = new THREE.Vector3().randomDirection().multiplyScalar(30 + Math.random() * 10);
+  const dir = new THREE.Vector3().randomDirection()
+    .sub(from.clone().normalize().multiplyScalar(0.55)).normalize();   // graze, don't dive
+  const len = (fireball ? 9 : 4.5) + Math.random() * 4;
+
+  const pos = new Float32Array(METEOR_SEGS * 3), col = new Float32Array(METEOR_SEGS * 3);
+  const tint = fireball
+    ? new THREE.Color(1.0, 0.86, 0.62)                   // iron burns warm
+    : new THREE.Color(0.88, 0.94, 1.0);
+  for (let i = 0; i < METEOR_SEGS; i++) {
+    const t = i / (METEOR_SEGS - 1);
+    const p = from.clone().addScaledVector(dir, -len * t);
+    pos.set([p.x, p.y, p.z], i * 3);
+    const f = Math.pow(1 - t, 2.1);                      // head bright, tail gone
+    col.set([tint.r * f, tint.g * f, tint.b * f], i * 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const line = new THREE.Line(g, new THREE.LineBasicMaterial({
-    color: 0xEAF2FF, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
-    depthWrite: false, depthTest: false,
+    vertexColors: true, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
   }));
   scene.add(line);
-  METEORS.push({ line, t0: now, dur: 520 + Math.random() * 420 });
+  METEORS.push({
+    line, t0: now, dur: (fireball ? 1100 : 620) + Math.random() * 420,
+    dir, speed: (fireball ? 13 : 20) + Math.random() * 12, fireball,
+  });
 }
 function stepMeteors(now) {
-  if (now > meteorNextAt) { spawnMeteor(now); meteorNextAt = now + 7000 + Math.random() * 16000; }
+  if (now > meteorNextAt) {
+    spawnMeteor(now);
+    // showers come in clumps, not on a metronome
+    meteorNextAt = now + (Math.random() < 0.22 ? 700 + Math.random() * 900
+                                               : 4500 + Math.random() * 11000);
+  }
   for (let i = METEORS.length - 1; i >= 0; i--) {
     const m = METEORS[i], k = (now - m.t0) / m.dur;
-    if (k >= 1) { scene.remove(m.line); m.line.geometry.dispose(); m.line.material.dispose(); METEORS.splice(i, 1); continue; }
-    m.line.material.opacity = Math.sin(Math.PI * k) * 0.85;   // flare and die
+    if (k >= 1) {
+      scene.remove(m.line); m.line.geometry.dispose(); m.line.material.dispose();
+      METEORS.splice(i, 1); continue;
+    }
+    // it travels, and it brightens fast then decays slowly, the way burning does
+    m.line.position.copy(m.dir).multiplyScalar(m.speed * k);
+    m.line.material.opacity = (m.fireball ? 1.0 : 0.8) *
+      Math.min(1, k * 7) * Math.pow(1 - k, 1.5);
   }
 }
 
+/* Far enough out to read as sky, near enough that retreating brings it into
+   frame — see the 7.2x far clamp on distFor, which exists for exactly this. */
 const SKY_R = 5.2;
 function placeSky() {
   refreshSky(false);
@@ -550,6 +598,7 @@ function placeSky() {
   // the shader wants the sun in world space; the globe's rig supplies the rest
   SUN.copy(sunLocal).applyQuaternion(yawG.quaternion).applyQuaternion(pitchG.quaternion).normalize();
 }
+
 placeSky();
 
 
@@ -583,7 +632,37 @@ function starField(n, size, spread) {
 }
 const starsFar = starField(1400, 0.05, 34), starsNear = starField(240, 0.1, 22);
 const starsDim = starField(2200, 0.032, 44);        // the dust you only notice by its absence
-scene.add(starsFar, starsNear, starsDim);
+
+/* No real sky is evenly sprinkled. Ours has a galaxy edge-on across it, and
+   its absence is a large part of why a starfield reads as wallpaper: stars
+   crowd toward the galactic plane and thin out toward the poles. Three summed
+   uniforms make a soft band rather than a hard stripe. */
+function milkyWay(n) {
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  const c = new THREE.Color();
+  const tilt = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(1, 0.22, 0.38).normalize(), 1.02);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    const lon = Math.random() * Math.PI * 2;
+    const lat = (Math.random() + Math.random() + Math.random() - 1.5) * 0.30;
+    v.set(Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon))
+     .applyQuaternion(tilt).multiplyScalar(42 + Math.random() * 16);
+    pos.set([v.x, v.y, v.z], i * 3);
+    // the band is unresolved starlight — warm-white, and never bright
+    c.setHSL(0.10 + Math.random() * 0.05, 0.16, 0.34 + Math.pow(Math.random(), 2.4) * 0.34);
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return new THREE.Points(g, new THREE.PointsMaterial({
+    vertexColors: true, size: 0.030, sizeAttenuation: true, map: roundDot, alphaTest: 0.02,
+    transparent: true, opacity: 0.62, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+}
+const galaxy = milkyWay(5200);
+scene.add(starsFar, starsNear, starsDim, galaxy);
 
 /* Each category gets its own SHAPE, not just its own colour. Six coloured dots
    at the same size are six identical round blobs once bloom has had its way with
