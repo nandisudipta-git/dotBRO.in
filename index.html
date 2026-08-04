@@ -3165,18 +3165,35 @@ async function loadThread(id){
     }
     else if(!document.querySelector('.sheet.open')){armGate();}   // a #connect landing already owns the screen
   }catch(err){
+    /* One dropped request used to end the session: a red bar, an empty globe,
+       and nothing further until someone noticed and tapped retry. On a phone
+       — changing towers, a lift, a weak cell — that blip is ordinary, and the
+       page has no business giving up on it. Keep trying quietly, backing off
+       so a genuinely dead network is not hammered, and only ever say "still
+       nothing" to someone who asked by tapping. */
+    let tries=0,timer=null;
+    const attempt=()=>loadLive().then(()=>{
+      netup();wireLive();renderFeed();loadLinks();checkMeetInbox();
+      if(timer){clearTimeout(timer);timer=null;}
+      if(tries)toast('back — the space is live again.',3000);
+    }).catch(()=>{
+      tries++;
+      if(tries<=6){                       // ~2s, 4s, 8s, 16s, 32s, 60s
+        timer=setTimeout(attempt,Math.min(60000,2000*Math.pow(2,tries-1)));
+      }
+    });
     // an empty globe with no explanation reads as "nobody is here" — say the truth
-    netdown("can't reach the space right now — showing nothing until it's back.",
-      ()=>{netup();loadLive().then(()=>{wireLive();renderFeed();})
-        .catch(()=>netdown('still no connection.',null));});
+    netdown("can't reach the space right now — trying again…",
+      ()=>{netup();tries=0;attempt().catch(()=>netdown('still no connection.',null));});
     dismissGate();
+    attempt();
   }
-  addEventListener('online',()=>{loadLive().then(()=>{wireLive();renderFeed();}).catch(()=>{})});
+  addEventListener('online',()=>{loadLive().then(()=>{netup();wireLive();renderFeed();}).catch(()=>{})});
 })();
 </script>
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=43"></script>
+<script type="module" src="/alge-engine.js?v=44"></script>
 </body>
 </html>
