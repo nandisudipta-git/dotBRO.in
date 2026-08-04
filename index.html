@@ -267,6 +267,14 @@ body.gated .plbl,body.sheeting .plbl,body.feeding .plbl{opacity:0 !important;}
   border:1px solid rgba(0,0,0,.18);border-radius:8px;padding:8px 11px;min-width:220px;flex:1;}
 .cityrow input:focus{outline:none;border-color:#22303C;}
 .cityhint{font-size:.72rem;color:var(--dimink);}
+#citySuggest{display:none;width:100%;flex-basis:100%;flex-direction:column;gap:2px;margin-top:2px;
+  max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid rgba(0,0,0,.12);border-radius:9px;background:#fff;
+  box-shadow:0 8px 22px rgba(20,40,60,.10);}
+#citySuggest.on{display:flex;}
+.cityopt{text-align:left;font-family:inherit;font-size:.86rem;color:var(--ink);
+  background:none;border:none;padding:10px 12px;cursor:pointer;}
+.cityopt:hover,.cityopt:focus-visible{background:rgba(45,98,140,.10);outline:none;}
 .cityhint.ok{color:#1a7f43;}
 .chip{font-size:.68rem;letter-spacing:1px;text-transform:uppercase;border:1px solid rgba(0,0,0,.12);background:none;
   color:var(--dimink);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .15s;font-family:inherit;}
@@ -638,10 +646,10 @@ body.gated .viewtabs{opacity:0;pointer-events:none;}
       <button type="button" class="placeopt" id="placeGeo" aria-pressed="false">🌍 use my rough area (~11 km)</button>
     </div>
     <div class="cityrow" id="cityRow" hidden>
-      <input id="cityInput" list="citylist" autocomplete="off" spellcheck="false"
-             placeholder="type a city — Kolkata, Delhi, London…" aria-label="Your city">
-      <datalist id="citylist"></datalist>
+      <input id="cityInput" autocomplete="off" spellcheck="false"
+             placeholder="type a city — Raniganj, Kolkata, Delhi…" aria-label="Your city">
       <span class="cityhint" id="cityHint"></span>
+      <div id="citySuggest" role="listbox" aria-label="Matching places"></div>
     </div>
     <!-- the only thing this site has ever asked to keep. Off by default, one
          tap to open, and the address is write-only the moment it lands. -->
@@ -949,7 +957,10 @@ function fmtLoc(lat,lon){
     if(d2<bd){bd=d2;best=name;}
   }
   if(best==='IIT Mandi')return 'IIT Mandi';
-  if(best)return 'near '+best;
+  /* The ", West Bengal" suffix exists so two Raniganjs are distinguishable in
+     the picker. As a caption it is noise — "near Raniganj" is what a person
+     would say. */
+  if(best)return 'near '+best.split(',')[0].trim();
   return Math.abs(lat).toFixed(1)+'°'+(lat>=0?'N':'S')+' '+Math.abs(lon).toFixed(1)+'°'+(lon>=0?'E':'W');
 }
 const nodeOf=id=>IS_DEMO?S.arr[id]:S.nodes.get(id);
@@ -2063,7 +2074,7 @@ let lastFocus=null;
 function openSheet(id){
   lastFocus=document.activeElement;
   document.body.classList.add('sheeting');   // the globe's own chatter stands down
-  if(id==='#compose')track('compose_opened');
+  if(id==='#compose'){track('compose_opened');if(window._warmCities)_warmCities();}
   const sh=$(id);sh.classList.add('open');scrim.classList.add('open');
   /* the element to focus is chosen INSIDE the timeout — openQ calls renderQ
      after openSheet, and grabbing a reference first meant focusing a node
@@ -2366,7 +2377,32 @@ let placeMode=null;                        // null | 'orbit' | 'city' | 'geo'
 let cityPick=null;                         // {name,lat,lon}
 const placeFree=$('#placeFree'),placeGeo=$('#placeGeo'),placeCity=$('#placeCity'),
       cityRow=$('#cityRow'),cityInput=$('#cityInput'),cityHint=$('#cityHint');
-CITIES.forEach(([name])=>{const o=document.createElement('option');o.value=name;$('#citylist').appendChild(o);});
+/* A <datalist> holding 3,066 options froze Ron's phone the moment the picker
+   opened — three thousand DOM nodes injected in one frame, on a device that
+   was already drawing a globe. Nobody reads three thousand options anyway;
+   eight matches, rebuilt as you type, is both faster and easier to use. */
+const citySuggest=$('#citySuggest');
+function renderCitySuggest(q){
+  q=(q||'').trim().toLowerCase();
+  citySuggest.innerHTML='';
+  if(q.length<2){citySuggest.classList.remove('on');return;}
+  const starts=[],holds=[];
+  for(const c of CITIES){
+    const n=c[0].toLowerCase();
+    if(n.startsWith(q))starts.push(c);
+    else if(starts.length+holds.length<40&&n.includes(q))holds.push(c);
+    if(starts.length>=8)break;
+  }
+  const hits=[...starts,...holds].slice(0,8);
+  if(!hits.length){citySuggest.classList.remove('on');return;}
+  for(const c of hits){
+    const b=document.createElement('button');
+    b.type='button';b.className='cityopt';b.textContent=c[0];
+    b.onclick=()=>{cityInput.value=c[0];citySuggest.classList.remove('on');syncCityHint();};
+    citySuggest.appendChild(b);
+  }
+  citySuggest.classList.add('on');
+}
 function resolveCity(s){
   const q=(s||'').trim().toLowerCase();
   if(!q)return null;
@@ -2393,7 +2429,7 @@ function syncCityHint(){
   cityHint.classList.toggle('ok',!!cityPick);
   if(cityPick)localStorage.setItem('dotbro_city',cityPick.name);
 }
-cityInput.addEventListener('input',syncCityHint);
+cityInput.addEventListener('input',()=>{syncCityHint();renderCitySuggest(cityInput.value);});
 placeFree.onclick=()=>{placeMode='orbit';syncPlace();};
 /* 3,000 Indian towns is 59KB — worth having, not worth making every visitor
    download before they can see the globe. The inline list keeps the picker
@@ -2417,11 +2453,8 @@ function loadFullCityList(){
       have.add(name.toLowerCase());added++;
     }
     if(added){
-      const dl=$('#citylist');
-      const frag=document.createDocumentFragment();
-      CITIES.slice(-added).forEach(c=>{const o=document.createElement('option');o.value=c[0];frag.appendChild(o);});
-      dl.appendChild(frag);
       syncCityHint();                       // re-resolve whatever is already typed
+      renderCitySuggest(cityInput.value);   // and refresh the visible matches
     }
     cityFileLoaded=true;
   }).catch(()=>{}).finally(()=>{cityFileLoading=null;});
@@ -2438,6 +2471,11 @@ placeCity.onclick=()=>{
 };
 placeGeo.onclick=()=>{
   placeMode='geo';syncPlace();
+  /* fmtLoc can only name a place it holds. On the inline 332 the nearest
+     known town to Raniganj is Asansol, 16km away — so the composer told Ron
+     he was somewhere he was not. Load the gazetteer first, then name it. */
+  loadFullCityList().then(()=>{ if(S.geo&&placeMode==='geo'){
+    placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;summariseOpts();} });
   if(S.geo){placeGeo.textContent=`🌍 ${fmtLoc(S.geo.lat,S.geo.lon)} ✓`;summariseOpts();return;}
   /* Staying on 'geo' while it resolves matters: switching to orbit behind
      someone's back is how a person who asked to be placed ends up in orbit
@@ -2459,6 +2497,12 @@ syncPlace();
    Off unless asked for, validated to the same shape the database enforces, and
    checked BEFORE the question goes out: a malformed address that slipped
    through would leave someone waiting for an email that could never arrive. */
+/* Warmed when the composer opens rather than on first keystroke: by the time
+   anyone picks a place the full list is already in hand, and it is 27KB
+   gzipped fetched once and cached by the service worker. */
+const _warmCities=()=>{try{loadFullCityList();}catch(_){}};
+window._warmCities=_warmCities;
+
 const EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
 let wantNotify=false;
 const notifyToggle=$('#notifyToggle'),notifyEmail=$('#notifyEmail'),notifyHint=$('#notifyHint');
@@ -3274,6 +3318,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=62"></script>
+<script type="module" src="/alge-engine.js?v=64"></script>
 </body>
 </html>

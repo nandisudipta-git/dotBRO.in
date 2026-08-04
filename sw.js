@@ -1,6 +1,6 @@
 /* dotBro service worker — app shell cached, live data never.
    Bump VERSION to invalidate after a deploy. */
-const VERSION = 'dotbro-v48';
+const VERSION = 'dotbro-v50';
 const SHELL = ['/', '/index.html', '/about.html', '/alge-engine.js', '/manifest.webmanifest',
                '/assets/icon-192.png', '/assets/icon-512.png', '/assets/favicon-red.png'];
 self.addEventListener('install', e => {
