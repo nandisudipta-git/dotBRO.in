@@ -26,6 +26,30 @@
   --steel:#2D628C; --steel2:#3D7AA8;
   --red:#E60000; --hair:rgba(255,255,255,.14);
 }
+/* ── LIGHT PREVIEW (?light=1) ───────────────────────────────────────────────
+   mont-fort is a pale site: cloud, and slate blue on near-white. Reachable
+   only by that query string so nobody browsing dotbro.in is handed a half-made
+   repaint — this exists to be LOOKED at and judged, then kept or thrown away. */
+body.light{
+  --void:#8FA0AE; --paper:#22303C; --ink:#14232F; --dim:#5F7385; --dimink:#78899A;
+  --steel:#2D628C; --steel2:#3D7AA8; --hair:rgba(20,40,60,.14);
+  background:linear-gradient(180deg,#EDF1F5 0%,#E2E8EE 55%,#D6DEE6 100%);
+  color:#22303C;
+}
+body.light .hud .count,body.light .viewtabs,body.light #filterToggle,
+body.light .zoomui button,body.light .fab,body.light #toast{
+  background:rgba(255,255,255,.78) !important;color:#22303C !important;
+  border:1px solid rgba(20,40,60,.10) !important;
+  box-shadow:0 6px 20px rgba(45,98,140,.10) !important;}
+body.light .brand .wm,body.light .sub,body.light .hud a{color:#3C5060 !important;}
+body.light .viewtabs button{color:#7B8C9C;}
+body.light .viewtabs button[aria-selected=true]{background:rgba(45,98,140,.12);color:#1B2C3A;}
+body.light .viewtabs button:hover{color:#1B2C3A;}
+body.light .fab{color:#14232F !important;font-weight:600;}
+body.light .plbl{color:rgba(30,50,68,.72);text-shadow:0 1px 2px rgba(255,255,255,.9);}
+body.light .plbl.has{color:#1B2C3A;}
+body.light #tip{background:rgba(255,255,255,.94);box-shadow:0 14px 40px rgba(45,98,140,.16);}
+
 /* keyboard users get a visible ring; mouse users never see it */
 :focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -780,6 +804,10 @@ function rateOk(bucket,max,windowMs){
 /* ─── demo mode: ?n=100 | 1000 | 100000 — synthetic local data, Supabase untouched ─── */
 const DEMO_N=Math.min(parseInt(new URLSearchParams(location.search).get('n'))||0,150000);
 const IS_DEMO=DEMO_N>0;
+/* the light repaint, opt-in by URL so it can be judged before it is chosen */
+const LIGHT_MODE=new URLSearchParams(location.search).has('light');   // LIGHT is the 2D engine's sun vector
+if(LIGHT_MODE)document.body.classList.add('light');
+window.__LIGHT=LIGHT_MODE;
 const IS_STATIC=IS_DEMO&&DEMO_N>220;     // beyond this, pairwise physics is replaced by a fixed sphere lattice
 const IS_MASSIVE=IS_DEMO&&DEMO_N>2500;   // beyond this, point-cloud rendering (no z-sort, culled back hemisphere)
 if(IS_DEMO)document.getElementById('demoBadge').classList.add('on');
@@ -3206,6 +3234,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=45"></script>
+<script type="module" src="/alge-engine.js?v=47"></script>
 </body>
 </html>

@@ -77,6 +77,7 @@ const backdropMat = new THREE.ShaderMaterial({
     uPar:    { value: new THREE.Vector2(0, 0) },
     uMotion: { value: REDUCED ? 0 : 1 },
     uQuality:{ value: 1 },     // dropped to 0 automatically when frames are missed
+    uLight:  { value: window.__LIGHT ? 1 : 0 },
   },
   vertexShader: `
     void main(){ gl_Position = vec4(position.xy, 1.0, 1.0); }
@@ -84,7 +85,7 @@ const backdropMat = new THREE.ShaderMaterial({
   fragmentShader: `
     precision mediump float;
     uniform vec2 uRes; uniform float uTime; uniform vec2 uPar; uniform float uMotion;
-    uniform float uQuality;
+    uniform float uQuality; uniform float uLight;
 
     float bank(vec2 p, vec2 c, float r, vec2 asp){
       return smoothstep(r, 0.0, distance(p * asp, c * asp));
@@ -110,6 +111,11 @@ const backdropMat = new THREE.ShaderMaterial({
       vec3 col = mix(vec3(0.047, 0.064, 0.082),
                      vec3(0.137, 0.180, 0.220),
                      smoothstep(0.0, 1.0, uv.y * 0.85 + 0.15));
+      // their sky: near-white at the top settling into cool grey below
+      if (uLight > 0.5)
+        col = mix(vec3(0.816, 0.851, 0.886),
+                  vec3(0.937, 0.953, 0.969),
+                  smoothstep(0.0, 1.0, uv.y * 0.9 + 0.10));
 
       /* Their weather is ONE body of cloud you are inside of, not four blobs
          you can count. Bigger radii so the banks overlap into a single
@@ -131,7 +137,9 @@ const backdropMat = new THREE.ShaderMaterial({
       if (uQuality > 0.5)
         fogN += vnoise(p * asp * 6.0 - vec2(t * 0.008, t * 0.005)) * 0.30;
       else fogN *= 1.30;                       // keep the fog's weight without the octave
-      col += mist * (0.62 + 0.76 * fogN);
+      /* On white, the same faint veils vanish — cloud has to be the loudest
+         thing in the frame, the way it is on their page. */
+      col += mist * (0.62 + 0.76 * fogN) * (uLight > 0.5 ? 5.2 : 1.0);
 
       /* The grid was the least mont-fort thing here. Their hero has none at
          all — it is weather and a mountain and nothing else; the blueprint
@@ -140,7 +148,7 @@ const backdropMat = new THREE.ShaderMaterial({
          instead of air, so it survives only as a suggestion at the far
          corners: a quarter of its old weight, and held out past the middle
          two-thirds of the screen, which is now clean atmosphere. */
-      if (uQuality > 0.5) {
+      if (uQuality > 0.5 && uLight < 0.5) {
       vec2 gUv = p * asp * 16.0;
       vec2 gridUV = 1.0 - abs(fract(gUv) * 2.0 - 1.0);
       vec2 deriv = fwidth(gUv);
@@ -159,9 +167,10 @@ const backdropMat = new THREE.ShaderMaterial({
       col += vec3(0.30, 0.60, 0.85) * dots * lit * 0.045 * ring;
       }
 
-      /* Deeper falloff: on their page the frame does not end, it dissolves. */
+      /* Deeper falloff: on their page the frame does not end, it dissolves.
+         Darkening a pale sky reads as dirt, so light mode barely tightens. */
       float v = smoothstep(1.35, 0.22, length((uv - 0.5) * asp) * 1.30);
-      col *= mix(0.34, 1.0, v);
+      col *= mix(uLight > 0.5 ? 0.90 : 0.34, 1.0, v);
 
       /* mont-fort ships dithering:!0 on every material for the same reason:
          8-bit output posterises these long dark gradients without it */
@@ -209,7 +218,13 @@ const dayMap = tex('earth_atmos_2048.jpg');
 const nightMap = tex('earth_lights_2048.png');
 const specMap = loader.load(TEXBASE + 'earth_specular_2048.jpg');
 
-const SUN = new THREE.Vector3(-0.85, 0.30, 0.42).normalize();   // terminator crosses the visible disc — day left, city lights right
+/* Dark: the terminator crosses the visible disc, so you get a lit limb and a
+   night side full of city lights — the whole reason the globe reads at all.
+   Light: there is no night. City lights on a white sky look like dirt, so the
+   sun moves behind the camera and the planet is simply, evenly, day. */
+const SUN = window.__LIGHT
+  ? new THREE.Vector3(-0.15, 0.22, 1.0).normalize()
+  : new THREE.Vector3(-0.85, 0.30, 0.42).normalize();
 const earthMat = new THREE.ShaderMaterial({
   uniforms: {
     dayMap: { value: dayMap }, nightMap: { value: nightMap }, specMap: { value: specMap },
@@ -343,7 +358,8 @@ function starField(n, size, spread) {
   }));
 }
 const starsFar = starField(900, 0.055, 34), starsNear = starField(220, 0.1, 22);
-scene.add(starsFar, starsNear);
+// stars belong to space; on a pale sky they are specks of grit
+if (!window.__LIGHT) scene.add(starsFar, starsNear);
 
 /* Each category gets its own SHAPE, not just its own colour. Six coloured dots
    at the same size are six identical round blobs once bloom has had its way with
@@ -619,7 +635,10 @@ composer.addPass(new RenderPass(scene, camera));
 /* Calmer than it was (0.38/0.55/0.78): bloom had become the subject. Higher
    threshold means only genuinely bright cores glow; the conversation, not the
    lighting, is the hero. */
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.4, 0.85);
+/* Bloom is light added to darkness. On white there is nothing left to add to,
+   and it only greys the picture — the dots have to read as ink instead. */
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight),
+  window.__LIGHT ? 0.045 : 0.22, 0.4, window.__LIGHT ? 0.98 : 0.85);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
