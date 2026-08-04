@@ -175,6 +175,10 @@ body.sheeting .albl,body.sheeting #tip,body.sheeting #leader,body.sheeting #hint
   color:rgba(255,150,150,.9);text-transform:none;}
 body.gated .plbl,body.sheeting .plbl,body.feeding .plbl{opacity:0 !important;}
 /* the private thread */
+.editedmark{opacity:.6;font-style:italic;}
+#editBox textarea{width:100%;min-height:74px;background:rgba(0,0,0,.03);color:var(--ink);
+  border:1px solid rgba(0,0,0,.12);border-radius:9px;padding:10px 12px;font-family:inherit;
+  font-size:.9rem;line-height:1.5;resize:vertical;margin-bottom:8px;}
 .privbtn{margin-top:8px;font-size:.7rem;letter-spacing:.06em;background:none;cursor:pointer;
   border:1px solid rgba(0,0,0,.16);border-radius:99px;padding:5px 11px;color:var(--dimink);font-family:inherit;}
 .privbtn:hover{border-color:rgba(230,0,0,.4);color:var(--ink);}
@@ -867,6 +871,7 @@ const db=!LIVE?null:{
     keepToken('reply',data.row.id,data.token);
     return{data:data.row,error:null};
   },
+  editQuestion:(tok,qid,new_body)=>sb.rpc('edit_question',{tok,qid,new_body}),
   meetOpen:(asker_token,p_reply_id)=>sb.rpc('meet_open',{asker_token,p_reply_id}),
   meetSend:(tok,tid,p_body)=>sb.rpc('meet_send',{tok,tid,p_body}),
   meetRead:(tok,tid)=>sb.rpc('meet_read',{tok,tid}),
@@ -2804,7 +2809,14 @@ function renderQ(){
     `<div class="qcat" style="color:rgb(${r},${g},${b})">${esc(catLabel(q.category))}</div>`+
     `<div class="qbody">${esc(q.body)}</div>`+
     `<div class="qmeta">${esc(q.name)} · ${ago(q.created_at)}${IS_DEMO?'':' · '+(q.lat==null?'in orbit · belongs to everyone':'from '+fmtLoc(q.lat,q.lon))}`+
-      (IS_DEMO?'':` · <button type="button" class="linkbtn" id="shareQ">copy link</button> · <button type="button" class="linkbtn" id="reportQ">report</button>`)+`</div>`+
+      (IS_DEMO?'':` · <button type="button" class="linkbtn" id="shareQ">copy link</button> · <button type="button" class="linkbtn" id="reportQ">report</button>`)+
+      /* Readers are told the words changed. People answer questions, and a
+         question quietly rewritten after three replies turns their answers
+         into nonsense they never agreed to. */
+      ((!IS_DEMO&&q&&q.edited_at)?` · <span class="editedmark">edited</span>`:'')+
+      ((!IS_DEMO&&q&&!q.edited_at&&tokenFor('question',S.openId))
+        ? ` · <button type="button" class="linkbtn" id="editQ">edit once</button>` : '')+`</div>`+
+    (IS_DEMO?'':`<div class="reportbox" id="editBox"><textarea id="editBody" maxlength="500" aria-label="Reword your question"></textarea><button class="btn" id="editGo">Save the one change</button></div>`)+
     (IS_DEMO?'':`<div class="reportbox" id="reportBox"><input id="reportWhy" type="text" maxlength="300" aria-label="Why are you reporting this?" placeholder="why? (optional)"><button class="btn" id="reportGo">Report</button></div>`)+
     `<div class="p-actions" id="pActions">${actionsHtml}</div>`+
     composeHtml+
@@ -2825,6 +2837,35 @@ function renderQ(){
   document.querySelectorAll('[data-meet]').forEach(b=>{
     b.onclick=()=>openMeet(b.dataset.meet);
   });
+  const edBtn=$('#editQ'),edBox=$('#editBox'),edBody=$('#editBody');
+  if(edBtn&&edBox){
+    edBtn.onclick=()=>{
+      const open=edBox.classList.toggle('open');
+      if(open){const q=qOf(S.openId);edBody.value=q?q.body:'';setTimeout(()=>edBody.focus(),60);}
+    };
+    $('#editGo').onclick=async()=>{
+      const qid=S.openId, tok=tokenFor('question',qid), body=edBody.value.trim();
+      if(!tok){toast('only the person who asked can change this.');return;}
+      if(body.length<3){toast('three characters or more.');return;}
+      const btn=$('#editGo');btn.disabled=true;btn.textContent='Saving…';
+      try{
+        const {data,error}=await db.editQuestion(tok,qid,body);
+        if(error||!data){
+          // the server owns "once" — if it says no, say what it said
+          toast((error&&error.message)||"couldn't save that change.",5000);
+          btn.disabled=false;btn.textContent='Save the one change';return;
+        }
+        S.q.set(qid,data);
+        const n=S.nodes.get(qid); if(n)n.text=data.body;   // the globe reads this
+        track('question_edited');
+        toast('changed. that was the one edit.');
+        renderQ();renderFeed();
+      }catch(_){
+        toast("couldn't save that change.");
+        btn.disabled=false;btn.textContent='Save the one change';
+      }
+    };
+  }
   $('#pActions').querySelectorAll('.p-btn').forEach(btn=>{
     btn.onclick=()=>{
       const k=btn.dataset.kind;
@@ -3233,6 +3274,6 @@ async function loadThread(id){
 <!-- Versioned on purpose. Without it Chrome serves a stale engine after a deploy
      (heuristic caching on a query-less module URL) and the page silently runs
      old code while index.html is new. Bump this AND VERSION in sw.js together. -->
-<script type="module" src="/alge-engine.js?v=61"></script>
+<script type="module" src="/alge-engine.js?v=62"></script>
 </body>
 </html>
