@@ -77,6 +77,7 @@ const backdropMat = new THREE.ShaderMaterial({
     uPar:    { value: new THREE.Vector2(0, 0) },
     uMotion: { value: REDUCED ? 0 : 1 },
     uQuality:{ value: 1 },     // dropped to 0 automatically when frames are missed
+    uSpace:  { value: 0 },     // 0 at reading distance, 1 pulled right out
   },
   vertexShader: `
     void main(){ gl_Position = vec4(position.xy, 1.0, 1.0); }
@@ -84,7 +85,7 @@ const backdropMat = new THREE.ShaderMaterial({
   fragmentShader: `
     precision mediump float;
     uniform vec2 uRes; uniform float uTime; uniform vec2 uPar; uniform float uMotion;
-    uniform float uQuality;
+    uniform float uQuality; uniform float uSpace;
 
     float bank(vec2 p, vec2 c, float r, vec2 asp){
       return smoothstep(r, 0.0, distance(p * asp, c * asp));
@@ -110,6 +111,9 @@ const backdropMat = new THREE.ShaderMaterial({
       vec3 col = mix(vec3(0.047, 0.064, 0.082),
                      vec3(0.137, 0.180, 0.220),
                      smoothstep(0.0, 1.0, uv.y * 0.85 + 0.15));
+      /* Mist is atmosphere, and atmosphere does not follow you out. Retreat far
+         enough and the haze goes with the planet, leaving actual black. */
+      col *= mix(1.0, 0.16, uSpace);
 
       /* Their weather is ONE body of cloud you are inside of, not four blobs
          you can count. Bigger radii so the banks overlap into a single
@@ -131,7 +135,7 @@ const backdropMat = new THREE.ShaderMaterial({
       if (uQuality > 0.5)
         fogN += vnoise(p * asp * 6.0 - vec2(t * 0.008, t * 0.005)) * 0.30;
       else fogN *= 1.30;                       // keep the fog's weight without the octave
-      col += mist * (0.62 + 0.76 * fogN);
+      col += mist * (0.62 + 0.76 * fogN) * (1.0 - 0.92 * uSpace);
 
       /* The grid was the least mont-fort thing here. Their hero has none at
          all — it is weather and a mountain and nothing else; the blueprint
@@ -156,7 +160,7 @@ const backdropMat = new THREE.ShaderMaterial({
       float ring = smoothstep(0.46, 0.92, length((uv - 0.5) * asp));
       col += vec3(0.28, 0.36, 0.44) * grid      * 0.013 * ring;
       col += vec3(0.42, 0.58, 0.72) * crossMark * 0.022 * ring;
-      col += vec3(0.30, 0.60, 0.85) * dots * lit * 0.045 * ring;
+      col += vec3(0.30, 0.60, 0.85) * dots * lit * 0.045 * ring * (1.0 - uSpace);
       }
 
       /* Deeper falloff: on their page the frame does not end, it dissolves. */
@@ -223,6 +227,7 @@ const specMap = loader.load(TEXBASE + 'earth_specular_2048.jpg');
 const SUN = new THREE.Vector3(-0.85, 0.30, 0.42).normalize();   // world-space, refreshed every frame
 const sunLocal = new THREE.Vector3(), moonLocal = new THREE.Vector3();
 let moonPhase = 0.5, skyStampedAt = -1e9;
+let _ssCache = { lat: 0, lon: 0 }, _sunLonCache = 0;   // shared by the planets
 
 function subsolarPoint(dt) {
   const yStart = Date.UTC(dt.getUTCFullYear(), 0, 0);
@@ -260,12 +265,14 @@ function refreshSky(force) {
   const dt = new Date(now);
 
   const ss = subsolarPoint(dt);
+  _ssCache = ss;
   sunLocal.copy(ll2v(ss.lat, ss.lon));
 
   /* The moon is placed by its elongation from the sun — the angle that
      actually decides which sliver is lit — swung about the pole so it rides
      roughly where the ecliptic runs rather than sitting in an arbitrary spot. */
   const me = moonEcliptic(dt), sl = sunEclipticLon(dt);
+  _sunLonCache = sl;
   let elong = me.lon - sl;
   elong = Math.atan2(Math.sin(elong), Math.cos(elong));          // wrap to ±π
   moonPhase = (1 - Math.cos(elong)) / 2;                         // 0 new, 1 full
@@ -377,6 +384,21 @@ const atmo = new THREE.Mesh(
 );
 scene.add(atmo);
 
+/* GL points with no map draw as SQUARES — on camera phones and at close zoom
+   the ground markers and stars read as little boxes. One shared soft round
+   texture fixes every Points material in the scene. */
+const roundDot = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+  const c = cv.getContext('2d');
+  const gr = c.createRadialGradient(16, 16, 0, 16, 16, 15);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.65, 'rgba(255,255,255,0.9)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = gr; c.beginPath(); c.arc(16, 16, 15, 0, 7); c.fill();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+
 /* ── the two bodies ─────────────────────────────────────────────────────────
    Children of yawG so they hold station over the geography they belong to.
    Far out and depth-free: they are sky, and nothing in the scene should ever
@@ -403,83 +425,154 @@ const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
 sunSprite.scale.setScalar(1.05); sunSprite.renderOrder = -0.5;
 yawG.add(sunSprite);
 
-/* The moon is redrawn when its phase moves — a terminator swept across a lit
-   disc, so a crescent is a crescent and not a dimmed circle. */
-let moonDrawnAt = -1;
-const moonCanvas = document.createElement('canvas'); moonCanvas.width = moonCanvas.height = 256;
-const moonTex = new THREE.CanvasTexture(moonCanvas); moonTex.colorSpace = THREE.SRGBColorSpace;
-function paintMoon(phase) {
-  const c = moonCanvas.getContext('2d');
-  c.clearRect(0, 0, 256, 256);
-  const R = 88, cx = 128, cy = 128;
-  const halo = c.createRadialGradient(cx, cy, R * 0.8, cx, cy, 128);
-  halo.addColorStop(0, 'rgba(214,226,240,0.20)'); halo.addColorStop(1, 'rgba(214,226,240,0)');
-  c.fillStyle = halo; c.fillRect(0, 0, 256, 256);
-  c.save(); c.beginPath(); c.arc(cx, cy, R, 0, 7); c.clip();
-  c.fillStyle = 'rgba(150,166,186,0.16)'; c.fillRect(0, 0, 256, 256);   // earthshine
-  // lit half, then the terminator ellipse carves the phase out of it
-  c.fillStyle = '#EEF3FA';
-  c.beginPath(); c.arc(cx, cy, R, -Math.PI / 2, Math.PI / 2); c.fill();
-  const k = (phase - 0.5) * 2;                       // -1 waning … +1 waxing
-  c.globalCompositeOperation = k < 0 ? 'destination-out' : 'source-over';
-  c.fillStyle = k < 0 ? '#000' : '#EEF3FA';
-  c.beginPath(); c.ellipse(cx, cy, R * Math.abs(k), R, 0, 0, 7); c.fill();
-  c.globalCompositeOperation = 'source-over';
-  c.restore();
-  moonTex.needsUpdate = true;
-}
-const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-  map: moonTex, transparent: true, depthTest: false, depthWrite: false,
-}));
-moonSprite.scale.setScalar(0.52); moonSprite.renderOrder = -0.5;
-yawG.add(moonSprite);
+/* A painted disc with a swept terminator is a drawing of a moon. This is a
+   sphere with the real lunar surface on it, lit by the same sun vector that
+   lights the Earth — so the phase is not drawn at all, it simply happens, and
+   the terminator falls across actual maria instead of blank white. */
+const moonMap = loader.load(TEXBASE + 'moon_1024.jpg');
+moonMap.colorSpace = THREE.SRGBColorSpace;
+const moonMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.30, 40, 28),
+  new THREE.ShaderMaterial({
+    uniforms: { map: { value: moonMap }, sunDir: { value: SUN } },
+    vertexShader: `
+      varying vec3 vN; varying vec2 vUv;
+      void main(){
+        vN = normalize(mat3(modelMatrix) * normal);
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+      }`,
+    fragmentShader: `
+      uniform sampler2D map; uniform vec3 sunDir;
+      varying vec3 vN; varying vec2 vUv;
+      void main(){
+        vec3 base = texture2D(map, vUv).rgb;
+        float ndl = dot(normalize(vN), sunDir);
+        // a real terminator is knife-sharp — no atmosphere to soften it
+        float lit = smoothstep(-0.04, 0.06, ndl);
+        vec3 col = base * (0.030 + 1.16 * lit);      // the floor is earthshine
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  })
+);
+moonMesh.renderOrder = -0.5;
+yawG.add(moonMesh);
 
 /* 26 put them permanently outside a 42° frustum: at 90° round the sky a body
    sits ~82° off-axis no matter how far you pull back, so they could never be
    seen. Brought in to 5.2, they stay off-frame at reading distance and swing
    into view as the camera retreats — which is the whole point of pulling back. */
+/* ── planets ────────────────────────────────────────────────────────────────
+   Circular-orbit approximation from J2000 mean longitudes: each planet's
+   heliocentric position, minus Earth's, gives the direction we actually see it
+   in. A degree or two out, which at this size is nothing, and it means Jupiter
+   is where Jupiter is tonight rather than wherever looked balanced. Colours
+   are the ones they actually show: Venus hard white, Mars rust, Jupiter cream,
+   Saturn pale gold. */
+const PLANETS = [
+  { name: 'Venus',   a: 0.723, P: 224.70,  L0: 181.98, col: 0xFFF6E0, size: 0.085 },
+  { name: 'Mars',    a: 1.524, P: 686.98,  L0: 355.45, col: 0xE07A4A, size: 0.070 },
+  { name: 'Jupiter', a: 5.203, P: 4332.6,  L0: 34.40,  col: 0xF3E3C0, size: 0.095 },
+  { name: 'Saturn',  a: 9.537, P: 10759.2, L0: 50.08,  col: 0xE6D9A8, size: 0.075 },
+];
+const EARTH_ORB = { a: 1.0, P: 365.256, L0: 100.46 };
+const planetSprites = PLANETS.map(pl => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: roundDot, color: pl.col, transparent: true, opacity: 0.95,
+    depthTest: false, depthWrite: false,
+  }));
+  sp.scale.setScalar(pl.size); sp.renderOrder = -0.6;
+  yawG.add(sp); return sp;
+});
+function placePlanets(dt, ss, sunLon) {
+  const d = (dt.getTime() - Date.UTC(2000, 0, 1, 12)) / 86400000;
+  const rad = Math.PI / 180;
+  const eL = (EARTH_ORB.L0 + 360 * d / EARTH_ORB.P) * rad;
+  const ex = EARTH_ORB.a * Math.cos(eL), ey = EARTH_ORB.a * Math.sin(eL);
+  PLANETS.forEach((pl, i) => {
+    const L = (pl.L0 + 360 * d / pl.P) * rad;
+    const gx = pl.a * Math.cos(L) - ex, gy = pl.a * Math.sin(L) - ey;
+    const eclLon = Math.atan2(gy, gx);
+    /* Everything here is placed relative to the sun, because the subsolar
+       point already carries Earth's rotation — so an offset in ecliptic
+       longitude is an offset in the frame the geography lives in. */
+    let dLon = eclLon - sunLon;
+    dLon = Math.atan2(Math.sin(dLon), Math.cos(dLon));
+    planetSprites[i].position.copy(ll2v(ss.lat * 0.7, ss.lon + dLon / rad)).multiplyScalar(SKY_R * 1.35);
+  });
+}
+
+/* ── meteors ────────────────────────────────────────────────────────────────
+   The 2D fallback always had these; the WebGL engine never did. A streak that
+   burns for a beat and is gone — rare enough that catching one feels like
+   catching one. */
+const METEORS = [];
+let meteorNextAt = 5000;
+function spawnMeteor(now) {
+  const from = new THREE.Vector3().randomDirection().multiplyScalar(30);
+  // a shallow chord across the sky, not a spoke through the middle
+  const to = from.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(11));
+  const g = new THREE.BufferGeometry().setFromPoints([from, to]);
+  const line = new THREE.Line(g, new THREE.LineBasicMaterial({
+    color: 0xEAF2FF, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+    depthWrite: false, depthTest: false,
+  }));
+  scene.add(line);
+  METEORS.push({ line, t0: now, dur: 520 + Math.random() * 420 });
+}
+function stepMeteors(now) {
+  if (now > meteorNextAt) { spawnMeteor(now); meteorNextAt = now + 7000 + Math.random() * 16000; }
+  for (let i = METEORS.length - 1; i >= 0; i--) {
+    const m = METEORS[i], k = (now - m.t0) / m.dur;
+    if (k >= 1) { scene.remove(m.line); m.line.geometry.dispose(); m.line.material.dispose(); METEORS.splice(i, 1); continue; }
+    m.line.material.opacity = Math.sin(Math.PI * k) * 0.85;   // flare and die
+  }
+}
+
 const SKY_R = 5.2;
 function placeSky() {
   refreshSky(false);
   sunSprite.position.copy(sunLocal).multiplyScalar(SKY_R);
-  moonSprite.position.copy(moonLocal).multiplyScalar(SKY_R * 0.8);
-  if (Math.abs(moonPhase - moonDrawnAt) > 0.01) { paintMoon(moonPhase); moonDrawnAt = moonPhase; }
+  placePlanets(new Date(), _ssCache, _sunLonCache);
+  moonMesh.position.copy(moonLocal).multiplyScalar(SKY_R * 0.8);
+  moonMesh.lookAt(0, 0, 0);
   // the shader wants the sun in world space; the globe's rig supplies the rest
   SUN.copy(sunLocal).applyQuaternion(yawG.quaternion).applyQuaternion(pitchG.quaternion).normalize();
 }
 placeSky();
 
-/* GL points with no map draw as SQUARES — on camera phones and at close zoom
-   the ground markers and stars read as little boxes. One shared soft round
-   texture fixes every Points material in the scene. */
-const roundDot = (() => {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 32;
-  const c = cv.getContext('2d');
-  const gr = c.createRadialGradient(16, 16, 0, 16, 16, 15);
-  gr.addColorStop(0, 'rgba(255,255,255,1)');
-  gr.addColorStop(0.65, 'rgba(255,255,255,0.9)');
-  gr.addColorStop(1, 'rgba(255,255,255,0)');
-  c.fillStyle = gr; c.beginPath(); c.arc(16, 16, 15, 0, 7); c.fill();
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-})();
+
 
 /* ── stars: two depth bands, parallax against the drag ── */
+/* Real starlight is not one white. Stellar class runs blue-white through
+   yellow to orange, most stars are dim and a handful are not, and painting
+   them all the same shade of #dfeaf4 is most of what made this read as a
+   screensaver rather than a sky. */
 function starField(n, size, spread) {
-  const pos = new Float32Array(n * 3);
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  const c = new THREE.Color();
   for (let i = 0; i < n; i++) {
     const v = new THREE.Vector3().randomDirection().multiplyScalar(spread + Math.random() * 18);
     pos.set([v.x, v.y, v.z], i * 3);
+    const r = Math.random();
+    const hue = r < 0.03 ? 0.60 : r < 0.12 ? 0.57 : r < 0.42 ? 0.14 : r < 0.78 ? 0.10 : 0.055;
+    const sat = r < 0.12 ? 0.42 : r < 0.42 ? 0.10 : 0.50;
+    // brightness is heavily skewed: a few bright, a great many faint
+    const lum = 0.42 + Math.pow(Math.random(), 2.2) * 0.55;
+    c.setHSL(hue, sat, lum);
+    col.set([c.r, c.g, c.b], i * 3);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   return new THREE.Points(g, new THREE.PointsMaterial({
-    color: 0xdfeaf4, size, sizeAttenuation: true, map: roundDot, alphaTest: 0.05,
-    transparent: true, opacity: 0.85, depthWrite: false,
+    vertexColors: true, size, sizeAttenuation: true, map: roundDot, alphaTest: 0.05,
+    transparent: true, opacity: 0.9, depthWrite: false,
   }));
 }
-const starsFar = starField(900, 0.055, 34), starsNear = starField(220, 0.1, 22);
-scene.add(starsFar, starsNear);
+const starsFar = starField(1400, 0.05, 34), starsNear = starField(240, 0.1, 22);
+const starsDim = starField(2200, 0.032, 44);        // the dust you only notice by its absence
+scene.add(starsFar, starsNear, starsDim);
 
 /* Each category gets its own SHAPE, not just its own colour. Six coloured dots
    at the same size are six identical round blobs once bloom has had its way with
@@ -1436,6 +1529,7 @@ function frame() {
   cvs.style.cursor = dragging ? 'grabbing' : (hover ? 'pointer' : 'grab');
 
   stepArcs(now);
+  stepMeteors(now);
   // The intro finishes on its own after ~5s, but the gate can still be up —
   // that is how the "you might have missed" card ended up sitting across the
   // hook question. Hold it off, and keep pushing the timer so it does not fire
@@ -1450,6 +1544,8 @@ function frame() {
   // the air: seconds for the sine paths, plus a light parallax off the drag
   backdropMat.uniforms.uTime.value = now * 0.001;
   backdropMat.uniforms.uPar.value.set(yaw * 0.014, pitch * 0.014);
+  // 1.0 at the far end of the new zoom range, 0 by the time you are reading
+  backdropMat.uniforms.uSpace.value = THREE.MathUtils.clamp((0.62 - zoom) / 0.44, 0, 1);
 
   /* Adaptive quality. The backdrop runs noise and a derivative-AA grid over
      every pixel of a retina fullscreen quad, every frame — beautiful, and the
