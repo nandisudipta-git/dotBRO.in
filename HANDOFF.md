@@ -1,73 +1,153 @@
-# dotbro.in — HANDOFF
+# dotbro.in — Developer Handoff Document
 
-*State as of 2026-07-28. Everything below is live. One page of truth for whoever picks this up — Ron, another Claude session, or a builder.*
-
----
-
-## What it is
-
-**The alge**: a living globe of conversations. Anyone floats a question (no login), it appears as a glowing dot floating above its real place on a 3D Earth, others answer / debate / continue / ask to meet. Beachhead community: IIT Mandi cohort. Vision: LinkedIn+Quora+Reddit in Gen-Z form.
-
-**Live:** https://dotbro.in (the app) · https://dotbro.in/about.html (what .Bro is)
+> **Last Updated:** August 10, 2026  
+> **Status:** Live & Production Ready at [dotbro.in](https://dotbro.in)  
+> **Primary Repository:** `nandisudipta-git/dotBRO.in` (Branch: `main`)
 
 ---
 
-## The map (what file does what)
+## 1. Executive Summary & Product Overview
 
-| File | Job |
-|---|---|
-| `index.html` | The whole app: HUD, sheets (compose/question/connect), data layer (Supabase), report button, presence, share links, PWA registration — **plus the complete 2D-canvas engine as automatic no-WebGL fallback** |
-| `alge-engine.js` | The picture + the touch: WebGL globe (three.js + UnrealBloom). Day/night shader with real city lights, float shell + tethers, arcs, starfield, camera. Talks to the classic script ONLY via `window.APP` bridge + window-level function declarations |
-| `about.html` | .Bro philosophy card-stack (the old landing) |
-| `mod.html` | Moderation: passphrase unlock → list (reported pinned first) → delete question/reply |
-| `feed.html`, `alge.html` | Redirect stubs — old shared links land on `/`, hash intact |
-| `manifest.webmanifest`, `sw.js` | PWA: installable, shell offline, Supabase never cached. **Bump `VERSION` in sw.js to force-refresh cached shells** |
-| `old/` | Every retired page (parbro, podbro, conbro, gyan, old landings). Robots-blocked |
-| `docs/READINESS-AUDIT.md` | The honest audit + what was closed |
-| `docs/seed/100-questions.sql` | 100 house questions (currently NOT in the DB — Ron chose real-only). Re-runnable |
-| `.claude/skills/verify/SKILL.md` | How to verify changes (serve + drive in Chrome). Read before touching anything |
+**dotbro.in** (internally named **"the alge"**) is a living, interactive 3D graph for curiosity and open questions. Users float questions onto a 3D Earth or into satellite orbits without login friction. Other users answer, debate, and request private meetings.
+
+- **Live URL:** [https://dotbro.in](https://dotbro.in) (and [https://www.dotbro.in](https://www.dotbro.in))
+- **About Page:** [https://dotbro.in/about.html](https://dotbro.in/about.html)
+- **Moderation Panel:** [https://dotbro.in/mod.html](https://dotbro.in/mod.html)
+- **Tagline:** *"Some conversations deserve another chance."*
 
 ---
 
-## Deploy
+## 2. Architecture & Technology Stack
 
-`git push origin main` → GitHub Pages serves it (repo `nandisudipta-git/dotBRO.in`, CNAME `dotbro.in`). That's it. Confirm with `curl -sI https://dotbro.in | grep -i server` → `GitHub.com`.
+| Layer | Technology | Details |
+|---|---|---|
+| **Frontend Framework** | Vanilla HTML5 / JavaScript (ES6 Modules) / CSS3 | Zero heavy frameworks; optimized for low memory overhead and instant load. |
+| **3D Rendering** | Three.js + Postprocessing (UnrealBloomShader) | Real-time solar position calculations, lunar phases, starfield, meteors, and city night lights. |
+| **2D Fallback** | HTML5 2D Canvas Engine | Built directly into `index.html` as automatic fallback for non-WebGL / low-power GPUs. |
+| **PWA / Caching** | Service Worker (`sw.js`) + `manifest.webmanifest` | Installable shell, offline assets caching. |
+| **Database & API** | Supabase (PostgreSQL 15) | Region: `ap-south-1` (Mumbai). Project Ref: `fliheqjbwmcoggajovln`. |
+| **Hosting** | GitHub Pages | Served via custom domain `dotbro.in` (GoDaddy CNAME to GitHub Pages). |
+| **Email Service** | Resend API + Supabase Edge Function (`notify`) | Scheduled via `pg_cron` / `pg_net` every 5 minutes (`notify-answers`). |
 
-## Backend (Supabase, project `fliheqjbwmcoggajovln`, Mumbai)
+---
 
-- Tables: `questions`, `replies`, `reports` (reports have **no public read** — admin RPC only)
-- RLS: insert + read only. Nobody edits/deletes via the API
-- Rate limits **in the DB** (BEFORE INSERT), **per-IP since 2026-07-29**: questions 5/min·40/day, replies 15/min·120/day, reports 10/min·60/day per visitor, plus a much higher global backstop (120/min·2000/day questions) for a distributed flood. Before this the caps were global, which meant any stranger could hit the cap with curl and block *everyone* for a day
-- **The IP comes from `cf-connecting-ip`, never `x-forwarded-for`.** Verified against this project: a client can prepend its own value to `x-forwarded-for` (observed `"9.9.9.9,<real ip>"`), so the `split_part(x-forwarded-for, ',', 1)` pattern in Supabase's own docs reads attacker-controlled data and gives a rate limiter that does nothing. Forging `cf-connecting-ip` is refused by Cloudflare with a 403 before it reaches PostgREST
-- Per-IP state lives in `private.rl_hits` as a **salted SHA-256, never a raw IP**, pruned after 2 days, never joined to a question or reply (P5). Both checks **fail open** — no IP means per-IP is skipped and only the global backstop applies, so a bug here can't take the site down
-- Admin: `admin_verify` / `admin_delete_question` / `admin_delete_reply` / `admin_reports` — all gate through `private.admin_check`: **bcrypt hash** in `private.admin_secret`, 5 fails / 15 min lockout **per IP** (was global until 2026-07-29 — meaning any stranger could fail 5 times and lock *you* out of moderation, on a loop, forever). A correct passphrase clears that IP's failures; a global backstop at 100 fails/15 min still catches a distributed brute force
-- Mod passphrase: same one the old feed admin used (Ron has it). Rotate with:
-  `update private.admin_secret set hash = crypt('NEW-PASS', gen_salt('bf',10));`
-- The publishable key in the pages is meant to be public. The DB constraints are the security
-- **Analytics (2026-07-29):** `public.events` — first-party funnel only (landed → globe_touched → geo prompt/granted/denied → compose opened/abandoned → question_posted → reply viewed/posted → install pill events → session_end w/ dwell secs). **Write-only via the API** (INSERT policy, no SELECT — read it here or in the SQL editor). Anonymous session UUID, coarse device/browser, no IPs, no text, no third parties. Per-IP rate guard (`events_guard`, same hashed pattern), 90-day prune. Client: `track()` in index.html, fire-and-forget
+## 3. Directory & File Structure Map
 
-## Working on it
+The active codebase lives under `aLOKaRa/Ventures/dotBRO/www.dotbro.in/`:
+
+```
+aLOKaRa/Ventures/dotBRO/
+├── www.dotbro.in/                 <-- PRODUCTION SITE REPO (nandisudipta-git/dotBRO.in)
+│   ├── index.html                 # Main App: HUD, compose/question sheets, Supabase client, 2D fallback engine
+│   ├── alge-engine.js             # WebGL 3D Globe Engine (Three.js shaders, lighting, starfield, tethers)
+│   ├── about.html                 # Philosophy card-stack landing page
+│   ├── mod.html                   # Moderation dashboard (Passphrase gated)
+│   ├── sw.js                      # PWA Service Worker (Bump VERSION to force-refresh client caches)
+│   ├── manifest.webmanifest       # PWA Application Manifest
+│   ├── backend/                   # SQL migrations, edge functions (notify), security triggers
+│   ├── docs/                      # Readiness audits, SQL seeds, system docs
+│   └── old/                       # Archived retired legacy pages (blocked by robots.txt)
+├── site/                          # Legacy static landing site (Vercel historical archive)
+└── *.BRO/                         # Concept sub-modules (Chill.BRO, Law.BRO, con.BRO, gyan.BRO, etc.)
+```
+
+---
+
+## 4. Where Things Are Hosted & How Deployment Works
+
+### Live Infrastructure
+1. **Domain & DNS:** Registered at GoDaddy. CNAME record points `dotbro.in` and `www.dotbro.in` to `nandisudipta-git.github.io`.
+2. **Web Host:** GitHub Pages hosting repository `nandisudipta-git/dotBRO.in`.
+3. **Database Host:** Supabase Free Tier (`ap-south-1` Mumbai).
+
+### Deployment Workflow
+To deploy updates to production:
 
 ```bash
-cd ~/Ron/aLOKaRa/Ventures/dotBRO/www.dotbro.in && claude   # or serve:
-python3 -m http.server 8734 --directory ~/Ron/aLOKaRa/Ventures/dotBRO/www.dotbro.in
+cd ~/Ron/aLOKaRa/Ventures/dotBRO/www.dotbro.in
+git add .
+git commit -m "Your descriptive commit message"
+git push origin main
 ```
-Always cache-bust (`?v=1`, bump each reload) — Chrome serves stale builds silently. `window.__ENGINE.fps()` reads live frame rate. A `window.X is not a function` error inside the engine = missing `window.APP` bridge entry (classic `const`s are invisible to the module).
+
+> [!IMPORTANT]
+> **GitHub Pages Rebuild Check:**  
+> Always verify deployment by inspecting the service worker version:
+> ```bash
+> curl -s "https://dotbro.in/sw.js" | head -n 5
+> ```
+> If GitHub Pages stalls and does not rebuild within 2 minutes, push an empty kick commit:
+> ```bash
+> git commit --allow-empty -m "Kick build"
+> git push origin main
+> ```
 
 ---
 
-## Open threads (priority order)
+## 5. Security & Backend Governance
 
-1. **Watch the mod page** — moderation exists but someone has to look at it. dotbro.in/mod.html, reported items come up first
-2. **Growth loop is built, not used** — every conversation has "copy link" (`/?q=<id>` lands newcomers inside it). The Reddit/Quora play is posting links, which is Ron's move, not code
-3. Dated fetches: questions `.limit(300)`, replies fetched unbounded → paginate before ~300 questions
-4. Supabase free tier pauses when idle → first visitor after a quiet week sees the "can't reach" banner
-5. ~~Per-IP rate limits need an edge function in front of writes~~ — **done 2026-07-29, and no edge function was needed.** `cf-connecting-ip` is readable straight from `current_setting('request.headers')` inside the trigger
-6. Vercel remnants: old project IDs in DEPLOY.md are archive-only; GitHub Pages is the truth
+### Database Security (RLS & RPCs)
+- **Row Level Security (RLS):** Active on all tables (`questions`, `replies`, `reports`, `notify_subs`, `events`).
+- **Access Policies:** Anonymous users have `INSERT` and `SELECT` rights only. No public `UPDATE` or `DELETE` policies exist.
+- **Admin Moderation:** Handled strictly through PostgreSQL RPC functions (`security definer`):
+  - `admin_verify(passphrase)`
+  - `admin_delete_question(qid, passphrase)`
+  - `admin_delete_reply(rid, passphrase)`
+  - `admin_reports(passphrase)`
+- **Passphrase Security:** Moderation passphrase is hashed with `bcrypt` inside `private.admin_secret`. Rate-limiting locks out IPs after 5 consecutive failures for 15 minutes.
 
-## Decisions already made (don't relitigate)
+### Rate Limiting & Privacy (P5 Principle)
+- **IP Enforcement:** Trigger function `rl_guard` reads `cf-connecting-ip` directly from HTTP headers.
+- **Privacy Preservation:** Visitor IPs are never stored raw. They are stored as salted SHA-256 hashes in `private.rl_hits` and automatically pruned after 2 days.
+- **Rate Limits:**
+  - Questions: 5 per minute / 40 per day per visitor IP.
+  - Replies: 15 per minute / 120 per day per visitor IP.
+  - Reports: 10 per minute / 60 per day per visitor IP.
 
-- Real human questions only on the globe (seed deleted 2026-07-28, Ron's call)
-- Site = two pages + mod. Everything else lives in `old/`
-- No framework rewrite: vanilla + three.js + Supabase is the stack. Portability > vendor magic
-- "the alge" is the permanent name for the globe (locked 2026-07-12)
+---
+
+## 6. Key Features & How They Work
+
+1. **Living Globe ("the alge"):**
+   - Renders 3D Earth with real solar declination, realistic lunar phases, starfields, and meteors.
+   - Questions appear as glowing dots over their geo-location or on tilted satellite orbits if location-free.
+   - Category clusters arrange nodes using a golden-angle sunflower rosette.
+
+2. **Compose & Location System:**
+   - 3 Location choices: **Orbit** (location-free), **GPS** (browser location), or **City Lookup** (3,066 Indian towns gazetteer).
+   - Optional email notifications on answers powered by Resend & Supabase Edge Functions.
+
+3. **Private Meet Requests:**
+   - Asker-only thread activation: only the original question author (holding the author token in `localStorage`) can unlock a private meeting request thread with someone who answered.
+
+4. **Analytics (`public.events`):**
+   - First-party write-only event tracking (funnel events: page land, globe touch, geo action, compose, post, reply view, install PWA).
+
+---
+
+## 7. Developer Local Setup Guide
+
+To run and test locally:
+
+```bash
+# Navigate to the production directory
+cd ~/Ron/aLOKaRa/Ventures/dotBRO/www.dotbro.in
+
+# Start a simple HTTP server (Port 8734)
+python3 -m http.server 8734
+```
+
+Then open `http://localhost:8734` in Google Chrome.
+
+> [!TIP]
+> **Cache Busting:**  
+> Chrome heavily caches local assets. When editing `alge-engine.js` or `index.html`, append `?v=timestamp` or hard reload (Cmd+Shift+R).
+
+---
+
+## 8. Summary of Open Items / Roadmap
+
+1. **PWA Push Notifications:** Android Web Push infrastructure is built (`VAPID_PRIVATE_KEY` / FCM ready). Requires final handset verification.
+2. **Moderation Monitoring:** Periodic check of [dotbro.in/mod.html](https://dotbro.in/mod.html).
+3. **Database Pagination:** Questions currently fetched with `.limit(300)`. As content grows beyond 300 active nodes, implement infinite pagination / viewport bounds querying.
+4. **Cloudflare Migration (Future Plan):** Consolidate Vercel/Supabase free tiers onto Cloudflare Pages + Workers + D1 when scaling.
