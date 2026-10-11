@@ -4,6 +4,7 @@
    - Messages go through two database functions (see docs/chat-schema.sql); the table itself is closed to the public.
    - Any language: the visitor picks (or we detect) their language. They can type or speak in it, and replies are translated
      on their own device when the browser supports it (Chrome's built-in translator). The team sees the original text plus the language code.
+   - Two tabs: "Team" (private chat with dotBRO) and "Everyone" (a public room, see docs/chat-room-schema.sql; shown guidelines first).
    - Loads supabase-js by itself if the page has not already done so. No other dependency. */
 (function () {
   "use strict";
@@ -12,7 +13,7 @@
 
   var SUPABASE_URL = "https://fliheqjbwmcoggajovln.supabase.co";
   var SUPABASE_KEY = "sb_publishable_qaGLnY9bUZ3nhveVw-64xg_kDuJLfHt";   // publishable key: safe in the browser by design
-  var LS_THREAD = "dotbro.chat.thread", LS_NAME = "dotbro.chat.name", LS_LANG = "dotbro.chat.lang", LS_ALOUD = "dotbro.chat.aloud";
+  var LS_THREAD = "dotbro.chat.thread", LS_NAME = "dotbro.chat.name", LS_LANG = "dotbro.chat.lang", LS_ALOUD = "dotbro.chat.aloud", LS_AGREE = "dotbro.room.agreed", LS_RNAME = "dotbro.room.name", LS_MINE = "dotbro.room.mine";
   var LANGS = [["auto", "Detect my language"], ["en", "English"], ["hi", "\u0939\u093f\u0928\u094d\u0926\u0940"], ["bn", "\u09ac\u09be\u0982\u09b2\u09be"], ["ta", "\u0ba4\u0bae\u0bbf\u0bb4\u0bcd"], ["te", "\u0c24\u0c46\u0c32\u0c41\u0c17\u0c41"],
     ["mr", "\u092e\u0930\u093e\u0920\u0940"], ["gu", "\u0a97\u0ac1\u0a9c\u0ab0\u0abe\u0aa4\u0ac0"], ["kn", "\u0c95\u0ca8\u0ccd\u0ca8\u0ca1"], ["ml", "\u0d2e\u0d32\u0d2f\u0d3e\u0d33\u0d02"], ["pa", "\u0a2a\u0a70\u0a1c\u0a3e\u0a2c\u0a40"],
     ["ur", "\u0627\u0631\u062f\u0648"], ["ar", "\u0627\u0644\u0639\u0631\u0628\u064a\u0629"], ["es", "Espa\u00f1ol"], ["fr", "Fran\u00e7ais"], ["de", "Deutsch"], ["pt", "Portugu\u00eas"],
@@ -56,6 +57,16 @@
   .dbc-orig{display:block;color:var(--dbc-mut);font-size:12px;margin-top:3px}\
   .dbc-row{display:flex;gap:8px}.dbc-row button{all:unset;cursor:pointer;background:var(--dbc-acc);color:var(--dbc-acc-ink);font-weight:700;padding:10px 18px;border-radius:10px;text-align:center}\
   .dbc-row button[disabled]{opacity:.5;cursor:default}.dbc-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}\
+\
+  .dbc-tabs{display:flex;border-bottom:1px solid var(--dbc-line)}\
+  .dbc-tabs button{all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 6px;font-weight:600;font-size:14px;color:var(--dbc-mut);border-bottom:2px solid transparent}\
+  .dbc-tabs button[aria-selected="true"]{color:var(--dbc-ink);border-bottom-color:var(--dbc-acc)}\
+  .dbc-tabs button:focus-visible{outline:2px solid var(--dbc-acc);outline-offset:-2px}\
+  .dbc-view{flex:1;min-height:0;display:none;flex-direction:column}.dbc-view[data-on="1"]{display:flex}\
+  .dbc-guide{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;font-size:14px}\
+  .dbc-guide h3{margin:0;font-size:16px}.dbc-guide p{margin:0}.dbc-guide button{all:unset;cursor:pointer;background:var(--dbc-acc);color:var(--dbc-acc-ink);font-weight:700;padding:11px 18px;border-radius:10px;text-align:center}\
+  .dbc-msg.crowd{align-self:flex-start;max-width:90%}.dbc-msg.crowd.team{border-color:var(--dbc-acc)}.dbc-msg.crowd.me{align-self:flex-end}\
+  .dbc-link{all:unset;cursor:pointer;color:var(--dbc-mut);font-size:12px;text-decoration:underline;text-align:center}\
   @media (prefers-reduced-motion:no-preference){.dbc-panel{animation:dbc-in .18s ease-out}@keyframes dbc-in{from{opacity:0;transform:translateY(8px)}}}';
   var st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
 
@@ -83,7 +94,34 @@
   if (SR) { mic = el("button", "dbc-mic", "\ud83c\udfa4 Speak"); mic.type = "button"; mic.setAttribute("aria-pressed", "false"); row.append(mic); }
   row.append(send);
   var note = el("div", "dbc-note", "Write or speak in any language. We keep your message so we can reply. Please do not share passwords or card numbers.");
-  form.append(tools, nameIn, hp, text, row, note); panel.append(head, log, form);
+  form.append(tools, nameIn, hp, text, row, note);
+  var teamView = el("div", "dbc-view"); teamView.dataset.on = "1"; teamView.append(log, form);
+  var tabs = el("div", "dbc-tabs"); tabs.setAttribute("role", "tablist");
+  var tabTeam = el("button", "", "Team"), tabRoom = el("button", "", "Everyone");
+  [tabTeam, tabRoom].forEach(function (b) { b.type = "button"; b.setAttribute("role", "tab"); }); tabs.append(tabTeam, tabRoom);
+  /* the public room */
+  var roomView = el("div", "dbc-view");
+  var guide = el("div", "dbc-guide"), gh = el("h3", "", "Before you join the room");
+  var GUIDE = [
+    "This is a public room. Everyone online can read what you write, in any language.",
+    "Be kind. No hate, threats, bullying or harassment.",
+    "Keep yourself safe: do not share phone numbers, emails, your address, passwords or card numbers. Links are not allowed. Do not share other people’s private details.",
+    "If you are in danger or feel you may hurt yourself, contact your local emergency services now. In India you can call Tele-MANAS on 14416 (free). This room is not a crisis service.",
+    "The team can delete messages and block people who break these rules.",
+    "Privacy: we turn your internet (IP) address into a scrambled code, only to stop spam and block abuse. Nobody else sees it, and it is erased after 7 days. Your name is optional and public."
+  ];
+  guide.append(gh); GUIDE.forEach(function (t) { guide.append(el("p", "", t)); });
+  var agreeBtn = el("button", "", "I agree. Enter the room"); agreeBtn.type = "button"; guide.append(agreeBtn);
+  var roomLog = el("div", "dbc-log"); roomLog.setAttribute("aria-live", "polite");
+  var roomForm = el("form", "dbc-form");
+  var rName = el("input"); rName.placeholder = "Your name (optional, public)"; rName.maxLength = 30; rName.autocomplete = "given-name"; rName.value = store(LS_RNAME) || "";
+  var rHp = el("input", "dbc-hp"); rHp.tabIndex = -1; rHp.setAttribute("aria-hidden", "true"); rHp.autocomplete = "off"; rHp.name = "homepage";
+  var rText = el("textarea"); rText.rows = 2; rText.maxLength = 300; rText.placeholder = "Say something to everyone"; rText.setAttribute("aria-label", "Message to everyone"); rText.dir = "auto";
+  var rRow = el("div", "dbc-row"), rSend = el("button", "", "Send"); rSend.type = "submit"; rRow.append(rSend);
+  var rNote = el("div", "dbc-note", "Public. Please do not share contact details, passwords or card numbers."), rGuideLink = el("button", "dbc-link", "Read the guidelines again"); rGuideLink.type = "button";
+  roomForm.append(rName, rHp, rText, rRow, rNote, rGuideLink);
+  roomView.append(guide, roomLog, roomForm);
+  panel.append(head, tabs, teamView, roomView);
   document.body.append(panel, btn);
 
   var sb = null, lastId = 0, open = false, seen = {}, pollTimer = null, unread = false;
@@ -143,10 +181,59 @@
   if (window.supabase && window.supabase.createClient) start();
   else { var s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"; s.crossOrigin = "anonymous"; s.onload = start; s.onerror = function () { btn.style.display = "none"; }; document.head.appendChild(s); }
 
+
+  /* ---- the public room ---- */
+  var tab = "team", roomTimer = null, roomSig = "", rcache = {}, mine = {};
+  try { (JSON.parse(store(LS_MINE) || "[]") || []).forEach(function (i) { mine[i] = 1; }); } catch (e) {}
+  function saveMine() { var ids = Object.keys(mine).slice(-50); store(LS_MINE, JSON.stringify(ids)); }
+  function agreed() { return store(LS_AGREE) === "1"; }
+  function showRoomGate() { var a = agreed(); guide.style.display = a ? "none" : "flex"; roomLog.style.display = a ? "flex" : "none"; roomForm.style.display = a ? "grid" : "none"; }
+  function drawRoom(rows) {
+    var sig = rows.map(function (r) { return r.id; }).join(","); if (sig === roomSig) return; roomSig = sig;
+    var atEnd = roomLog.scrollHeight - roomLog.scrollTop - roomLog.clientHeight < 80; roomLog.textContent = "";
+    if (!rows.length) { roomLog.append(el("div", "dbc-note", "No messages yet. Say hello to everyone.")); return; }
+    rows.forEach(function (m) {
+      var me = !!mine[m.id], d = el("div", "dbc-msg crowd " + (m.sender === "team" ? "team" : "") + (me ? " me" : "")); d.dir = "auto";
+      d.append(el("small", "", me ? "You" : (m.handle || "Guest")));
+      var cached = rcache[m.id], tn = document.createTextNode(cached ? cached.out : m.body); d.append(tn);
+      if (cached && cached.how) d.append(el("span", "dbc-orig", "Translated for you. Original: " + m.body));
+      else if (!me && !cached) localize(m.body, function (out, how) { rcache[m.id] = { out: out, how: how }; if (how && d.isConnected) { tn.nodeValue = out; d.append(el("span", "dbc-orig", "Translated for you. Original: " + m.body)); } });
+      roomLog.append(d);
+    });
+    if (atEnd) roomLog.scrollTop = roomLog.scrollHeight;
+  }
+  function roomPoll() {
+    if (!sb || !agreed()) return;
+    sb.rpc("chat_room_read").then(function (r) { if (r && Array.isArray(r.data)) drawRoom(r.data); }, function () {});
+  }
+  function roomSchedule() { clearTimeout(roomTimer); if (open && tab === "room") roomTimer = setTimeout(function () { roomPoll(); roomSchedule(); }, 3500); }
+  function setTab(t) {
+    tab = t; teamView.dataset.on = t === "team" ? "1" : "0"; roomView.dataset.on = t === "room" ? "1" : "0";
+    tabTeam.setAttribute("aria-selected", String(t === "team")); tabRoom.setAttribute("aria-selected", String(t === "room"));
+    hs.textContent = t === "team" ? "Ask us anything. We reply here." : "Everyone online can talk here.";
+    if (t === "room") { showRoomGate(); roomSig = ""; roomPoll(); setTimeout(function () { (agreed() ? rText : agreeBtn).focus(); }, 50); }
+    roomSchedule();
+  }
+  tabTeam.addEventListener("click", function () { setTab("team"); });
+  tabRoom.addEventListener("click", function () { setTab("room"); });
+  agreeBtn.addEventListener("click", function () { store(LS_AGREE, "1"); showRoomGate(); roomSig = ""; roomPoll(); rText.focus(); });
+  rGuideLink.addEventListener("click", function () { store(LS_AGREE, "0"); showRoomGate(); agreeBtn.focus(); });
+  rText.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); roomForm.requestSubmit(); } });
+  roomForm.addEventListener("submit", function (e) {
+    e.preventDefault(); var body = rText.value.trim(); if (!body || !sb) return;
+    store(LS_RNAME, rName.value.trim()); rSend.disabled = true;
+    sb.rpc("chat_room_send", { p_thread: thread, p_name: rName.value.trim(), p_body: body, p_hp: rHp.value, p_lang: curLang() }).then(function (r) {
+      rSend.disabled = false; var d = r && r.data;
+      if (r && !r.error && d && d.ok) { rText.value = ""; if (d.id) { mine[d.id] = 1; saveMine(); } roomSig = ""; roomPoll(); }
+      else { var n = el("div", "dbc-note", (d && d.error) ? d.error : "That did not send. Please try again in a moment."); roomLog.append(n); roomLog.scrollTop = roomLog.scrollHeight; }
+    }, function () { rSend.disabled = false; roomLog.append(el("div", "dbc-note", "That did not send. Please check your connection and try again.")); });
+  });
+  setTab("team");
+
   function toggle(v) {
     open = v; panel.dataset.open = v ? "1" : "0"; btn.setAttribute("aria-expanded", String(v));
-    if (v) { unread = false; badge.style.display = "none"; if (!log.childNodes.length) say("Hello. Write or speak in any language. The dotBRO team will answer here, and replies are translated for you when your browser can. If we are away, we reply when we are back."); setTimeout(function () { text.focus(); }, 50); poll(); }
-    schedule();
+    if (v) { unread = false; badge.style.display = "none"; if (!log.childNodes.length) say("Hello. Write or speak in any language. The dotBRO team will answer here, and replies are translated for you when your browser can. If we are away, we reply when we are back."); if (tab === "team") setTimeout(function () { text.focus(); }, 50); poll(); }
+    schedule(); roomSchedule(); if (v && tab === "room") roomPoll();
   }
   langSel.addEventListener("change", function () { lang = langSel.value; store(LS_LANG, lang); text.lang = curLang(); });
   aloud.addEventListener("change", function () { store(LS_ALOUD, aloud.checked ? "1" : "0"); if (!aloud.checked && window.speechSynthesis) speechSynthesis.cancel(); });
